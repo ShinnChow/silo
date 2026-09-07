@@ -1884,9 +1884,18 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 			writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
 			return
 		}
-		// Remove the metadata for remote calls.
-		delete(srcInfo.UserDefined, ReservedMetadataPrefix+"compression")
-		delete(srcInfo.UserDefined, ReservedMetadataPrefix+"actual-size")
+		// A plain federated PutObject must not carry any internal storage
+		// metadata. The remote rejects every reserved-prefix header as a class
+		// (containsReservedMetadata), so strip the whole class here rather than
+		// an enumerated subset: an inline source object also carries
+		// inline-data, and replication bookkeeping adds still more, so removing
+		// only compression/actual-size just defers the next rejected key. Match
+		// the remote's case-insensitive detection.
+		for k := range srcInfo.UserDefined {
+			if stringsHasPrefixFold(k, ReservedMetadataPrefix) {
+				delete(srcInfo.UserDefined, k)
+			}
+		}
 		opts := miniogo.PutObjectOptions{
 			UserMetadata:         srcInfo.UserDefined,
 			ServerSideEncryption: dstOpts.ServerSideEncryption,
