@@ -95,69 +95,52 @@ S3 API、`MINIO_*` 环境变量、`minio_*` 指标、`x-minio-*` 头、`/minio/*
 
 ## 贡献者
 
-上方卡片展示已合入 `main` 的社区贡献；下方头像墙收录其他所有提交过 issue 或 PR 的社区成员。
+**40 位社区贡献者**共同建设 SILO、Console、mcli、公共包与相关项目。名单包含维护者，以及所有提出 Issue 或 PR 的真人作者；按已合并 PR、其他 PR、Issue 报告排序，黄圈标记显著贡献。
 
-<table>
-  <tr>
-    <td align="center" width="150">
-      <a href="https://github.com/h5vx"><img src="https://github.com/h5vx.png?size=100" width="72" alt="h5vx"><br><sub><b>@h5vx</b></sub></a><br><sub>单桶 CORS · <a href="https://github.com/pgsty/silo/pull/71">#71</a></sub>
-    </td>
-    <td align="center" width="150">
-      <a href="https://github.com/ycjlin"><img src="https://github.com/ycjlin.png?size=100" width="72" alt="ycjlin"><br><sub><b>@ycjlin</b></sub></a><br><sub>缺失桶列举语义 · <a href="https://github.com/pgsty/silo/pull/37">#37</a></sub>
-    </td>
-    <td align="center" width="150">
-      <a href="https://github.com/Dansyuqri"><img src="https://github.com/Dansyuqri.png?size=100" width="72" alt="Dansyuqri"><br><sub><b>@Dansyuqri</b></sub></a><br><sub>分片上传校验类型 · <a href="https://github.com/pgsty/silo/pull/57">#57</a></sub>
-    </td>
-    <td align="center" width="150">
-      <a href="https://github.com/pinginfo"><img src="https://github.com/pinginfo.png?size=100" width="72" alt="pinginfo"><br><sub><b>@pinginfo</b></sub></a><br><sub>桶通知流式输出 · <a href="https://github.com/pgsty/silo/pull/34">#34</a></sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="150">
-      <a href="https://github.com/ZouhairCharef"><img src="https://github.com/ZouhairCharef.png?size=100" width="72" alt="ZouhairCharef"><br><sub><b>@ZouhairCharef</b></sub></a><br><sub>CVE-2026-34986 · <a href="https://github.com/pgsty/silo/pull/18">#18</a></sub>
-    </td>
-    <td align="center" width="150">
-      <a href="https://github.com/mfredenhagen"><img src="https://github.com/mfredenhagen.png?size=100" width="72" alt="mfredenhagen"><br><sub><b>@mfredenhagen</b></sub></a><br><sub>CVE-2026-39883 · <a href="https://github.com/pgsty/silo/pull/19">#19</a></sub>
-    </td>
-    <td align="center" width="150">
-      <a href="https://github.com/waterkip"><img src="https://github.com/waterkip.png?size=100" width="72" alt="waterkip"><br><sub><b>@waterkip</b></sub></a><br><sub>文档链接修正 · <a href="https://github.com/pgsty/silo/pull/41">#41</a></sub>
-    </td>
-  </tr>
-</table>
-<p>
-<a href="https://github.com/magicxor"><img src="https://github.com/magicxor.png?size=64" width="44" alt="magicxor" title="@magicxor"></a>
-<a href="https://github.com/davinkevin"><img src="https://github.com/davinkevin.png?size=64" width="44" alt="davinkevin" title="@davinkevin"></a>
-<a href="https://github.com/lem21h"><img src="https://github.com/lem21h.png?size=64" width="44" alt="lem21h" title="@lem21h"></a>
-<a href="https://github.com/sulin37392"><img src="https://github.com/sulin37392.png?size=64" width="44" alt="sulin37392" title="@sulin37392"></a>
-<a href="https://github.com/metaneutrons"><img src="https://github.com/metaneutrons.png?size=64" width="44" alt="metaneutrons" title="@metaneutrons"></a>
-<a href="https://github.com/mrjavadseydi"><img src="https://github.com/mrjavadseydi.png?size=64" width="44" alt="mrjavadseydi" title="@mrjavadseydi"></a>
-<a href="https://github.com/mosesdd"><img src="https://github.com/mosesdd.png?size=64" width="44" alt="mosesdd" title="@mosesdd"></a>
-<a href="https://github.com/Xavier-777"><img src="https://github.com/Xavier-777.png?size=64" width="44" alt="Xavier-777" title="@Xavier-777"></a>
-<a href="https://github.com/jiadzh"><img src="https://github.com/jiadzh.png?size=64" width="44" alt="jiadzh" title="@jiadzh"></a>
-<a href="https://github.com/TLINDEN"><img src="https://github.com/TLINDEN.png?size=64" width="44" alt="TLINDEN" title="@TLINDEN"></a>
-<a href="https://github.com/AntonOfTheWoods"><img src="https://github.com/AntonOfTheWoods.png?size=64" width="44" alt="AntonOfTheWoods" title="@AntonOfTheWoods"></a>
-<a href="https://github.com/zylpsrs"><img src="https://github.com/zylpsrs.png?size=64" width="44" alt="zylpsrs" title="@zylpsrs"></a>
-<a href="https://github.com/nsanitate"><img src="https://github.com/nsanitate.png?size=64" width="44" alt="nsanitate" title="@nsanitate"></a>
-<a href="https://github.com/makinikm"><img src="https://github.com/makinikm.png?size=64" width="44" alt="makinikm" title="@makinikm"></a>
-<a href="https://github.com/spaceg00se-r"><img src="https://github.com/spaceg00se-r.png?size=64" width="44" alt="spaceg00se-r" title="@spaceg00se-r"></a>
-<a href="https://github.com/heroes1412"><img src="https://github.com/heroes1412.png?size=64" width="44" alt="heroes1412" title="@heroes1412"></a>
-<a href="https://github.com/vampywiz17"><img src="https://github.com/vampywiz17.png?size=64" width="44" alt="vampywiz17" title="@vampywiz17"></a>
-<a href="https://github.com/chalukyaj"><img src="https://github.com/chalukyaj.png?size=64" width="44" alt="chalukyaj" title="@chalukyaj"></a>
-<a href="https://github.com/cbornet"><img src="https://github.com/cbornet.png?size=64" width="44" alt="cbornet" title="@cbornet"></a>
-<a href="https://github.com/jvasile"><img src="https://github.com/jvasile.png?size=64" width="44" alt="jvasile" title="@jvasile"></a>
-<a href="https://github.com/Kesavaambati"><img src="https://github.com/Kesavaambati.png?size=64" width="44" alt="Kesavaambati" title="@Kesavaambati"></a>
-<a href="https://github.com/redfoxfox"><img src="https://github.com/redfoxfox.png?size=64" width="44" alt="redfoxfox" title="@redfoxfox"></a>
-<a href="https://github.com/kuldeep-link11"><img src="https://github.com/kuldeep-link11.png?size=64" width="44" alt="kuldeep-link11" title="@kuldeep-link11"></a>
-<a href="https://github.com/meesudzu"><img src="https://github.com/meesudzu.png?size=64" width="44" alt="meesudzu" title="@meesudzu"></a>
-<a href="https://github.com/pmezhuev"><img src="https://github.com/pmezhuev.png?size=64" width="44" alt="pmezhuev" title="@pmezhuev"></a>
-<a href="https://github.com/kh0mka"><img src="https://github.com/kh0mka.png?size=64" width="44" alt="kh0mka" title="@kh0mka"></a>
-<a href="https://github.com/bagutzu"><img src="https://github.com/bagutzu.png?size=64" width="44" alt="bagutzu" title="@bagutzu"></a>
-<a href="https://github.com/liuhaodongliu990-cmyk"><img src="https://github.com/liuhaodongliu990-cmyk.png?size=64" width="44" alt="liuhaodongliu990-cmyk" title="@liuhaodongliu990-cmyk"></a>
-<a href="https://github.com/sargarass"><img src="https://github.com/sargarass.png?size=64" width="44" alt="sargarass" title="@sargarass"></a>
-<a href="https://github.com/mumu-lab"><img src="https://github.com/mumu-lab.png?size=64" width="44" alt="mumu-lab" title="@mumu-lab"></a>
+<p align="center">
+<a href="https://github.com/Vonng"><img src="https://silo.pgsty.com/images/contributors/Vonng.svg" width="60" height="60" alt="@Vonng" title="@Vonng — 维护 SILO、Console、mcli、公共包、发行与文档"></a>
+<a href="https://github.com/h5vx"><img src="https://silo.pgsty.com/images/contributors/h5vx.svg" width="60" height="60" alt="@h5vx" title="@h5vx — 实现单桶 CORS 配置与请求执行"></a>
+<a href="https://github.com/mrjavadseydi"><img src="https://silo.pgsty.com/images/contributors/mrjavadseydi.svg" width="60" height="60" alt="@mrjavadseydi" title="@mrjavadseydi — 修复有效桶配额指标，并提交按访问频率分层的 ILM 方案"></a>
+<a href="https://github.com/Dansyuqri"><img src="https://silo.pgsty.com/images/contributors/Dansyuqri.svg" width="60" height="60" alt="@Dansyuqri" title="@Dansyuqri — 为分片上传完成响应补充 ChecksumType"></a>
+<a href="https://github.com/ycjlin"><img src="https://silo.pgsty.com/images/contributors/ycjlin.svg" width="60" height="60" alt="@ycjlin" title="@ycjlin — 修复缺失桶的 ListObjects 语义"></a>
+<a href="https://github.com/pinginfo"><img src="https://silo.pgsty.com/images/contributors/pinginfo.svg" width="60" height="60" alt="@pinginfo" title="@pinginfo — 修复桶通知的流式输出"></a>
+<a href="https://github.com/ZouhairCharef"><img src="https://silo.pgsty.com/images/contributors/ZouhairCharef.svg" width="60" height="60" alt="@ZouhairCharef" title="@ZouhairCharef — 修复 go-jose 中的 CVE-2026-34986"></a>
+<a href="https://github.com/mfredenhagen"><img src="https://silo.pgsty.com/images/contributors/mfredenhagen.svg" width="60" height="60" alt="@mfredenhagen" title="@mfredenhagen — 修复 OpenTelemetry 中的 CVE-2026-39883"></a>
+<a href="https://github.com/waterkip"><img src="https://silo.pgsty.com/images/contributors/waterkip.svg" width="60" height="60" alt="@waterkip" title="@waterkip — 将文档链接指向 SILO 门户"></a>
+<a href="https://github.com/mikemikimike"><img src="https://silo.pgsty.com/images/contributors/mikemikimike.svg" width="60" height="60" alt="@mikemikimike" title="@mikemikimike — 提交 SSE-C 复制分片明文尺寸修复"></a>
+<a href="https://github.com/metaneutrons"><img src="https://silo.pgsty.com/images/contributors/metaneutrons.svg" width="60" height="60" alt="@metaneutrons" title="@metaneutrons — 报告并提交显式版本删除鉴权方案"></a>
+<a href="https://github.com/magicxor"><img src="https://silo.pgsty.com/images/contributors/magicxor.svg" width="60" height="60" alt="@magicxor" title="@magicxor — 报告并提交 DELETE If-Match 条件请求支持方案"></a>
+<a href="https://github.com/davinkevin"><img src="https://silo.pgsty.com/images/contributors/davinkevin.svg" width="60" height="60" alt="@davinkevin" title="@davinkevin — 提交 distroless 容器镜像与依赖自动更新方案"></a>
+<a href="https://github.com/lem21h"><img src="https://silo.pgsty.com/images/contributors/lem21h.svg" width="48" height="48" alt="@lem21h" title="@lem21h — 提交健壮性与 goroutine 改进"></a>
+<a href="https://github.com/sulin37392"><img src="https://silo.pgsty.com/images/contributors/sulin37392.svg" width="48" height="48" alt="@sulin37392" title="@sulin37392 — 提交依赖更新"></a>
+<a href="https://github.com/cbornet"><img src="https://silo.pgsty.com/images/contributors/cbornet.svg" width="60" height="60" alt="@cbornet" title="@cbornet — 报告分片与流式校验和缺陷及缺失桶语义问题"></a>
+<a href="https://github.com/vampywiz17"><img src="https://silo.pgsty.com/images/contributors/vampywiz17.svg" width="60" height="60" alt="@vampywiz17" title="@vampywiz17 — 报告 LDAP TLS 与 Console 登录回归"></a>
+<a href="https://github.com/mumu-lab"><img src="https://silo.pgsty.com/images/contributors/mumu-lab.svg" width="48" height="48" alt="@mumu-lab" title="@mumu-lab — 报告桶配额指标读取已弃用字段的问题"></a>
+<a href="https://github.com/jvasile"><img src="https://silo.pgsty.com/images/contributors/jvasile.svg" width="48" height="48" alt="@jvasile" title="@jvasile — 报告 Debian 包缺少用户、用户组与默认配置"></a>
+<a href="https://github.com/pmezhuev"><img src="https://silo.pgsty.com/images/contributors/pmezhuev.svg" width="48" height="48" alt="@pmezhuev" title="@pmezhuev — 报告 RPM 包缺少 GPG 签名"></a>
+<a href="https://github.com/TLINDEN"><img src="https://silo.pgsty.com/images/contributors/TLINDEN.svg" width="48" height="48" alt="@TLINDEN" title="@TLINDEN — 报告发布压缩包缺少客户端"></a>
+<a href="https://github.com/makinikm"><img src="https://silo.pgsty.com/images/contributors/makinikm.svg" width="48" height="48" alt="@makinikm" title="@makinikm — 报告容器镜像缺少客户端"></a>
+<a href="https://github.com/meesudzu"><img src="https://silo.pgsty.com/images/contributors/meesudzu.svg" width="48" height="48" alt="@meesudzu" title="@meesudzu — 提出从上游 MinIO 迁移的指南需求"></a>
+<a href="https://github.com/kuldeep-link11"><img src="https://silo.pgsty.com/images/contributors/kuldeep-link11.svg" width="48" height="48" alt="@kuldeep-link11" title="@kuldeep-link11 — 报告 NATS JWT 凭据与通知目标重载问题"></a>
+<a href="https://github.com/sargarass"><img src="https://silo.pgsty.com/images/contributors/sargarass.svg" width="48" height="48" alt="@sargarass" title="@sargarass — 报告 ListMultipartUploads 前缀与分页语义问题"></a>
+<a href="https://github.com/liuhaodongliu990-cmyk"><img src="https://silo.pgsty.com/images/contributors/liuhaodongliu990-cmyk.svg" width="48" height="48" alt="@liuhaodongliu990-cmyk" title="@liuhaodongliu990-cmyk — 报告前缀下载进度显示异常"></a>
+<a href="https://github.com/Xavier-777"><img src="https://silo.pgsty.com/images/contributors/Xavier-777.svg" width="48" height="48" alt="@Xavier-777" title="@Xavier-777 — 报告 Console 生命周期管理与文件预览缺失"></a>
+<a href="https://github.com/spaceg00se-r"><img src="https://silo.pgsty.com/images/contributors/spaceg00se-r.svg" width="48" height="48" alt="@spaceg00se-r" title="@spaceg00se-r — 提出 cpuv1 支持需求并报告工作流令牌错误"></a>
+<a href="https://github.com/kh0mka"><img src="https://silo.pgsty.com/images/contributors/kh0mka.svg" width="48" height="48" alt="@kh0mka" title="@kh0mka — 报告 ReadFileStreamHandler 节点间 I/O 超时"></a>
+<a href="https://github.com/bagutzu"><img src="https://silo.pgsty.com/images/contributors/bagutzu.svg" width="48" height="48" alt="@bagutzu" title="@bagutzu — 提出兼容 KES 的外部 KMS 与 OpenBao 支持需求"></a>
+<a href="https://github.com/DestroyLee"><img src="https://silo.pgsty.com/images/contributors/DestroyLee.svg" width="48" height="48" alt="@DestroyLee" title="@DestroyLee — 报告文档目录导航缺失"></a>
+<a href="https://github.com/mosesdd"><img src="https://silo.pgsty.com/images/contributors/mosesdd.svg" width="48" height="48" alt="@mosesdd" title="@mosesdd — 提出维护 Helm Chart 的需求"></a>
+<a href="https://github.com/zylpsrs"><img src="https://silo.pgsty.com/images/contributors/zylpsrs.svg" width="48" height="48" alt="@zylpsrs" title="@zylpsrs — 报告 Console 缺少分层与站点复制"></a>
+<a href="https://github.com/heroes1412"><img src="https://silo.pgsty.com/images/contributors/heroes1412.svg" width="48" height="48" alt="@heroes1412" title="@heroes1412 — 报告性能分析选项不可用"></a>
+<a href="https://github.com/redfoxfox"><img src="https://silo.pgsty.com/images/contributors/redfoxfox.svg" width="48" height="48" alt="@redfoxfox" title="@redfoxfox — 报告中文文档站点不可用"></a>
+<a href="https://github.com/jiadzh"><img src="https://silo.pgsty.com/images/contributors/jiadzh.svg" width="48" height="48" alt="@jiadzh" title="@jiadzh — 提出 Windows 构建指导需求"></a>
+<a href="https://github.com/AntonOfTheWoods"><img src="https://silo.pgsty.com/images/contributors/AntonOfTheWoods.svg" width="48" height="48" alt="@AntonOfTheWoods" title="@AntonOfTheWoods — 提出明确 Helm Chart 与 Operator 选项的需求"></a>
+<a href="https://github.com/chalukyaj"><img src="https://silo.pgsty.com/images/contributors/chalukyaj.svg" width="48" height="48" alt="@chalukyaj" title="@chalukyaj — 提出改善 SILO Operator 可发现性的建议"></a>
+<a href="https://github.com/nsanitate"><img src="https://silo.pgsty.com/images/contributors/nsanitate.svg" width="48" height="48" alt="@nsanitate" title="@nsanitate — 提出加入 CNCF Sandbox 的治理建议"></a>
+<a href="https://github.com/Kesavaambati"><img src="https://silo.pgsty.com/images/contributors/Kesavaambati.svg" width="48" height="48" alt="@Kesavaambati" title="@Kesavaambati — 提出社区支持与容器镜像维护问题"></a>
 </p>
 
-GitHub 不为 fork 仓库生成贡献者图表，因此 [`CONTRIBUTORS.md`](CONTRIBUTORS.md)（而非 Insights 页面）才是本项目的署名记录，其中逐一记录了全部 37 位社区贡献者对应的改动或报告。
+[查看完整贡献记录](CONTRIBUTORS.md)，了解每位贡献者的提案、修复与问题报告。
 
 ## 背景
 

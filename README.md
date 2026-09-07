@@ -95,70 +95,52 @@ Report vulnerabilities privately as described in [`SECURITY.md`](SECURITY.md); e
 
 ## Contributors
 
-The cards highlight community changes merged into `main`; the avatar wall includes every other
-community member who has opened an issue or pull request.
+**40 community contributors** build SILO, Console, mcli, shared packages, and related projects. The list includes maintainers and every human Issue or PR author, ordered by merged PRs, other PRs, then issue reports. Gold rings highlight significant contributions.
 
-<table>
-  <tr>
-    <td align="center" width="150">
-      <a href="https://github.com/h5vx"><img src="https://github.com/h5vx.png?size=100" width="72" alt="h5vx"><br><sub><b>@h5vx</b></sub></a><br><sub>Per-bucket CORS · <a href="https://github.com/pgsty/silo/pull/71">#71</a></sub>
-    </td>
-    <td align="center" width="150">
-      <a href="https://github.com/ycjlin"><img src="https://github.com/ycjlin.png?size=100" width="72" alt="ycjlin"><br><sub><b>@ycjlin</b></sub></a><br><sub>Missing-bucket listing · <a href="https://github.com/pgsty/silo/pull/37">#37</a></sub>
-    </td>
-    <td align="center" width="150">
-      <a href="https://github.com/Dansyuqri"><img src="https://github.com/Dansyuqri.png?size=100" width="72" alt="Dansyuqri"><br><sub><b>@Dansyuqri</b></sub></a><br><sub>Multipart checksum type · <a href="https://github.com/pgsty/silo/pull/57">#57</a></sub>
-    </td>
-    <td align="center" width="150">
-      <a href="https://github.com/pinginfo"><img src="https://github.com/pinginfo.png?size=100" width="72" alt="pinginfo"><br><sub><b>@pinginfo</b></sub></a><br><sub>Notification streaming · <a href="https://github.com/pgsty/silo/pull/34">#34</a></sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="150">
-      <a href="https://github.com/ZouhairCharef"><img src="https://github.com/ZouhairCharef.png?size=100" width="72" alt="ZouhairCharef"><br><sub><b>@ZouhairCharef</b></sub></a><br><sub>CVE-2026-34986 · <a href="https://github.com/pgsty/silo/pull/18">#18</a></sub>
-    </td>
-    <td align="center" width="150">
-      <a href="https://github.com/mfredenhagen"><img src="https://github.com/mfredenhagen.png?size=100" width="72" alt="mfredenhagen"><br><sub><b>@mfredenhagen</b></sub></a><br><sub>CVE-2026-39883 · <a href="https://github.com/pgsty/silo/pull/19">#19</a></sub>
-    </td>
-    <td align="center" width="150">
-      <a href="https://github.com/waterkip"><img src="https://github.com/waterkip.png?size=100" width="72" alt="waterkip"><br><sub><b>@waterkip</b></sub></a><br><sub>Documentation links · <a href="https://github.com/pgsty/silo/pull/41">#41</a></sub>
-    </td>
-  </tr>
-</table>
-<p>
-<a href="https://github.com/magicxor"><img src="https://github.com/magicxor.png?size=64" width="44" alt="magicxor" title="@magicxor"></a>
-<a href="https://github.com/davinkevin"><img src="https://github.com/davinkevin.png?size=64" width="44" alt="davinkevin" title="@davinkevin"></a>
-<a href="https://github.com/lem21h"><img src="https://github.com/lem21h.png?size=64" width="44" alt="lem21h" title="@lem21h"></a>
-<a href="https://github.com/sulin37392"><img src="https://github.com/sulin37392.png?size=64" width="44" alt="sulin37392" title="@sulin37392"></a>
-<a href="https://github.com/metaneutrons"><img src="https://github.com/metaneutrons.png?size=64" width="44" alt="metaneutrons" title="@metaneutrons"></a>
-<a href="https://github.com/mrjavadseydi"><img src="https://github.com/mrjavadseydi.png?size=64" width="44" alt="mrjavadseydi" title="@mrjavadseydi"></a>
-<a href="https://github.com/mosesdd"><img src="https://github.com/mosesdd.png?size=64" width="44" alt="mosesdd" title="@mosesdd"></a>
-<a href="https://github.com/Xavier-777"><img src="https://github.com/Xavier-777.png?size=64" width="44" alt="Xavier-777" title="@Xavier-777"></a>
-<a href="https://github.com/jiadzh"><img src="https://github.com/jiadzh.png?size=64" width="44" alt="jiadzh" title="@jiadzh"></a>
-<a href="https://github.com/TLINDEN"><img src="https://github.com/TLINDEN.png?size=64" width="44" alt="TLINDEN" title="@TLINDEN"></a>
-<a href="https://github.com/AntonOfTheWoods"><img src="https://github.com/AntonOfTheWoods.png?size=64" width="44" alt="AntonOfTheWoods" title="@AntonOfTheWoods"></a>
-<a href="https://github.com/zylpsrs"><img src="https://github.com/zylpsrs.png?size=64" width="44" alt="zylpsrs" title="@zylpsrs"></a>
-<a href="https://github.com/nsanitate"><img src="https://github.com/nsanitate.png?size=64" width="44" alt="nsanitate" title="@nsanitate"></a>
-<a href="https://github.com/makinikm"><img src="https://github.com/makinikm.png?size=64" width="44" alt="makinikm" title="@makinikm"></a>
-<a href="https://github.com/spaceg00se-r"><img src="https://github.com/spaceg00se-r.png?size=64" width="44" alt="spaceg00se-r" title="@spaceg00se-r"></a>
-<a href="https://github.com/heroes1412"><img src="https://github.com/heroes1412.png?size=64" width="44" alt="heroes1412" title="@heroes1412"></a>
-<a href="https://github.com/vampywiz17"><img src="https://github.com/vampywiz17.png?size=64" width="44" alt="vampywiz17" title="@vampywiz17"></a>
-<a href="https://github.com/chalukyaj"><img src="https://github.com/chalukyaj.png?size=64" width="44" alt="chalukyaj" title="@chalukyaj"></a>
-<a href="https://github.com/cbornet"><img src="https://github.com/cbornet.png?size=64" width="44" alt="cbornet" title="@cbornet"></a>
-<a href="https://github.com/jvasile"><img src="https://github.com/jvasile.png?size=64" width="44" alt="jvasile" title="@jvasile"></a>
-<a href="https://github.com/Kesavaambati"><img src="https://github.com/Kesavaambati.png?size=64" width="44" alt="Kesavaambati" title="@Kesavaambati"></a>
-<a href="https://github.com/redfoxfox"><img src="https://github.com/redfoxfox.png?size=64" width="44" alt="redfoxfox" title="@redfoxfox"></a>
-<a href="https://github.com/kuldeep-link11"><img src="https://github.com/kuldeep-link11.png?size=64" width="44" alt="kuldeep-link11" title="@kuldeep-link11"></a>
-<a href="https://github.com/meesudzu"><img src="https://github.com/meesudzu.png?size=64" width="44" alt="meesudzu" title="@meesudzu"></a>
-<a href="https://github.com/pmezhuev"><img src="https://github.com/pmezhuev.png?size=64" width="44" alt="pmezhuev" title="@pmezhuev"></a>
-<a href="https://github.com/kh0mka"><img src="https://github.com/kh0mka.png?size=64" width="44" alt="kh0mka" title="@kh0mka"></a>
-<a href="https://github.com/bagutzu"><img src="https://github.com/bagutzu.png?size=64" width="44" alt="bagutzu" title="@bagutzu"></a>
-<a href="https://github.com/liuhaodongliu990-cmyk"><img src="https://github.com/liuhaodongliu990-cmyk.png?size=64" width="44" alt="liuhaodongliu990-cmyk" title="@liuhaodongliu990-cmyk"></a>
-<a href="https://github.com/sargarass"><img src="https://github.com/sargarass.png?size=64" width="44" alt="sargarass" title="@sargarass"></a>
-<a href="https://github.com/mumu-lab"><img src="https://github.com/mumu-lab.png?size=64" width="44" alt="mumu-lab" title="@mumu-lab"></a>
+<p align="center">
+<a href="https://github.com/Vonng"><img src="https://silo.pgsty.com/images/contributors/Vonng.svg" width="60" height="60" alt="@Vonng" title="@Vonng — Maintains SILO, Console, mcli, shared packages, releases, and documentation"></a>
+<a href="https://github.com/h5vx"><img src="https://silo.pgsty.com/images/contributors/h5vx.svg" width="60" height="60" alt="@h5vx" title="@h5vx — Implemented per-bucket CORS configuration and enforcement"></a>
+<a href="https://github.com/mrjavadseydi"><img src="https://silo.pgsty.com/images/contributors/mrjavadseydi.svg" width="60" height="60" alt="@mrjavadseydi" title="@mrjavadseydi — Fixed effective bucket quota metrics; proposed access-frequency ILM"></a>
+<a href="https://github.com/Dansyuqri"><img src="https://silo.pgsty.com/images/contributors/Dansyuqri.svg" width="60" height="60" alt="@Dansyuqri" title="@Dansyuqri — Added ChecksumType to multipart completion responses"></a>
+<a href="https://github.com/ycjlin"><img src="https://silo.pgsty.com/images/contributors/ycjlin.svg" width="60" height="60" alt="@ycjlin" title="@ycjlin — Fixed missing-bucket ListObjects semantics"></a>
+<a href="https://github.com/pinginfo"><img src="https://silo.pgsty.com/images/contributors/pinginfo.svg" width="60" height="60" alt="@pinginfo" title="@pinginfo — Repaired bucket notification streaming"></a>
+<a href="https://github.com/ZouhairCharef"><img src="https://silo.pgsty.com/images/contributors/ZouhairCharef.svg" width="60" height="60" alt="@ZouhairCharef" title="@ZouhairCharef — Patched CVE-2026-34986 in go-jose"></a>
+<a href="https://github.com/mfredenhagen"><img src="https://silo.pgsty.com/images/contributors/mfredenhagen.svg" width="60" height="60" alt="@mfredenhagen" title="@mfredenhagen — Patched CVE-2026-39883 in OpenTelemetry"></a>
+<a href="https://github.com/waterkip"><img src="https://silo.pgsty.com/images/contributors/waterkip.svg" width="60" height="60" alt="@waterkip" title="@waterkip — Repointed documentation links to the SILO portal"></a>
+<a href="https://github.com/mikemikimike"><img src="https://silo.pgsty.com/images/contributors/mikemikimike.svg" width="60" height="60" alt="@mikemikimike" title="@mikemikimike — Contributed the replicated SSE-C plaintext part-size fix"></a>
+<a href="https://github.com/metaneutrons"><img src="https://silo.pgsty.com/images/contributors/metaneutrons.svg" width="60" height="60" alt="@metaneutrons" title="@metaneutrons — Reported and proposed explicit-version delete authorization"></a>
+<a href="https://github.com/magicxor"><img src="https://silo.pgsty.com/images/contributors/magicxor.svg" width="60" height="60" alt="@magicxor" title="@magicxor — Reported and proposed conditional DELETE support for If-Match"></a>
+<a href="https://github.com/davinkevin"><img src="https://silo.pgsty.com/images/contributors/davinkevin.svg" width="60" height="60" alt="@davinkevin" title="@davinkevin — Proposed the distroless container image and dependency automation"></a>
+<a href="https://github.com/lem21h"><img src="https://silo.pgsty.com/images/contributors/lem21h.svg" width="48" height="48" alt="@lem21h" title="@lem21h — Proposed robustness and goroutine improvements"></a>
+<a href="https://github.com/sulin37392"><img src="https://silo.pgsty.com/images/contributors/sulin37392.svg" width="48" height="48" alt="@sulin37392" title="@sulin37392 — Proposed dependency updates"></a>
+<a href="https://github.com/cbornet"><img src="https://silo.pgsty.com/images/contributors/cbornet.svg" width="60" height="60" alt="@cbornet" title="@cbornet — Reported multipart and streaming checksum defects and missing-bucket semantics"></a>
+<a href="https://github.com/vampywiz17"><img src="https://silo.pgsty.com/images/contributors/vampywiz17.svg" width="60" height="60" alt="@vampywiz17" title="@vampywiz17 — Reported LDAP TLS and Console login regressions"></a>
+<a href="https://github.com/mumu-lab"><img src="https://silo.pgsty.com/images/contributors/mumu-lab.svg" width="48" height="48" alt="@mumu-lab" title="@mumu-lab — Reported bucket quota metrics reading a deprecated field"></a>
+<a href="https://github.com/jvasile"><img src="https://silo.pgsty.com/images/contributors/jvasile.svg" width="48" height="48" alt="@jvasile" title="@jvasile — Reported missing user, group, and defaults in Debian packages"></a>
+<a href="https://github.com/pmezhuev"><img src="https://silo.pgsty.com/images/contributors/pmezhuev.svg" width="48" height="48" alt="@pmezhuev" title="@pmezhuev — Reported missing RPM package signatures"></a>
+<a href="https://github.com/TLINDEN"><img src="https://silo.pgsty.com/images/contributors/TLINDEN.svg" width="48" height="48" alt="@TLINDEN" title="@TLINDEN — Reported the missing client in release tarballs"></a>
+<a href="https://github.com/makinikm"><img src="https://silo.pgsty.com/images/contributors/makinikm.svg" width="48" height="48" alt="@makinikm" title="@makinikm — Reported the missing client in the container image"></a>
+<a href="https://github.com/meesudzu"><img src="https://silo.pgsty.com/images/contributors/meesudzu.svg" width="48" height="48" alt="@meesudzu" title="@meesudzu — Requested the migration guide from upstream MinIO"></a>
+<a href="https://github.com/kuldeep-link11"><img src="https://silo.pgsty.com/images/contributors/kuldeep-link11.svg" width="48" height="48" alt="@kuldeep-link11" title="@kuldeep-link11 — Reported NATS JWT credentials and target reload issues"></a>
+<a href="https://github.com/sargarass"><img src="https://silo.pgsty.com/images/contributors/sargarass.svg" width="48" height="48" alt="@sargarass" title="@sargarass — Reported ListMultipartUploads prefix and pagination semantics"></a>
+<a href="https://github.com/liuhaodongliu990-cmyk"><img src="https://silo.pgsty.com/images/contributors/liuhaodongliu990-cmyk.svg" width="48" height="48" alt="@liuhaodongliu990-cmyk" title="@liuhaodongliu990-cmyk — Reported indeterminate progress for prefix downloads"></a>
+<a href="https://github.com/Xavier-777"><img src="https://silo.pgsty.com/images/contributors/Xavier-777.svg" width="48" height="48" alt="@Xavier-777" title="@Xavier-777 — Reported Console lifecycle management and file preview gaps"></a>
+<a href="https://github.com/spaceg00se-r"><img src="https://silo.pgsty.com/images/contributors/spaceg00se-r.svg" width="48" height="48" alt="@spaceg00se-r" title="@spaceg00se-r — Requested cpuv1 support and reported a workflow token failure"></a>
+<a href="https://github.com/kh0mka"><img src="https://silo.pgsty.com/images/contributors/kh0mka.svg" width="48" height="48" alt="@kh0mka" title="@kh0mka — Reported inter-node I/O timeouts in ReadFileStreamHandler"></a>
+<a href="https://github.com/bagutzu"><img src="https://silo.pgsty.com/images/contributors/bagutzu.svg" width="48" height="48" alt="@bagutzu" title="@bagutzu — Requested KES-compatible external KMS and OpenBao support"></a>
+<a href="https://github.com/DestroyLee"><img src="https://silo.pgsty.com/images/contributors/DestroyLee.svg" width="48" height="48" alt="@DestroyLee" title="@DestroyLee — Reported the missing documentation navigation"></a>
+<a href="https://github.com/mosesdd"><img src="https://silo.pgsty.com/images/contributors/mosesdd.svg" width="48" height="48" alt="@mosesdd" title="@mosesdd — Requested a maintained Helm chart"></a>
+<a href="https://github.com/zylpsrs"><img src="https://silo.pgsty.com/images/contributors/zylpsrs.svg" width="48" height="48" alt="@zylpsrs" title="@zylpsrs — Reported missing Console tiering and site replication"></a>
+<a href="https://github.com/heroes1412"><img src="https://silo.pgsty.com/images/contributors/heroes1412.svg" width="48" height="48" alt="@heroes1412" title="@heroes1412 — Reported the unusable profiling option"></a>
+<a href="https://github.com/redfoxfox"><img src="https://silo.pgsty.com/images/contributors/redfoxfox.svg" width="48" height="48" alt="@redfoxfox" title="@redfoxfox — Reported Chinese documentation availability"></a>
+<a href="https://github.com/jiadzh"><img src="https://silo.pgsty.com/images/contributors/jiadzh.svg" width="48" height="48" alt="@jiadzh" title="@jiadzh — Requested Windows build guidance"></a>
+<a href="https://github.com/AntonOfTheWoods"><img src="https://silo.pgsty.com/images/contributors/AntonOfTheWoods.svg" width="48" height="48" alt="@AntonOfTheWoods" title="@AntonOfTheWoods — Asked for clarity on Helm chart and operator options"></a>
+<a href="https://github.com/chalukyaj"><img src="https://silo.pgsty.com/images/contributors/chalukyaj.svg" width="48" height="48" alt="@chalukyaj" title="@chalukyaj — Proposed making the SILO Operator easier to discover"></a>
+<a href="https://github.com/nsanitate"><img src="https://silo.pgsty.com/images/contributors/nsanitate.svg" width="48" height="48" alt="@nsanitate" title="@nsanitate — Proposed CNCF Sandbox governance"></a>
+<a href="https://github.com/Kesavaambati"><img src="https://silo.pgsty.com/images/contributors/Kesavaambati.svg" width="48" height="48" alt="@Kesavaambati" title="@Kesavaambati — Asked about community support and image maintenance"></a>
 </p>
 
-GitHub does not generate a contributor graph for forks, so [`CONTRIBUTORS.md`](CONTRIBUTORS.md) — not the Insights page — is this project's attribution record. It names all 37 community contributors alongside the change or report they contributed.
+[View the full contribution record](CONTRIBUTORS.md) for each person's proposals, fixes, and reports.
 
 ## Background
 
