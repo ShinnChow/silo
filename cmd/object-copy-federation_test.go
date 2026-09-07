@@ -21,6 +21,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"encoding/xml"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -31,6 +32,7 @@ import (
 	"github.com/minio/minio-go/v7/pkg/set"
 	"github.com/minio/minio/internal/auth"
 	"github.com/minio/minio/internal/config/dns"
+	"github.com/minio/minio/internal/hash"
 	xhttp "github.com/minio/minio/internal/http"
 )
 
@@ -195,5 +197,111 @@ func testAPIFederatedCopyObjectInlineSource(objectAPI ObjectLayer, instanceType,
 	}
 	if origin, ok := gr.ObjInfo.UserDefined["X-Amz-Meta-Origin"]; !ok || origin != "inline-source" {
 		t.Fatalf("%s: destination lost copied user metadata: %v", instanceType, gr.ObjInfo.UserDefined)
+	}
+}
+
+// TestAPIFederatedCopyObjectRequestedChecksum drives the legacy etcd federation
+// branch of CopyObjectHandler and verifies that a server-side checksum is both
+// returned and persisted, matching the local CopyObject path. Before the fix
+// the federated copy forwarded the write without asking for a checksum and
+// discarded whatever the remote returned, so the response carried an empty
+// checksum even when the client requested one (#99).
+//
+// The no-algorithm case is included deliberately: a checksum-less source gains
+// the S3 default CRC-64NVME full-object checksum on the local path, so the
+// federated path must return the same. "No requested algorithm" does not mean
+// "no checksum".
+func TestAPIFederatedCopyObjectRequestedChecksum(t *testing.T) {
+	defer DetectTestLeak(t)()
+	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{
+		t:          t,
+		objAPITest: testAPIFederatedCopyObjectRequestedChecksum,
+		endpoints:  []string{"CopyObject", "PutObject", "HeadObject", "GetObject"},
+	})
+}
+
+func testAPIFederatedCopyObjectRequestedChecksum(objectAPI ObjectLayer, instanceType, bucketName string,
+	apiRouter http.Handler, credentials auth.Credentials, t *testing.T,
+) {
+	data := []byte("federated copy checksum body")
+	srcObject := "federation/checksum-source"
+	putCopyChecksumSource(t, apiRouter, credentials, bucketName, srcObject, data, nil)
+
+	remoteBucket, _, cleanup := setupCopyObjectFederation(t, objectAPI, apiRouter, instanceType, bucketName)
+	defer cleanup()
+
+	cases := []struct {
+		name     string
+		typ      hash.ChecksumType
+		explicit bool
+	}{
+		{name: "CRC32", typ: hash.ChecksumCRC32, explicit: true},
+		{name: "CRC32C", typ: hash.ChecksumCRC32C, explicit: true},
+		{name: "SHA256", typ: hash.ChecksumSHA256, explicit: true},
+		{name: "CRC64NVME", typ: hash.ChecksumCRC64NVME, explicit: true},
+		// Default: no requested algorithm still yields the S3 CRC-64NVME.
+		{name: "default", typ: hash.ChecksumCRC64NVME},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var headers map[string]string
+			if tc.explicit {
+				headers = map[string]string{xhttp.AmzChecksumAlgo: tc.typ.String()}
+			}
+			dstObject := "federation/checksum-destination-" + tc.name
+			rec := federatedCopyRequest(t, apiRouter, credentials, bucketName, srcObject, remoteBucket, dstObject, headers)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("%s: federated CopyObject failed: %d %s", instanceType, rec.Code, rec.Body.String())
+			}
+			// The CopyObjectResult must carry the checksum of the copied bytes.
+			assertCopyChecksumResponse(t, rec, tc.typ, data)
+			// The remote must have persisted that same checksum.
+			assertCopyChecksum(t, objectAPI, remoteBucket, dstObject, tc.typ, data, false, nil)
+		})
+	}
+}
+
+// TestAPIFederatedCopyObjectChecksumIsBoundToWrite guards the checksum
+// representation: a federated copy that requests one algorithm must return only
+// that algorithm, and a copy of a checksum-less source without a requested
+// algorithm must never fabricate one other than the S3 default.
+func TestAPIFederatedCopyObjectChecksumIsBoundToWrite(t *testing.T) {
+	defer DetectTestLeak(t)()
+	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{
+		t:          t,
+		objAPITest: testAPIFederatedCopyObjectChecksumIsBoundToWrite,
+		endpoints:  []string{"CopyObject", "PutObject", "HeadObject", "GetObject"},
+	})
+}
+
+func testAPIFederatedCopyObjectChecksumIsBoundToWrite(objectAPI ObjectLayer, instanceType, bucketName string,
+	apiRouter http.Handler, credentials auth.Credentials, t *testing.T,
+) {
+	data := []byte("federated copy single checksum body")
+	srcObject := "federation/single-checksum-source"
+	putCopyChecksumSource(t, apiRouter, credentials, bucketName, srcObject, data, nil)
+
+	remoteBucket, _, cleanup := setupCopyObjectFederation(t, objectAPI, apiRouter, instanceType, bucketName)
+	defer cleanup()
+
+	dstObject := "federation/single-checksum-destination"
+	rec := federatedCopyRequest(t, apiRouter, credentials, bucketName, srcObject, remoteBucket, dstObject,
+		map[string]string{xhttp.AmzChecksumAlgo: hash.ChecksumCRC32.String()})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("%s: federated CopyObject failed: %d %s", instanceType, rec.Code, rec.Body.String())
+	}
+
+	var response CopyObjectResponse
+	if err := xml.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("%s: unable to decode CopyObjectResult: %v", instanceType, err)
+	}
+	if response.ChecksumCRC32 == "" {
+		t.Fatalf("%s: requested CRC32 checksum missing from response: %s", instanceType, rec.Body.String())
+	}
+	// Only the requested algorithm may be present.
+	if response.ChecksumCRC32C != "" || response.ChecksumSHA1 != "" ||
+		response.ChecksumSHA256 != "" || response.ChecksumCRC64NVME != "" {
+		t.Fatalf("%s: response carried checksums beyond the requested CRC32: %s", instanceType, rec.Body.String())
 	}
 }
