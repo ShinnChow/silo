@@ -45,6 +45,7 @@ import (
 	"github.com/minio/minio/internal/auth"
 	"github.com/minio/minio/internal/bucket/cors"
 	"github.com/minio/minio/internal/bucket/lifecycle"
+	objectlock "github.com/minio/minio/internal/bucket/object/lock"
 	sreplication "github.com/minio/minio/internal/bucket/replication"
 	"github.com/minio/minio/internal/bucket/versioning"
 	"github.com/minio/minio/internal/logger"
@@ -2115,12 +2116,7 @@ func (c *SiteReplicationSys) PeerBucketLCConfigHandler(ctx context.Context, buck
 	}
 
 	if expLCConfig != nil {
-		configData, err := mergeWithCurrentLCConfig(ctx, bucket, expLCConfig, updatedAt)
-		if err != nil {
-			return wrapSRErr(err)
-		}
-		_, err = globalBucketMetadataSys.Update(ctx, bucket, bucketLifecycleConfig, configData)
-		if err != nil {
+		if err := globalBucketMetadataSys.UpdateExpiryLCConfig(ctx, bucket, expLCConfig, updatedAt); err != nil {
 			return wrapSRErr(err)
 		}
 		return nil
@@ -4922,13 +4918,12 @@ func (c *SiteReplicationSys) healBucketILMExpiry(ctx context.Context, objAPI Obj
 			continue
 		}
 
-		finalConfigData, err := mergeWithCurrentLCConfig(ctx, bucket, latestExpLCConfig, lastUpdate)
-		if err != nil {
-			return wrapSRErr(err)
-		}
-
 		if dID == globalDeploymentID() {
-			if _, err := globalBucketMetadataSys.Update(ctx, bucket, bucketLifecycleConfig, finalConfigData); err != nil {
+			// Merge and persist atomically under metadata.lock so a concurrent
+			// lifecycle transition change is not lost (issue #105). The merged
+			// blob is recomputed from the locked current document here rather
+			// than from an earlier unlocked read.
+			if err := globalBucketMetadataSys.UpdateExpiryLCConfig(ctx, bucket, latestExpLCConfig, lastUpdate); err != nil {
 				replLogIf(ctx, fmt.Errorf("Unable to heal bucket ILM expiry data from peer site %s : %w", latestPeerName, err))
 			}
 			continue
@@ -6594,13 +6589,12 @@ func (c *SiteReplicationSys) getSiteMetrics(ctx context.Context) (madmin.SRMetri
 	return sm, nil
 }
 
-// mergeWithCurrentLCConfig - merges the given ilm expiry configuration with existing for the current site and returns
-func mergeWithCurrentLCConfig(ctx context.Context, bucket string, expLCCfg *string, updatedAt time.Time) ([]byte, error) {
-	// Get bucket config from current site
-	meta, e := globalBucketMetadataSys.GetConfigFromDisk(ctx, bucket)
-	if e != nil && !errors.Is(e, errConfigNotFound) {
-		return []byte{}, e
-	}
+// mergeExpiryWithLCConfig merges the given ILM expiry configuration with the
+// supplied current bucket lifecycle document and returns the merged XML. The
+// current document must be read by the caller while holding metadata.lock (see
+// BucketMetadataSys.UpdateExpiryLCConfig) so a concurrent lifecycle transition
+// change cannot be lost between the read and the merged save (issue #105).
+func mergeExpiryWithLCConfig(bucket string, meta BucketMetadata, expLCCfg *string, updatedAt time.Time) ([]byte, error) {
 	rMap := make(map[string]lifecycle.Rule)
 	var xmlName xml.Name
 	if len(meta.LifecycleConfigXML) > 0 {
@@ -6611,7 +6605,7 @@ func mergeWithCurrentLCConfig(ctx context.Context, bucket string, expLCCfg *stri
 		for _, rl := range lcCfg.Rules {
 			rMap[rl.ID] = rl
 		}
-		xmlName = meta.lifecycleConfig.XMLName
+		xmlName = lcCfg.XMLName
 	}
 
 	// get latest expiry rules
@@ -6683,11 +6677,13 @@ func mergeWithCurrentLCConfig(ctx context.Context, bucket string, expLCCfg *stri
 		ExpiryUpdatedAt: &updatedAt,
 	}
 
-	rcfg, err := globalBucketObjectLockSys.Get(bucket)
-	if err != nil {
-		return nil, err
+	// Validate against the object-lock retention from the locked metadata
+	// snapshot rather than re-reading it, which would risk a re-entrant
+	// metadata load while metadata.lock is held (issue #105).
+	var rcfg objectlock.Retention
+	if meta.objectLockConfig != nil {
+		rcfg = meta.objectLockConfig.ToRetention()
 	}
-
 	if err := finalLcCfg.Validate(rcfg); err != nil {
 		return []byte{}, err
 	}
