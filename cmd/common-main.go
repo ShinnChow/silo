@@ -120,15 +120,40 @@ func init() {
 
 const consolePrefix = "CONSOLE_"
 
+// consoleMinIOServerEnv derives the CONSOLE_MINIO_SERVER value the embedded
+// Console uses to reach the S3/STS API, and whether TLS verification of that
+// endpoint must be skipped. With no explicit endpoint configured the Console
+// reaches the API over the loopback address, whose TLS certificate is not
+// expected to carry a 127.0.0.1 SAN; because Console verifies outbound TLS by
+// default, the loopback origin has to be exempted or embedded login (local and
+// LDAP alike) fails at the STS handshake. The exemption is endpoint-scoped in
+// Console, so every other HTTPS peer stays verified. An explicitly configured
+// endpoint is always reached under its own verified name and is never exempted.
+func consoleMinIOServerEnv(endpoint string, isTLS bool, port string) (server string, skipVerify bool) {
+	if endpoint != "" {
+		return endpoint, false
+	}
+	return fmt.Sprintf("%s://127.0.0.1:%s", getURLScheme(isTLS), port), isTLS
+}
+
 func minioConfigToConsoleFeatures() {
 	os.Setenv("CONSOLE_PBKDF_SALT", globalDeploymentID())
 	os.Setenv("CONSOLE_PBKDF_PASSPHRASE", globalDeploymentID())
-	if globalMinioEndpoint != "" {
-		os.Setenv("CONSOLE_MINIO_SERVER", globalMinioEndpoint)
+	consoleServer, skipVerify := consoleMinIOServerEnv(globalMinioEndpoint, globalIsTLS, globalMinioPort)
+	os.Setenv("CONSOLE_MINIO_SERVER", consoleServer)
+	if skipVerify {
+		// The embedded Console reaches the loopback S3/STS endpoint above, whose
+		// certificate is not expected to carry a 127.0.0.1 SAN. Console verifies
+		// outbound TLS by default (silo-console v2.3.x), so opt into the
+		// endpoint-scoped compatibility switch to preserve the documented loopback
+		// bypass; every other HTTPS peer (IdP, Prometheus, webhooks, ...) stays
+		// verified. initConsoleServer unsets CONSOLE_* before calling this, so the
+		// switch cannot be supplied by the operator on the embedded path.
+		os.Setenv("CONSOLE_MINIO_SERVER_TLS_SKIP_VERIFY", "on")
 	} else {
-		// Explicitly set 127.0.0.1 so Console will automatically bypass TLS verification to the local S3 API.
-		// This will save users from providing a certificate with IP or FQDN SAN that points to the local host.
-		os.Setenv("CONSOLE_MINIO_SERVER", fmt.Sprintf("%s://127.0.0.1:%s", getURLScheme(globalIsTLS), globalMinioPort))
+		// An explicitly configured endpoint is reached under its own verified name;
+		// never let a loopback exemption apply to it.
+		os.Unsetenv("CONSOLE_MINIO_SERVER_TLS_SKIP_VERIFY")
 	}
 	if value := env.Get(config.EnvMinIOLogQueryURL, ""); value != "" {
 		os.Setenv("CONSOLE_LOG_QUERY_URL", value)
