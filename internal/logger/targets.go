@@ -59,11 +59,35 @@ func (tl *targetsList) get() []Target {
 	return tl.list
 }
 
-func (tl *targetsList) add(t Target) {
+// contains reports whether t is already registered.
+func (tl *targetsList) contains(t Target) bool {
+	tl.mu.RLock()
+	defer tl.mu.RUnlock()
+
+	return tl.indexOf(t) >= 0
+}
+
+// addIfAbsent appends t unless it is already registered.
+// Returns true if t was added.
+func (tl *targetsList) addIfAbsent(t Target) bool {
 	tl.mu.Lock()
 	defer tl.mu.Unlock()
 
+	if tl.indexOf(t) >= 0 {
+		return false
+	}
 	tl.list = append(tl.list, t)
+	return true
+}
+
+// indexOf must be called with tl.mu held.
+func (tl *targetsList) indexOf(t Target) int {
+	for i, existing := range tl.list {
+		if existing == t {
+			return i
+		}
+	}
+	return -1
 }
 
 func (tl *targetsList) set(tgts []Target) {
@@ -125,8 +149,14 @@ func CurrentStats() map[string]types.TargetStats {
 }
 
 // AddSystemTarget adds a new logger target to the
-// list of enabled loggers
+// list of enabled loggers. Adding a target that is already
+// registered is a no-op, so callers may safely re-register
+// long-lived targets such as the console logger.
 func AddSystemTarget(ctx context.Context, t Target) error {
+	if systemTargets.contains(t) {
+		return nil
+	}
+
 	if err := t.Init(ctx); err != nil {
 		return err
 	}
@@ -137,7 +167,7 @@ func AddSystemTarget(ctx context.Context, t Target) error {
 		}
 	}
 
-	systemTargets.add(t)
+	systemTargets.addIfAbsent(t)
 	return nil
 }
 
