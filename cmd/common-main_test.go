@@ -372,3 +372,56 @@ func TestConfigEnvFileNamedTargetDiscovery(t *testing.T) {
 		t.Fatalf("named target %q not discovered from %s: %v", "my-hook", key, targets)
 	}
 }
+
+// TestConsoleMinIOServerEnv locks in the loopback TLS exemption that keeps
+// embedded Console login working (issue #108) while ensuring an explicitly
+// configured endpoint is never silently exempted from TLS verification.
+func TestConsoleMinIOServerEnv(t *testing.T) {
+	tests := []struct {
+		name           string
+		endpoint       string
+		isTLS          bool
+		port           string
+		wantServer     string
+		wantSkipVerify bool
+	}{
+		{
+			name:           "loopback TLS is exempted so embedded login works",
+			isTLS:          true,
+			port:           "9000",
+			wantServer:     "https://127.0.0.1:9000",
+			wantSkipVerify: true,
+		},
+		{
+			name:       "loopback plain HTTP needs no exemption",
+			isTLS:      false,
+			port:       "9000",
+			wantServer: "http://127.0.0.1:9000",
+		},
+		{
+			name:       "explicit https endpoint stays verified",
+			endpoint:   "https://silo.example:9000",
+			isTLS:      true,
+			port:       "9000",
+			wantServer: "https://silo.example:9000",
+		},
+		{
+			name:       "explicit http endpoint stays verified",
+			endpoint:   "http://silo.example:9000",
+			isTLS:      false,
+			port:       "9000",
+			wantServer: "http://silo.example:9000",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server, skipVerify := consoleMinIOServerEnv(tt.endpoint, tt.isTLS, tt.port)
+			if server != tt.wantServer {
+				t.Fatalf("server = %q, want %q", server, tt.wantServer)
+			}
+			if skipVerify != tt.wantSkipVerify {
+				t.Fatalf("skipVerify = %v, want %v", skipVerify, tt.wantSkipVerify)
+			}
+		})
+	}
+}
