@@ -303,6 +303,9 @@ func loadBucketMetadataParseUnderLock(ctx context.Context, objectAPI ObjectLayer
 		return newBucketMetadata(bucket), fmt.Errorf("%w: %v", errBucketMetadataMigrationLockUnavailable, err)
 	}
 	defer unlock()
+	if _, err := objectAPI.GetBucketInfo(ctx, bucket, BucketOptions{NoMetadata: true}); err != nil {
+		return newBucketMetadata(bucket), err
+	}
 	return loadBucketMetadataParse(ctx, objectAPI, bucket, parse)
 }
 
