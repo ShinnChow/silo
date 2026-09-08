@@ -125,6 +125,34 @@ func (sys *BucketMetadataSys) Set(bucket string, meta BucketMetadata) {
 	}
 }
 
+// setReloaded publishes the newest known revision and its derived registries
+// together. An old reload may finish after a local save or another reload;
+// applying its notification/replication targets would regress live behavior
+// even if the metadata cache itself rejected that old revision.
+func (sys *BucketMetadataSys) setReloaded(bucket string, meta BucketMetadata) {
+	if isMinioMetaBucketName(bucket) {
+		return
+	}
+	sys.Lock()
+	defer sys.Unlock()
+	if cur, ok := sys.metadataMap[bucket]; ok && !cur.lastUpdate().Before(meta.lastUpdate()) {
+		meta = cur
+	} else {
+		sys.metadataMap[bucket] = meta
+	}
+	sys.clearLoadFailure(bucket)
+	// These registry updates only change local state; no peer/network I/O runs
+	// under the metadata mutex. Keep publication ordered against Set/Remove.
+	if globalEventNotifier != nil {
+		if meta.notificationConfig != nil {
+			globalEventNotifier.AddRulesMap(bucket, meta.notificationConfig.ToRulesMap())
+		} else {
+			globalEventNotifier.RemoveNotification(bucket)
+		}
+	}
+	globalBucketTargetSys.UpdateAllTargets(bucket, meta.bucketTargetConfig)
+}
+
 func (sys *BucketMetadataSys) updateAndParse(ctx context.Context, bucket string, configFile string, configData []byte, parse, lifecycleDelete bool) (updatedAt time.Time, err error) {
 	objAPI := newObjectLayerFn()
 	if objAPI == nil {
@@ -229,6 +257,11 @@ func (sys *BucketMetadataSys) save(ctx context.Context, meta BucketMetadata) err
 // saveMetadata persists and publishes metadata locally. Callers performing a
 // read-modify-write must hold metadata.lock and release it before peer fan-out.
 func (sys *BucketMetadataSys) saveMetadata(ctx context.Context, objAPI ObjectLayer, meta BucketMetadata) error {
+	// A writer may have queued for metadata.lock before DeleteBucket completed.
+	// Recheck the physical bucket under that lock, before recreating metadata.
+	if _, err := objAPI.GetBucketInfo(ctx, meta.Name, BucketOptions{NoMetadata: true}); err != nil {
+		return err
+	}
 	if err := meta.Save(ctx, objAPI); err != nil {
 		return err
 	}
@@ -290,6 +323,57 @@ func lifecycleDeleteConfig(current []byte) ([]byte, error) {
 // The configData data should not be modified after being sent here.
 func (sys *BucketMetadataSys) Update(ctx context.Context, bucket string, configFile string, configData []byte) (updatedAt time.Time, err error) {
 	return sys.updateAndParse(ctx, bucket, configFile, configData, true, false)
+}
+
+// UpdateExpiryLCConfig merges a replicated ILM expiry configuration with the
+// bucket's current lifecycle document and persists the merged result while
+// holding metadata.lock across the read, merge, and save. The site-replication
+// expiry heal and peer-apply paths must use this instead of computing the merge
+// from an unlocked GetConfigFromDisk read and then writing it with Update: that
+// two-step sequence drops any lifecycle transition change committed in between
+// (issue #105). Lock order stays <bucket>.lck -> metadata.lock -> .metadata.bin;
+// the merge and save run under metadata.lock and the peer fan-out runs after it
+// is released.
+func (sys *BucketMetadataSys) UpdateExpiryLCConfig(ctx context.Context, bucket string, expLCConfig *string, updatedAt time.Time) error {
+	objAPI := newObjectLayerFn()
+	if objAPI == nil {
+		return errServerNotInitialized
+	}
+
+	if isMinioMetaBucketName(bucket) {
+		return errInvalidArgument
+	}
+
+	notifyCtx := ctx
+	ctx, unlock, err := lockBucketMetadata(ctx, objAPI, bucket)
+	if err != nil {
+		return err
+	}
+
+	err = func() error {
+		defer unlock()
+		meta, err := loadBucketMetadataParse(ctx, objAPI, bucket, true)
+		if err != nil {
+			if !globalIsErasure && !globalIsDistErasure && errors.Is(err, errVolumeNotFound) {
+				// Only single drive mode needs this fallback.
+				meta = newBucketMetadata(bucket)
+			} else {
+				return err
+			}
+		}
+		configData, err := mergeExpiryWithLCConfig(bucket, meta, expLCConfig, updatedAt)
+		if err != nil {
+			return err
+		}
+		meta.LifecycleConfigXML = configData
+		meta.LifecycleConfigUpdatedAt = UTCNow()
+		return sys.saveMetadata(ctx, objAPI, meta)
+	}()
+	if err != nil {
+		return err
+	}
+	globalNotificationSys.LoadBucketMetadata(bgContext(notifyCtx), bucket) // Do not use caller context here
+	return nil
 }
 
 // Get metadata for a bucket.
@@ -602,7 +686,13 @@ func (sys *BucketMetadataSys) GetConfig(ctx context.Context, bucket string) (met
 		return meta, false, err
 	}
 	sys.Lock()
-	sys.metadataMap[bucket] = meta
+	if cur, ok := sys.metadataMap[bucket]; ok && !cur.lastUpdate().Before(meta.lastUpdate()) {
+		// A concurrent publish installed a resident revision at least as new as
+		// this cache-miss load; return it instead of regressing (issue #105).
+		meta = cur
+	} else {
+		sys.metadataMap[bucket] = meta
+	}
 	sys.clearLoadFailure(bucket)
 	sys.Unlock()
 
@@ -703,8 +793,6 @@ func (sys *BucketMetadataSys) refreshBucketsMetadataLoop(ctx context.Context) {
 				wait := sleeper.Timer(ctx)
 
 				bucket := buckets[i].Name
-				updated := false
-
 				meta, err := loadBucketMetadata(ctx, sys.objAPI, bucket)
 				if err != nil {
 					internalLogIf(ctx, err, logger.WarningKind)
@@ -715,19 +803,7 @@ func (sys *BucketMetadataSys) refreshBucketsMetadataLoop(ctx context.Context) {
 					continue
 				}
 
-				sys.Lock()
-				// Update if the bucket metadata in the memory is older than on-disk one
-				if lu := sys.metadataMap[bucket].lastUpdate(); lu.Before(meta.lastUpdate()) {
-					updated = true
-					sys.metadataMap[bucket] = meta
-				}
-				sys.clearLoadFailure(bucket)
-				sys.Unlock()
-
-				if updated {
-					globalEventNotifier.set(bucket, meta)
-					globalBucketTargetSys.set(bucket, meta)
-				}
+				sys.setReloaded(bucket, meta)
 
 				wait() // wait to proceed to next entry.
 			}
