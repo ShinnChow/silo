@@ -2204,8 +2204,18 @@ func (z *erasureServerPools) DeleteBucket(ctx context.Context, bucket string, op
 	}
 
 	if err == nil {
-		// Purge the entire bucket metadata entirely.
-		z.deleteAll(context.Background(), minioMetaBucket, pathJoin(bucketMetaPrefix, bucket))
+		// Purge the entire bucket metadata entirely. Hold metadata.lock across
+		// the purge so a bucket metadata writer that is mid-save cannot
+		// resurrect a ghost .metadata.bin after the prefix has been removed
+		// (issue #105). Lock order stays <bucket>.lck -> metadata.lock; a lock
+		// acquisition failure falls back to a best-effort unlocked purge so a
+		// delete is never blocked from completing.
+		if lctx, unlock, lerr := lockBucketMetadata(context.Background(), z, bucket); lerr == nil {
+			z.deleteAll(lctx, minioMetaBucket, pathJoin(bucketMetaPrefix, bucket))
+			unlock()
+		} else {
+			z.deleteAll(context.Background(), minioMetaBucket, pathJoin(bucketMetaPrefix, bucket))
+		}
 	}
 
 	return toObjectErr(err, bucket)

@@ -125,6 +125,28 @@ func (sys *BucketMetadataSys) Set(bucket string, meta BucketMetadata) {
 	}
 }
 
+// setReloaded publishes a record freshly loaded from disk into the resident
+// cache without letting an older on-disk revision overwrite a newer resident
+// one. Overlapping peer reloads (LoadBucketMetadataHandler) and cache-miss
+// loads can finish out of order, so an unconditional Set can leave the resident
+// cache a revision behind until the next refresh (issue #105). The authoritative
+// read-modify-write save path uses Set directly and always wins because it
+// stamps a fresh updatedAt. Only a shallow copy is stored, exactly like Set.
+func (sys *BucketMetadataSys) setReloaded(bucket string, meta BucketMetadata) {
+	if isMinioMetaBucketName(bucket) {
+		return
+	}
+	sys.Lock()
+	defer sys.Unlock()
+	if cur, ok := sys.metadataMap[bucket]; ok && !cur.lastUpdate().Before(meta.lastUpdate()) {
+		// A resident revision that is at least as new is already published; do
+		// not regress it to the older reload.
+		return
+	}
+	sys.metadataMap[bucket] = meta
+	sys.clearLoadFailure(bucket)
+}
+
 func (sys *BucketMetadataSys) updateAndParse(ctx context.Context, bucket string, configFile string, configData []byte, parse, lifecycleDelete bool) (updatedAt time.Time, err error) {
 	objAPI := newObjectLayerFn()
 	if objAPI == nil {
@@ -290,6 +312,57 @@ func lifecycleDeleteConfig(current []byte) ([]byte, error) {
 // The configData data should not be modified after being sent here.
 func (sys *BucketMetadataSys) Update(ctx context.Context, bucket string, configFile string, configData []byte) (updatedAt time.Time, err error) {
 	return sys.updateAndParse(ctx, bucket, configFile, configData, true, false)
+}
+
+// UpdateExpiryLCConfig merges a replicated ILM expiry configuration with the
+// bucket's current lifecycle document and persists the merged result while
+// holding metadata.lock across the read, merge, and save. The site-replication
+// expiry heal and peer-apply paths must use this instead of computing the merge
+// from an unlocked GetConfigFromDisk read and then writing it with Update: that
+// two-step sequence drops any lifecycle transition change committed in between
+// (issue #105). Lock order stays <bucket>.lck -> metadata.lock -> .metadata.bin;
+// the merge and save run under metadata.lock and the peer fan-out runs after it
+// is released.
+func (sys *BucketMetadataSys) UpdateExpiryLCConfig(ctx context.Context, bucket string, expLCConfig *string, updatedAt time.Time) error {
+	objAPI := newObjectLayerFn()
+	if objAPI == nil {
+		return errServerNotInitialized
+	}
+
+	if isMinioMetaBucketName(bucket) {
+		return errInvalidArgument
+	}
+
+	notifyCtx := ctx
+	ctx, unlock, err := lockBucketMetadata(ctx, objAPI, bucket)
+	if err != nil {
+		return err
+	}
+
+	err = func() error {
+		defer unlock()
+		meta, err := loadBucketMetadataParse(ctx, objAPI, bucket, true)
+		if err != nil {
+			if !globalIsErasure && !globalIsDistErasure && errors.Is(err, errVolumeNotFound) {
+				// Only single drive mode needs this fallback.
+				meta = newBucketMetadata(bucket)
+			} else {
+				return err
+			}
+		}
+		configData, err := mergeExpiryWithLCConfig(bucket, meta, expLCConfig, updatedAt)
+		if err != nil {
+			return err
+		}
+		meta.LifecycleConfigXML = configData
+		meta.LifecycleConfigUpdatedAt = UTCNow()
+		return sys.saveMetadata(ctx, objAPI, meta)
+	}()
+	if err != nil {
+		return err
+	}
+	globalNotificationSys.LoadBucketMetadata(bgContext(notifyCtx), bucket) // Do not use caller context here
+	return nil
 }
 
 // Get metadata for a bucket.
@@ -602,7 +675,13 @@ func (sys *BucketMetadataSys) GetConfig(ctx context.Context, bucket string) (met
 		return meta, false, err
 	}
 	sys.Lock()
-	sys.metadataMap[bucket] = meta
+	if cur, ok := sys.metadataMap[bucket]; ok && !cur.lastUpdate().Before(meta.lastUpdate()) {
+		// A concurrent publish installed a resident revision at least as new as
+		// this cache-miss load; return it instead of regressing (issue #105).
+		meta = cur
+	} else {
+		sys.metadataMap[bucket] = meta
+	}
 	sys.clearLoadFailure(bucket)
 	sys.Unlock()
 
