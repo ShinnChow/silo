@@ -18,6 +18,7 @@ import (
 
 	"github.com/minio/madmin-go/v3"
 	"github.com/minio/minio/internal/auth"
+	"github.com/minio/minio/internal/event"
 	"github.com/minio/minio/internal/grid"
 )
 
@@ -135,7 +136,8 @@ func TestPeerMetadataReloadPreservesCurrentTargets(t *testing.T) {
 func testPeerMetadataReloadPreservesCurrentTargets(obj ObjectLayer, instanceType, bucket string, _ http.Handler, _ auth.Credentials, t *testing.T) {
 	seed := func(revision string) {
 		t.Helper()
-		notification := []byte(`<NotificationConfiguration><QueueConfiguration><Id>` + revision + `</Id><Queue>arn:minio:sqs::` + revision + `:webhook</Queue><Event>s3:ObjectCreated:*</Event></QueueConfiguration></NotificationConfiguration>`)
+		arn := event.ARN{TargetID: event.TargetID{ID: revision, Name: "webhook"}}
+		notification := []byte(`<NotificationConfiguration><QueueConfiguration><Id>` + revision + `</Id><Queue>` + arn.String() + `</Queue><Event>s3:ObjectCreated:*</Event></QueueConfiguration></NotificationConfiguration>`)
 		targets, err := json.Marshal(madmin.BucketTargets{Targets: []madmin.BucketTarget{{
 			SourceBucket: bucket, TargetBucket: bucket, Endpoint: "127.0.0.1:9000", Arn: revision,
 			Credentials: &madmin.Credentials{AccessKey: "fixture", SecretKey: "fixture-secret"},
