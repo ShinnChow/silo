@@ -297,9 +297,10 @@ func TestAccessMoveSourceDeleteFailureCanResume(t *testing.T) {
 	set := z.serverPools[1].getHashedSet(object)
 	getDisks := set.getDisks
 	faulty := append([]StorageAPI(nil), getDisks()...)
-	// The old version is purged. One disk then completes deletion of the
-	// latest version; the remaining disks reject it.
-	for i := 1; i < len(faulty); i++ {
+	// Commit removal of the old version, then reject the latest version on
+	// every disk. This fixes the retry boundary without relying on how a
+	// partially deleted erasure quorum is subsequently resolved or healed.
+	for i := range faulty {
 		faulty[i] = accessMoveDeleteFaultDisk{StorageAPI: faulty[i], bucket: bucket, object: object, version: latest.VersionID}
 	}
 	set.getDisks = func() []StorageAPI { return faulty }
@@ -310,6 +311,10 @@ func TestAccessMoveSourceDeleteFailureCanResume(t *testing.T) {
 	}
 	assertAccessMoveVersion(t, z, bucket, object, 0, old, "old")
 	assertAccessMoveVersion(t, z, bucket, object, 0, latest, "new")
+	if _, err := z.serverPools[1].GetObjectInfo(t.Context(), bucket, object, ObjectOptions{VersionID: old.VersionID}); !isErrVersionNotFound(err) {
+		t.Fatalf("old source version should already be removed: %v", err)
+	}
+	assertAccessMoveVersion(t, z, bucket, object, 1, latest, "new")
 	if _, err := moveObjectPool(t.Context(), z, bucket, object, 1, 0, nil); err != nil {
 		t.Fatal(err)
 	}
