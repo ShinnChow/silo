@@ -544,8 +544,26 @@ func (s *peerRESTServer) LoadBucketMetadataHandler(mss *grid.MSS) (np grid.NoPay
 		return np, grid.NewRemoteErr(err)
 	}
 
-	// Publish the metadata and derived registries from the same current revision.
-	globalBucketMetadataSys.setReloaded(bucketName, meta)
+	// Publish the reloaded metadata unconditionally. Overlapping peer reloads
+	// may briefly leave the resident cache a revision behind, or momentarily
+	// apply an older reload's derived registries. The resident cache may lag
+	// until another authoritative update advances it; the periodic metadata
+	// refresh is only best-effort here and cannot repair a divergence whose
+	// maximum per-config timestamp already equals the resident record's (its
+	// staleness check compares the same lastUpdate() and would see no change).
+	// This acceptable-until-refresh behavior is deliberate: lastUpdate() is the
+	// max of per-config timestamps and cannot order whole-record revisions, so a
+	// publication guard keyed on it would wrongly reject legitimately newer
+	// records (issue #105 follow-up dropped that guard).
+	globalBucketMetadataSys.Set(bucketName, meta)
+
+	if meta.notificationConfig != nil {
+		globalEventNotifier.AddRulesMap(bucketName, meta.notificationConfig.ToRulesMap())
+	}
+
+	if meta.bucketTargetConfig != nil {
+		globalBucketTargetSys.UpdateAllTargets(bucketName, meta.bucketTargetConfig)
+	}
 
 	return np, nerr
 }
