@@ -44,6 +44,16 @@ type federationRemoteCapture struct {
 	headers []http.Header
 }
 
+type federationResponseFilter struct {
+	http.ResponseWriter
+	filter func(http.Header)
+}
+
+func (w federationResponseFilter) WriteHeader(status int) {
+	w.filter(w.Header())
+	w.ResponseWriter.WriteHeader(status)
+}
+
 func (c *federationRemoteCapture) record(h http.Header) {
 	c.mu.Lock()
 	c.headers = append(c.headers, h.Clone())
@@ -80,7 +90,7 @@ func (c *federationRemoteCapture) reservedKeys() []string {
 // minio-go client probes for. Leaving it unregistered makes the probe fall back
 // to the default region, exactly as TestAPIFederatedCopyObjectPartChecksum does.
 func setupCopyObjectFederation(t *testing.T, objectAPI ObjectLayer, apiRouter http.Handler,
-	instanceType, srcBucket string,
+	instanceType, srcBucket string, responseFilters ...func(http.Header),
 ) (remoteBucket string, capture *federationRemoteCapture, cleanup func()) {
 	t.Helper()
 	remoteBucket = getRandomBucketName()
@@ -91,6 +101,9 @@ func setupCopyObjectFederation(t *testing.T, objectAPI ObjectLayer, apiRouter ht
 	capture = &federationRemoteCapture{}
 	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capture.record(r.Header)
+		if len(responseFilters) != 0 && r.Method == http.MethodPut {
+			w = federationResponseFilter{ResponseWriter: w, filter: responseFilters[0]}
+		}
 		apiRouter.ServeHTTP(w, r)
 	}))
 	host, port, _ := strings.Cut(remote.Listener.Addr().String(), ":")
@@ -237,6 +250,7 @@ func testAPIFederatedCopyObjectRequestedChecksum(objectAPI ObjectLayer, instance
 	}{
 		{name: "CRC32", typ: hash.ChecksumCRC32, explicit: true},
 		{name: "CRC32C", typ: hash.ChecksumCRC32C, explicit: true},
+		{name: "SHA1", typ: hash.ChecksumSHA1, explicit: true},
 		{name: "SHA256", typ: hash.ChecksumSHA256, explicit: true},
 		{name: "CRC64NVME", typ: hash.ChecksumCRC64NVME, explicit: true},
 		// Default: no requested algorithm still yields the S3 CRC-64NVME.
@@ -260,6 +274,31 @@ func testAPIFederatedCopyObjectRequestedChecksum(objectAPI ObjectLayer, instance
 			assertCopyChecksum(t, objectAPI, remoteBucket, dstObject, tc.typ, data, false, nil)
 		})
 	}
+}
+
+func TestAPIFederatedCopyObjectRejectsInvalidRemoteChecksum(t *testing.T) {
+	defer DetectTestLeak(t)()
+	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{
+		t: t,
+		objAPITest: func(obj ObjectLayer, instanceType, bucket string, router http.Handler, credentials auth.Credentials, t *testing.T) {
+			data := []byte("remote checksum response fixture")
+			putCopyChecksumSource(t, router, credentials, bucket, "source", data, nil)
+			for _, value := range []string{"", "invalid-base64", "YQ=="} {
+				t.Run("checksum="+value, func(t *testing.T) {
+					remoteBucket, _, cleanup := setupCopyObjectFederation(t, obj, router, instanceType, bucket, func(header http.Header) {
+						header.Set(xhttp.AmzChecksumCRC32, value)
+					})
+					defer cleanup()
+					rec := federatedCopyRequest(t, router, credentials, bucket, "source", remoteBucket, "destination",
+						map[string]string{xhttp.AmzChecksumAlgo: "CRC32"})
+					if rec.Code < 500 {
+						t.Fatalf("invalid remote checksum must fail the copy, got %d: %s", rec.Code, rec.Body.String())
+					}
+				})
+			}
+		},
+		endpoints: []string{"CopyObject", "PutObject", "HeadObject", "GetObject"},
+	})
 }
 
 // TestAPIFederatedCopyObjectChecksumIsBoundToWrite guards the checksum

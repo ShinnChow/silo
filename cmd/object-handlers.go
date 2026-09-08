@@ -1958,15 +1958,14 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		objInfo.UserDefined = cloneMSS(opts.UserMetadata)
 		objInfo.ETag = remoteObjInfo.ETag
 		objInfo.ModTime = remoteObjInfo.LastModified
-		// Bind the checksum the remote computed for this exact write into the
-		// response, matching the local CopyObject path and the federated
-		// UploadPartCopy repair in #72. A malformed or absent remote value
-		// leaves objInfo.Checksum unset, so an ordinary copy returns none.
+		// Do not acknowledge a requested checksum the remote did not return.
 		if wantChecksumType.IsSet() {
-			if cs := hash.NewChecksumWithType(wantChecksumType,
-				federatedChecksumValue(wantChecksumType, remoteObjInfo)); cs != nil {
-				objInfo.Checksum = cs.AppendTo(nil, nil)
+			cs := hash.NewChecksumWithType(wantChecksumType, federatedChecksumValue(wantChecksumType, remoteObjInfo))
+			if cs == nil {
+				writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrInternalError), r.URL)
+				return
 			}
+			objInfo.Checksum = cs.AppendTo(nil, nil)
 		}
 	} else {
 		os = newObjSweeper(dstBucket, dstObject).WithVersioning(dstOpts.Versioned, dstOpts.VersionSuspended)
