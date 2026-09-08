@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/minio/minio/internal/logger/target/http"
 	"github.com/minio/minio/internal/logger/target/kafka"
@@ -106,7 +107,10 @@ var (
 	auditTargets = newTargetsList()
 
 	// This is always set represent /dev/console target
-	consoleTgt Target
+	consoleTgt atomic.Pointer[Target]
+
+	// Init may emit logs, so serialize registration without holding the list lock.
+	systemTargetInitMu sync.Mutex
 )
 
 // SystemTargets returns active targets.
@@ -153,6 +157,9 @@ func CurrentStats() map[string]types.TargetStats {
 // registered is a no-op, so callers may safely re-register
 // long-lived targets such as the console logger.
 func AddSystemTarget(ctx context.Context, t Target) error {
+	systemTargetInitMu.Lock()
+	defer systemTargetInitMu.Unlock()
+
 	if systemTargets.contains(t) {
 		return nil
 	}
@@ -161,10 +168,8 @@ func AddSystemTarget(ctx context.Context, t Target) error {
 		return err
 	}
 
-	if consoleTgt == nil {
-		if t.Type() == types.TargetConsole {
-			consoleTgt = t
-		}
+	if t.Type() == types.TargetConsole {
+		consoleTgt.CompareAndSwap(nil, &t)
 	}
 
 	systemTargets.addIfAbsent(t)
