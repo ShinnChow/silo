@@ -48,7 +48,7 @@ import (
 	levent "github.com/minio/minio/internal/config/lambda/event"
 	"github.com/minio/minio/internal/event"
 	"github.com/minio/minio/internal/hash"
-	"github.com/minio/pkg/v3/policy"
+	"github.com/pgsty/silo-pkg/v3/policy"
 )
 
 // APIError structure
@@ -1523,10 +1523,14 @@ var errorCodes = errorCodeMap{
 		Description:    "Your Host header is malformed.",
 		HTTPStatusCode: http.StatusBadRequest,
 	},
+	// The stored object cannot be served: a server-side data condition, not a
+	// successful partial read. Upstream maps it to http.StatusPartialContent
+	// (since ca6b4773e, 2017), which lets SDKs accept the XML error document
+	// as object content; SILO deliberately diverges and returns 500.
 	ErrObjectTampered: {
 		Code:           "XMinioObjectTampered",
 		Description:    errObjectTampered.Error(),
-		HTTPStatusCode: http.StatusPartialContent,
+		HTTPStatusCode: http.StatusInternalServerError,
 	},
 
 	ErrSiteReplicationInvalidRequest: {
@@ -2169,6 +2173,10 @@ func toAPIErrorCode(ctx context.Context, err error) (apiErr APIErrorCode) {
 	err = unwrapAll(err)
 
 	switch err {
+	case errCompleteMultipartChecksumMismatch, errCompleteMultipartChecksumTypeMismatch:
+		apiErr = ErrBadDigest
+	case errMissingPartChecksum:
+		apiErr = ErrInvalidRequest
 	case errInvalidArgument:
 		apiErr = ErrAdminInvalidArgument
 	case errNoSuchPolicy:
@@ -2465,6 +2473,14 @@ func toAPIError(ctx context.Context, err error) APIError {
 	}
 
 	apiErr := errorCodes.ToAPIErr(toAPIErrorCode(ctx, err))
+	switch {
+	case errors.Is(err, errCompleteMultipartChecksumMismatch):
+		apiErr.Description = strings.TrimPrefix(err.Error(), errCompleteMultipartChecksumMismatch.Error()+": ")
+	case errors.Is(err, errCompleteMultipartChecksumTypeMismatch):
+		apiErr.Description = strings.TrimPrefix(err.Error(), errCompleteMultipartChecksumTypeMismatch.Error()+": ")
+	case errors.Is(err, errMissingPartChecksum):
+		apiErr.Description = strings.TrimPrefix(err.Error(), errMissingPartChecksum.Error()+": ")
+	}
 	switch apiErr.Code {
 	case "NotImplemented":
 		apiErr = APIError{

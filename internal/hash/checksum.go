@@ -157,7 +157,6 @@ func ChecksumStringToType(alg string) ChecksumType {
 	case "SHA256":
 		return ChecksumSHA256
 	case "CRC64NVME":
-		// AWS seems to ignore full value, and just assume it.
 		return ChecksumCRC64NVME
 	case "":
 		return ChecksumNone
@@ -192,7 +191,9 @@ func NewChecksumType(alg, objType string) ChecksumType {
 		}
 		return ChecksumSHA256
 	case "CRC64NVME":
-		// AWS seems to ignore full value, and just assume it.
+		if objType == xhttp.AmzChecksumTypeComposite {
+			return ChecksumInvalid
+		}
 		return ChecksumCRC64NVME
 	case "":
 		if full != 0 {
@@ -247,7 +248,7 @@ func (c ChecksumType) StringFull() string {
 
 // FullObjectRequested will return if the checksum type indicates full object checksum was requested.
 func (c ChecksumType) FullObjectRequested() bool {
-	return c&(ChecksumFullObject) == ChecksumFullObject || c.Is(ChecksumCRC64NVME)
+	return c&ChecksumFullObject == ChecksumFullObject || c.Is(ChecksumCRC64NVME)
 }
 
 // IsMultipartComposite returns true if the checksum is multipart and full object was not requested.
@@ -657,22 +658,73 @@ func AddChecksumHeader(w http.ResponseWriter, c map[string]string) {
 	}
 }
 
+func isSupportedChecksumHeader(name string) bool {
+	switch {
+	case strings.EqualFold(name, xhttp.AmzChecksumAlgo),
+		strings.EqualFold(name, xhttp.AmzChecksumType),
+		strings.EqualFold(name, xhttp.AmzChecksumMode):
+		return true
+	}
+	for _, checksumType := range BaseChecksumTypes {
+		if strings.EqualFold(name, checksumType.Key()) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasUnsupportedChecksumHeader(h http.Header) bool {
+	for name := range h {
+		if strings.HasPrefix(strings.ToLower(name), "x-amz-checksum-") && !isSupportedChecksumHeader(name) {
+			return true
+		}
+	}
+	return false
+}
+
 // GetContentChecksum returns content checksum.
 // Returns ErrInvalidChecksum if so.
 // Returns nil, nil if no checksum.
 func GetContentChecksum(h http.Header) (*Checksum, error) {
+	if hasUnsupportedChecksumHeader(h) {
+		return nil, ErrInvalidChecksum
+	}
 	if trailing := h.Values(xhttp.AmzTrailer); len(trailing) > 0 {
 		var res *Checksum
-		for _, header := range trailing {
-			var duplicates bool
-			for _, t := range BaseChecksumTypes {
-				if strings.EqualFold(t.Key(), header) {
-					duplicates = res != nil
-					res = NewChecksumWithType(t|ChecksumTrailing, "")
+		for _, headers := range trailing {
+			for header := range strings.SplitSeq(headers, ",") {
+				header = strings.TrimSpace(header)
+				var duplicates bool
+				for _, t := range BaseChecksumTypes {
+					if strings.EqualFold(t.Key(), header) {
+						duplicates = res != nil
+						// A checksum can be advertised via x-amz-trailer while its
+						// value is still delivered in the request headers. The AWS
+						// Java SDK v2 does this on chunked (aws-chunked) uploads:
+						// it sends STREAMING-AWS4-HMAC-SHA256-PAYLOAD (no trailer),
+						// puts the precomputed value in x-amz-checksum-*, yet still
+						// lists it in x-amz-trailer, so no trailer ever arrives.
+						// When the value is present as a header, honor it directly
+						// instead of waiting for a trailer that will never be read.
+						if v := h.Get(t.Key()); v != "" {
+							res = NewChecksumWithType(t, v)
+							if res == nil {
+								// The value is supplied in the header but does
+								// not parse. A malformed client-supplied checksum
+								// is an error, not a reason to skip validation.
+								return nil, ErrInvalidChecksum
+							}
+						} else {
+							res = NewChecksumWithType(t|ChecksumTrailing, "")
+						}
+					}
 				}
-			}
-			if duplicates {
-				return nil, ErrInvalidChecksum
+				if strings.HasPrefix(strings.ToLower(header), "x-amz-checksum-") && !isSupportedChecksumHeader(header) {
+					return nil, ErrInvalidChecksum
+				}
+				if duplicates {
+					return nil, ErrInvalidChecksum
+				}
 			}
 		}
 		if res != nil {
@@ -682,7 +734,11 @@ func GetContentChecksum(h http.Header) (*Checksum, error) {
 					return nil, ErrInvalidChecksum
 				}
 				res.Type |= ChecksumFullObject
-			case xhttp.AmzChecksumTypeComposite, "":
+			case xhttp.AmzChecksumTypeComposite:
+				if res.Type.Base().Is(ChecksumCRC64NVME) {
+					return nil, ErrInvalidChecksum
+				}
+			case "":
 			default:
 				return nil, ErrInvalidChecksum
 			}
@@ -747,6 +803,9 @@ func getContentChecksum(h http.Header) (t ChecksumType, s string) {
 	}
 	for _, t := range BaseChecksumTypes {
 		checkType(t)
+	}
+	if t.Base().Is(ChecksumCRC64NVME) && h.Get(xhttp.AmzChecksumType) == xhttp.AmzChecksumTypeComposite {
+		return ChecksumInvalid, ""
 	}
 	return t, s
 }

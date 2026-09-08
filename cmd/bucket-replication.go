@@ -418,7 +418,12 @@ func checkReplicateDelete(ctx context.Context, bucket string, dobj ObjectToDelet
 // target cluster, the object version is marked deleted on the source and hidden from listing. It is permanently
 // deleted from the source when the VersionPurgeStatus changes to "Complete", i.e after replication succeeds
 // on target.
-func replicateDelete(ctx context.Context, dobj DeletedObjectReplicationInfo, objectAPI ObjectLayer) {
+// replicateDelete replicates a delete (delete marker or version purge) to all
+// applicable targets and returns the per-target replication outcome. Callers
+// that only trigger replication may ignore the return value; the resync path
+// uses it to classify success/failure per target rather than inferring it from
+// the mere presence or absence of the target version.
+func replicateDelete(ctx context.Context, dobj DeletedObjectReplicationInfo, objectAPI ObjectLayer) replicatedInfos {
 	var replicationStatus replication.StatusType
 	bucket := dobj.Bucket
 	versionID := dobj.DeleteMarkerVersionID
@@ -453,7 +458,7 @@ func replicateDelete(ctx context.Context, dobj DeletedObjectReplicationInfo, obj
 			Host:      globalLocalNodeName,
 			EventName: event.ObjectReplicationNotTracked,
 		})
-		return
+		return replicatedInfos{}
 	}
 	dsc, err := parseReplicateDecision(ctx, bucket, dobj.ReplicationState.ReplicateDecisionStr)
 	if err != nil {
@@ -471,7 +476,7 @@ func replicateDelete(ctx context.Context, dobj DeletedObjectReplicationInfo, obj
 			Host:      globalLocalNodeName,
 			EventName: event.ObjectReplicationNotTracked,
 		})
-		return
+		return replicatedInfos{}
 	}
 
 	// Lock the object name before starting replication operation.
@@ -492,7 +497,7 @@ func replicateDelete(ctx context.Context, dobj DeletedObjectReplicationInfo, obj
 			Host:      globalLocalNodeName,
 			EventName: event.ObjectReplicationNotTracked,
 		})
-		return
+		return replicatedInfos{}
 	}
 	ctx = lkctx.Context()
 	defer lk.Unlock(lkctx)
@@ -597,6 +602,7 @@ func replicateDelete(ctx context.Context, dobj DeletedObjectReplicationInfo, obj
 			EventName:  eventName,
 		})
 	}
+	return rinfos
 }
 
 func replicateDeleteToTarget(ctx context.Context, dobj DeletedObjectReplicationInfo, tgt *TargetClient) (rinfo replicatedTargetInfo) {
@@ -779,6 +785,15 @@ func putReplicationOpts(ctx context.Context, sc string, objInfo ObjectInfo) (put
 	meta := make(map[string]string)
 	isSSEC := crypto.SSEC.IsEncrypted(objInfo.UserDefined)
 
+	// An SSE-C object is replicated as raw ciphertext, and the replication
+	// headers carry no compression state. Sending a compressed SSE-C object
+	// would land a replica that decrypts to an S2 stream instead of the
+	// object, so fail loudly instead of writing a wrong replica.
+	if isSSEC && objInfo.IsCompressed() {
+		return putOpts, false, fmt.Errorf("replication of a compressed SSE-C object is not supported: %s/%s(%s)",
+			objInfo.Bucket, objInfo.Name, objInfo.VersionID)
+	}
+
 	for k, v := range objInfo.UserDefined {
 		_, isValidSSEHeader := validSSEReplicationHeaders[k]
 		// In case of SSE-C objects copy the allowed internal headers as well
@@ -857,19 +872,29 @@ func putReplicationOpts(ctx context.Context, sc string, objInfo ObjectInfo) (put
 	if cc, ok := lkMap.Lookup(xhttp.CacheControl); ok {
 		putOpts.CacheControl = cc
 	}
-	if mode, ok := lkMap.Lookup(xhttp.AmzObjectLockMode); ok {
-		rmode := minio.RetentionMode(mode)
-		putOpts.Mode = rmode
+	mode, hasMode := lkMap.Lookup(xhttp.AmzObjectLockMode)
+	retainDateStr, hasRetainDate := lkMap.Lookup(xhttp.AmzObjectLockRetainUntilDate)
+	if hasMode {
+		putOpts.Mode = minio.RetentionMode(mode)
 	}
-	if retainDateStr, ok := lkMap.Lookup(xhttp.AmzObjectLockRetainUntilDate); ok {
+	// A removed retention is stored as an empty or absent mode and date; it is
+	// sent as a value-less update that still carries its ordering timestamp.
+	if hasRetainDate && retainDateStr != "" {
 		rdate, err := amztime.ISO8601Parse(retainDateStr)
 		if err != nil {
 			return putOpts, false, err
 		}
 		putOpts.RetainUntilDate = rdate
-		// set retention timestamp in opts
+	}
+	retainTmstampStr, hasRetainTmstamp := objInfo.UserDefined[ReservedMetadataPrefixLower+ObjectLockRetentionTimestamp]
+	if hasMode || hasRetainDate || hasRetainTmstamp {
+		// Send the ordering timestamp whenever the version carries one, even for a
+		// removal whose value keys are absent (the shape a retransmit PUT leaves),
+		// so the next hop can order the removal instead of keeping obsolete
+		// retention.
 		retTimestamp := objInfo.ModTime
-		if retainTmstampStr, ok := objInfo.UserDefined[ReservedMetadataPrefixLower+ObjectLockRetentionTimestamp]; ok {
+		if hasRetainTmstamp {
+			var err error
 			retTimestamp, err = time.Parse(time.RFC3339Nano, retainTmstampStr)
 			if err != nil {
 				return putOpts, false, err
@@ -931,11 +956,17 @@ func equals(k1 string, keys ...string) bool {
 	return false
 }
 
+// nullVersionExcludedFromResync reports the exclusion at the head of getReplicationAction, kept
+// verbatim from upstream: an existing object resync leaves a null version alone when the source
+// modification time is later than the one the target reports, without comparing anything else.
+func nullVersionExcludedFromResync(oi1 ObjectInfo, oi2 minio.ObjectInfo, opType replication.Type) bool {
+	return opType == replication.ExistingObjectReplicationType &&
+		oi1.ModTime.Unix() > oi2.LastModified.Unix() && oi1.VersionID == nullVersionID
+}
+
 // returns replicationAction by comparing metadata between source and target
 func getReplicationAction(oi1 ObjectInfo, oi2 minio.ObjectInfo, opType replication.Type) replicationAction {
-	// Avoid resyncing null versions created prior to enabling replication if target has a newer copy
-	if opType == replication.ExistingObjectReplicationType &&
-		oi1.ModTime.Unix() > oi2.LastModified.Unix() && oi1.VersionID == nullVersionID {
+	if nullVersionExcludedFromResync(oi1, oi2, opType) {
 		return replicateNone
 	}
 	sz, _ := oi1.GetActualSize()
@@ -986,9 +1017,21 @@ func getReplicationAction(oi1 ObjectInfo, oi2 minio.ObjectInfo, opType replicati
 		"X-Amz-Meta-",
 	}
 
+	// An empty object lock mode or retain-until-date records a removed retention, but
+	// it is omitted from GET/HEAD response headers: setObjectHeaders() skips both keys
+	// when the value is empty, and FilterObjectLockMetadata() drops them when the mode
+	// is not valid. The target can therefore never report them, so treat empty and
+	// absent as equal rather than as a permanent difference.
+	emptyLockValue := func(k, v string) bool {
+		return v == "" && equals(k, xhttp.AmzObjectLockMode, xhttp.AmzObjectLockRetainUntilDate)
+	}
+
 	// compare metadata on both maps to see if meta is identical
 	compareMeta1 := make(map[string]string)
 	for k, v := range oi1.UserDefined {
+		if emptyLockValue(k, v) {
+			continue
+		}
 		var found bool
 		for _, prefix := range compareKeys {
 			if !stringsHasPrefixFold(k, prefix) {
@@ -1004,6 +1047,10 @@ func getReplicationAction(oi1 ObjectInfo, oi2 minio.ObjectInfo, opType replicati
 
 	compareMeta2 := make(map[string]string)
 	for k, v := range oi2.Metadata {
+		val := strings.Join(v, ",")
+		if emptyLockValue(k, val) {
+			continue
+		}
 		var found bool
 		for _, prefix := range compareKeys {
 			if !stringsHasPrefixFold(k, prefix) {
@@ -1013,7 +1060,7 @@ func getReplicationAction(oi1 ObjectInfo, oi2 minio.ObjectInfo, opType replicati
 			break
 		}
 		if found {
-			compareMeta2[strings.ToLower(k)] = strings.Join(v, ",")
+			compareMeta2[strings.ToLower(k)] = val
 		}
 	}
 
@@ -1024,9 +1071,87 @@ func getReplicationAction(oi1 ObjectInfo, oi2 minio.ObjectInfo, opType replicati
 	return replicateNone
 }
 
+// objectRetentionGetter is the part of the replication target client used to confirm whether a
+// destination version still holds Object Lock retention.
+type objectRetentionGetter interface {
+	GetObjectRetention(ctx context.Context, bucketName, objectName, versionID string) (*minio.RetentionMode, *time.Time, error)
+}
+
+// retentionRemovedAtSource reports whether oi carries the shape a removed retention leaves behind.
+// Two representations persist. A retention removed directly on this cluster keeps the object lock
+// keys present with empty values (PutObjectRetentionHandler, cmd/object-handlers.go:3309-3316). A
+// removal that arrived by replication keeps only the retention ordering timestamp, with the mode
+// and retain-until-date keys absent, because restoreRetention and the replica update path write
+// the timestamp alone when the mode is empty (cmd/bucket-object-lock.go:388-399,
+// cmd/object-handlers.go:1782-1797). A present ordering timestamp paired with a non-empty mode is
+// a retention that was set, not removed, and must not be mistaken for one.
+func retentionRemovedAtSource(oi ObjectInfo) bool {
+	lkMap := caseInsensitiveMap(oi.UserDefined)
+	// Representation (1): an object lock key is present with an empty value.
+	for _, k := range []string{xhttp.AmzObjectLockMode, xhttp.AmzObjectLockRetainUntilDate} {
+		if v, ok := lkMap.Lookup(k); ok && v == "" {
+			return true
+		}
+	}
+	// Representation (2): a recorded retention ordering timestamp with the mode value absent or
+	// empty is a removal restoreRetention persisted without the empty public keys.
+	if _, ok := oi.UserDefined[ReservedMetadataPrefixLower+ObjectLockRetentionTimestamp]; ok {
+		if v, ok := lkMap.Lookup(xhttp.AmzObjectLockMode); !ok || v == "" {
+			return true
+		}
+	}
+	return false
+}
+
+// targetRetentionConfirmedAbsent reports whether the destination version is known to hold no
+// retention. A HEAD response omits retention both when the version has none and when the
+// replication credential lacks s3:GetObjectRetention (cmd/object-handlers.go:942-946), so the
+// comparison in getReplicationAction on its own cannot tell a removal that is already in sync from
+// one the destination still holds. Only NoSuchObjectLockConfiguration, the answer for a version
+// that carries no retention, and a response naming no retention mode count as absent. Everything
+// else is uncertainty and is treated as still present, so that the removal is resent exactly as it
+// is today: a denied or unreachable destination, a mode the SDK returned without recognizing since
+// it does not validate it, and InvalidRequest, which names a bucket with no Object Lock
+// configuration but is also what a destination answers when its own read of that configuration
+// fails (cmd/bucket-object-lock.go:39-50 returns an error with a zero Retention, discarded at
+// cmd/object-handlers.go:3275).
+func targetRetentionConfirmedAbsent(ctx context.Context, tgt objectRetentionGetter, bucket, object, versionID string) bool {
+	mode, _, err := tgt.GetObjectRetention(ctx, bucket, object, versionID)
+	if err != nil {
+		return minio.ToErrorResponse(err).Code == "NoSuchObjectLockConfiguration"
+	}
+	// An absent or empty mode is no retention. A non-empty mode is retention, whether or not this
+	// SDK recognizes it.
+	return mode == nil || *mode == ""
+}
+
+// replicationActionForTarget returns the action for a source version against a destination that
+// answered HEAD. It is getReplicationAction plus the confirmation that a removed retention which
+// compares as in sync really is: see targetRetentionConfirmedAbsent.
+func replicationActionForTarget(ctx context.Context, oi1 ObjectInfo, oi2 minio.ObjectInfo, opType replication.Type, tgt objectRetentionGetter, bucket, object string) replicationAction {
+	rAction := getReplicationAction(oi1, oi2, opType)
+	if rAction != replicateNone || !retentionRemovedAtSource(oi1) {
+		return rAction
+	}
+	// A null version the resync deliberately leaves alone is not a comparison result, so it is
+	// not the confirmation's to reopen.
+	if nullVersionExcludedFromResync(oi1, oi2, opType) {
+		return rAction
+	}
+	if targetRetentionConfirmedAbsent(ctx, tgt, bucket, object, oi1.VersionID) {
+		return rAction
+	}
+	return replicateMetadata
+}
+
 // replicateObject replicates the specified version of the object to destination bucket
 // The source object is then updated to reflect the replication status.
-func replicateObject(ctx context.Context, ri ReplicateObjectInfo, objectAPI ObjectLayer) {
+// replicateObject replicates a single object version to all applicable targets
+// and returns the per-target replication outcome. Callers that only trigger
+// replication may ignore the return value; the resync path uses it to classify
+// success/failure per target rather than inferring it from the mere existence
+// of the target version.
+func replicateObject(ctx context.Context, ri ReplicateObjectInfo, objectAPI ObjectLayer) replicatedInfos {
 	var replicationStatus replication.StatusType
 	defer func() {
 		if replicationStatus.Empty() {
@@ -1059,7 +1184,7 @@ func replicateObject(ctx context.Context, ri ReplicateObjectInfo, objectAPI Obje
 			UserAgent:  "Internal: [Replication]",
 			Host:       globalLocalNodeName,
 		})
-		return
+		return replicatedInfos{}
 	}
 	tgtArns := cfg.FilterTargetArns(replication.ObjectOpts{
 		Name:     object,
@@ -1079,7 +1204,7 @@ func replicateObject(ctx context.Context, ri ReplicateObjectInfo, objectAPI Obje
 			Host:       globalLocalNodeName,
 		})
 		globalReplicationPool.Get().queueMRFSave(ri.ToMRFEntry())
-		return
+		return replicatedInfos{}
 	}
 	ctx = lkctx.Context()
 	defer lk.Unlock(lkctx)
@@ -1185,6 +1310,7 @@ func replicateObject(ctx context.Context, ri ReplicateObjectInfo, objectAPI Obje
 		ri.RetryCount++
 		globalReplicationPool.Get().queueMRFSave(ri.ToMRFEntry())
 	}
+	return rinfos
 }
 
 // replicateObject replicates object data for specified version of the object to destination bucket
@@ -1299,6 +1425,8 @@ func (ri ReplicateObjectInfo) replicateObject(ctx context.Context, objectAPI Obj
 
 	putOpts, isMP, err := putReplicationOpts(ctx, tgt.StorageClass, objInfo)
 	if err != nil {
+		rinfo.Err = err
+		rinfo.ReplicationStatus = replication.Failed
 		replLogIf(ctx, fmt.Errorf("failure setting options for replication bucket:%s err:%w", bucket, err))
 		sendEvent(eventArgs{
 			EventName:  event.ObjectReplicationNotTracked,
@@ -1467,7 +1595,7 @@ func (ri ReplicateObjectInfo) replicateAll(ctx context.Context, objectAPI Object
 	sOpts.Set(xhttp.AmzTagDirective, "ACCESS")
 	oi, cerr := tgt.StatObject(ctx, tgt.Bucket, object, sOpts)
 	if cerr == nil {
-		rAction = getReplicationAction(objInfo, oi, ri.OpType)
+		rAction = replicationActionForTarget(ctx, objInfo, oi, ri.OpType, tgt, tgt.Bucket, object)
 		rinfo.ReplicationStatus = replication.Completed
 		if rAction == replicateNone {
 			if ri.OpType == replication.ExistingObjectReplicationType &&
@@ -1497,11 +1625,14 @@ func (ri ReplicateObjectInfo) replicateAll(ctx context.Context, objectAPI Object
 			return rinfo
 		}
 	} else {
-		// SSEC objects will refuse HeadObject without the decryption key.
-		// Ignore the error, since we know the object exists and versioning prevents overwriting existing versions.
+		// The sender holds no customer key, so the target refuses HeadObject on
+		// an SSE-C object and the replica cannot be compared. The metadata-only
+		// CopyObject that a replicateMetadata action would run then fails on any
+		// non-empty object, because the undecryptable source checksum makes the
+		// target recompute one and rewrite the data. A full retransmit is the
+		// only action that completes.
 		if isSSEC && strings.Contains(cerr.Error(), errorCodes[ErrSSEEncryptedObject].Description) {
-			rinfo.ReplicationStatus = replication.Completed
-			rinfo.ReplicationAction = replicateNone
+			rAction = replicateAll
 			goto applyAction
 		}
 		// if target returns error other than NoSuchKey, defer replication attempt
@@ -1586,6 +1717,11 @@ applyAction:
 	} else {
 		putOpts, isMP, err := putReplicationOpts(ctx, tgt.StorageClass, objInfo)
 		if err != nil {
+			// rinfo was primed Completed above; a failure to build the write
+			// options means nothing reached the target, so mark it Failed and
+			// carry the error instead of reporting a phantom success.
+			rinfo.ReplicationStatus = replication.Failed
+			rinfo.Err = err
 			replLogIf(ctx, fmt.Errorf("failed to set replicate options for object %s/%s(%s) (target %s) err:%w", bucket, objInfo.Name, objInfo.VersionID, tgt.EndpointURL(), err))
 			sendEvent(eventArgs{
 				EventName:  event.ObjectReplicationNotTracked,
@@ -2873,6 +3009,150 @@ func (s *replicationResyncer) incStats(ts TargetReplicationResyncStatus, opts re
 	s.statusMap[opts.bucket] = m
 }
 
+// resyncResults consumes the per-object outcomes produced by the resync worker
+// pool and applies each to the in-memory resync status via apply. It centralizes
+// the finalization ordering so a status persisted after finish() returns always
+// reflects every result.
+type resyncResults struct {
+	ch    chan TargetReplicationResyncStatus
+	apply func(TargetReplicationResyncStatus)
+	wg    sync.WaitGroup
+}
+
+// newResyncResults starts the result-consuming goroutine that folds each worker
+// result into the bucket's resync status.
+func (s *replicationResyncer) newResyncResults(opts resyncOpts) *resyncResults {
+	return startResyncResults(func(r TargetReplicationResyncStatus) {
+		s.incStats(r, opts)
+		globalSiteResyncMetrics.updateMetric(r, opts.resyncID)
+	})
+}
+
+// startResyncResults starts a goroutine that applies every received result with
+// apply. Injecting the apply action keeps the shutdown ordering in finish()
+// testable.
+func startResyncResults(apply func(TargetReplicationResyncStatus)) *resyncResults {
+	rr := &resyncResults{
+		ch:    make(chan TargetReplicationResyncStatus, 1),
+		apply: apply,
+	}
+	rr.wg.Add(1)
+	go func() {
+		defer rr.wg.Done()
+		for r := range rr.ch {
+			rr.apply(r)
+		}
+	}()
+	return rr
+}
+
+// finish shuts the resync pipeline down in an order that guarantees a status
+// persisted afterwards reflects every result. It first closes the worker input
+// channels and waits for the producer workers to exit, so none can send on a
+// closed result channel (a hazard on early-return paths) and every submitted
+// result is delivered (a result a worker discards on cancellation is
+// intentionally not); only then does it close the result channel and wait for
+// the consumer to apply the last buffered result.
+func (rr *resyncResults) finish(workers []chan ReplicateObjectInfo, workerWg *sync.WaitGroup) {
+	for i := range workers {
+		xioutil.SafeClose(workers[i])
+	}
+	workerWg.Wait()
+	xioutil.SafeClose(rr.ch)
+	rr.wg.Wait()
+}
+
+// sendResyncResult delivers a worker's computed per-object result to ch,
+// returning false if the worker must stop first. On the resync-cancel signal it
+// records the abort - the already-computed result is dropped - so
+// finalResyncStatus can downgrade a Completed run; on ctx cancellation it stops
+// without recording, since finalResyncStatus's parent-context check covers that.
+func (s *replicationResyncer) sendResyncResult(ctx context.Context, ch chan<- TargetReplicationResyncStatus, st TargetReplicationResyncStatus, workerAborted *atomic.Bool) bool {
+	select {
+	case <-ctx.Done():
+		return false
+	case <-s.resyncCancelCh:
+		workerAborted.Store(true)
+		return false
+	case ch <- st:
+		return true
+	}
+}
+
+// finalResyncStatus downgrades a Completed status to Failed when the run could
+// not have observed every object: the parent context was canceled (workers then
+// return without sending their computed result) or a worker dropped a result on
+// the resync-cancel signal. Without this a persisted Completed would misrepresent
+// an incomplete resync.
+func finalResyncStatus(status ResyncStatusType, ctxErr error, workerAborted bool) ResyncStatusType {
+	if status == ResyncCompleted && (ctxErr != nil || workerAborted) {
+		return ResyncFailed
+	}
+	return status
+}
+
+// resyncTargetSucceeded reports whether this object (or delete) actually
+// replicated to the target, from the target's own outcome. A version purge
+// reports success through VersionPurgeStatus, not ReplicationStatus. For an
+// object or delete marker, success requires a Completed status; a retained
+// error is a real failure unless it is the benign duplicate 412 the
+// destination returns when it already holds this exact ETag and version, which
+// replicateAll deliberately keeps Completed.
+func resyncTargetSucceeded(t replicatedTargetInfo, roi ReplicateObjectInfo) bool {
+	if !roi.VersionPurgeStatus.Empty() {
+		return t.VersionPurgeStatus == replication.VersionPurgeComplete
+	}
+	if t.ReplicationStatus != replication.Completed {
+		return false
+	}
+	return t.Err == nil || minio.ToErrorResponse(t.Err).Code == "PreconditionFailed"
+}
+
+// resyncResultFor derives the resync outcome for target arn from the aggregate
+// replication result of a single object (or delete). The target counts as a
+// success only when its own replication Completed without error - not when the
+// target version merely exists. A target that Failed, errored, or was not
+// attempted for this object (its arn absent from the result) counts as a
+// failure, and the failed byte count is recorded (previously always zero).
+func resyncResultFor(rinfos replicatedInfos, arn string, roi ReplicateObjectInfo) TargetReplicationResyncStatus {
+	st := TargetReplicationResyncStatus{Object: roi.Name, Bucket: roi.Bucket}
+	for _, t := range rinfos.Targets {
+		if t.Arn != arn {
+			continue
+		}
+		if resyncTargetSucceeded(t, roi) {
+			sz := t.Size
+			if sz == 0 {
+				sz = roi.Size
+			}
+			st.ReplicatedCount++
+			st.ReplicatedSize += sz
+		} else {
+			st.FailedCount++
+			st.FailedSize += roi.Size
+		}
+		return st
+	}
+	// arn was not attempted for this object: a resync that cannot confirm the
+	// object reached the target is not a success.
+	st.FailedCount++
+	st.FailedSize += roi.Size
+	return st
+}
+
+// objectNeedsResyncForARN reports whether roi must be resynced for target arn
+// specifically. The resync worker pool is scoped to a single target (opts.arn),
+// so an object that only qualifies for a different target must be skipped here:
+// admitting it would replicate it for arn's peers only, leaving arn absent from
+// the per-object result, which resyncResultFor then (correctly, but
+// misleadingly) counts as a failure for arn - an object arn was never
+// responsible for. Only opts.arn carries this resync's ResetID, and that reset
+// is already folded into its per-target decision, so the per-target check both
+// scopes dispatch and honors the reset.
+func objectNeedsResyncForARN(roi ReplicateObjectInfo, arn string) bool {
+	return roi.ExistingObjResync.mustResyncTarget(arn)
+}
+
 // resyncBucket resyncs all qualifying objects as per replication rules for the target
 // ARN
 func (s *replicationResyncer) resyncBucket(ctx context.Context, objectAPI ObjectLayer, heal bool, opts resyncOpts) {
@@ -2883,7 +3163,18 @@ func (s *replicationResyncer) resyncBucket(ctx context.Context, objectAPI Object
 	}
 
 	resyncStatus := ResyncFailed
+	// workerAborted records that a worker dropped an already-computed result on
+	// the resync-cancel signal. With a canceled parent context (which makes
+	// workers return without sending their result), it means a Completed run did
+	// not actually observe every object - see finalResyncStatus below.
+	var workerAborted atomic.Bool
 	defer func() {
+		// Downgrade a Completed status whose counts are incomplete, so the
+		// persisted status is not a misleading Completed. Runs after results.finish
+		// drains (LIFO) and before markStatus persists - markStatus uses its own
+		// background context, so a parent cancellation during the drain would
+		// otherwise still record Completed.
+		resyncStatus = finalResyncStatus(resyncStatus, ctx.Err(), workerAborted.Load())
 		s.markStatus(resyncStatus, opts, objectAPI)
 		globalSiteResyncMetrics.incBucket(opts, resyncStatus)
 		s.workerCh <- struct{}{}
@@ -2939,16 +3230,14 @@ func (s *replicationResyncer) resyncBucket(ctx context.Context, objectAPI Object
 		lastCheckpoint = st.Object
 	}
 	workers := make([]chan ReplicateObjectInfo, resyncParallelRoutines)
-	resultCh := make(chan TargetReplicationResyncStatus, 1)
-	defer xioutil.SafeClose(resultCh)
-	go func() {
-		for r := range resultCh {
-			s.incStats(r, opts)
-			globalSiteResyncMetrics.updateMetric(r, opts.resyncID)
-		}
-	}()
-
 	var wg sync.WaitGroup
+	// results consumes each worker's per-object outcome and folds it into the
+	// in-memory status. finish() (deferred below) stops the workers and drains
+	// every result before the deferred markStatus persists, so a Completed status
+	// cannot race the last incStats. Registered after the markStatus finalizer, so
+	// LIFO runs finish first.
+	results := s.newResyncResults(opts)
+	defer results.finish(workers, &wg)
 	for i := range resyncParallelRoutines {
 		wg.Add(1)
 		workers[i] = make(chan ReplicateObjectInfo, 100)
@@ -2963,6 +3252,7 @@ func (s *replicationResyncer) resyncBucket(ctx context.Context, objectAPI Object
 				default:
 				}
 				traceFn := s.trace(tgt.ResetID, fmt.Sprintf("%s/%s (%s)", opts.bucket, roi.Name, roi.VersionID))
+				var rinfos replicatedInfos
 				if roi.DeleteMarker || !roi.VersionPurgeStatus.Empty() {
 					versionID := ""
 					dmVersionID := ""
@@ -2985,43 +3275,28 @@ func (s *replicationResyncer) resyncBucket(ctx context.Context, objectAPI Object
 						OpType:    replication.ExistingObjectReplicationType,
 						EventType: ReplicateExistingDelete,
 					}
-					replicateDelete(ctx, doi, objectAPI)
+					rinfos = replicateDelete(ctx, doi, objectAPI)
 				} else {
 					roi.OpType = replication.ExistingObjectReplicationType
 					roi.EventType = ReplicateExisting
-					replicateObject(ctx, roi, objectAPI)
+					rinfos = replicateObject(ctx, roi, objectAPI)
 				}
 
-				st := TargetReplicationResyncStatus{
-					Object: roi.Name,
-					Bucket: roi.Bucket,
-				}
-
-				_, err := tgt.StatObject(ctx, tgt.Bucket, roi.Name, minio.StatObjectOptions{
-					VersionID: roi.VersionID,
-					Internal: minio.AdvancedGetOptions{
-						ReplicationProxyRequest: "false",
-					},
-				})
-				sz := roi.Size
-				if err != nil {
-					if roi.DeleteMarker && isErrMethodNotAllowed(ErrorRespToObjectError(err, opts.bucket, roi.Name)) {
-						st.ReplicatedCount++
-					} else {
-						st.FailedCount++
+				// Classify success/failure from the actual replication outcome
+				// for this target, not from whether the target version merely
+				// exists (a rejected update leaves the old version in place).
+				st := resyncResultFor(rinfos, opts.arn, roi)
+				var traceSize int64
+				var traceErr error
+				for i := range rinfos.Targets {
+					if rinfos.Targets[i].Arn == opts.arn {
+						traceSize, traceErr = rinfos.Targets[i].Size, rinfos.Targets[i].Err
+						break
 					}
-					sz = 0
-				} else {
-					st.ReplicatedCount++
-					st.ReplicatedSize += roi.Size
 				}
-				traceFn(sz, err)
-				select {
-				case <-ctx.Done():
+				traceFn(traceSize, traceErr)
+				if !s.sendResyncResult(ctx, results.ch, st, &workerAborted) {
 					return
-				case <-s.resyncCancelCh:
-					return
-				case resultCh <- st:
 				}
 			}
 		}(ctx, i)
@@ -3045,7 +3320,12 @@ func (s *replicationResyncer) resyncBucket(ctx context.Context, objectAPI Object
 		}
 		lastCheckpoint = ""
 		roi := getHealReplicateObjectInfo(res.Item, rcfg)
-		if !roi.ExistingObjResync.mustResync() {
+		// Scope dispatch to this resync's target: the worker pool is for
+		// opts.arn, so skip objects that only need resync for a different
+		// target (each target has its own resync). Without this, a cross-target
+		// object leaves opts.arn absent from its per-object result and is
+		// miscounted as an opts.arn failure.
+		if !objectNeedsResyncForARN(roi, opts.arn) {
 			continue
 		}
 		select {
@@ -3058,10 +3338,6 @@ func (s *replicationResyncer) resyncBucket(ctx context.Context, objectAPI Object
 			workers[h%uint64(resyncParallelRoutines)] <- roi
 		}
 	}
-	for i := range resyncParallelRoutines {
-		xioutil.SafeClose(workers[i])
-	}
-	wg.Wait()
 	resyncStatus = ResyncCompleted
 }
 

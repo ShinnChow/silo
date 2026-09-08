@@ -29,6 +29,7 @@ import (
 	"github.com/minio/madmin-go/v3"
 	"github.com/minio/minio-go/v7/pkg/set"
 	"github.com/minio/minio-go/v7/pkg/tags"
+	"github.com/minio/minio/internal/bucket/cors"
 	bucketsse "github.com/minio/minio/internal/bucket/encryption"
 	"github.com/minio/minio/internal/bucket/lifecycle"
 	objectlock "github.com/minio/minio/internal/bucket/object/lock"
@@ -37,8 +38,8 @@ import (
 	"github.com/minio/minio/internal/event"
 	"github.com/minio/minio/internal/kms"
 	"github.com/minio/minio/internal/logger"
-	"github.com/minio/pkg/v3/policy"
-	"github.com/minio/pkg/v3/sync/errgroup"
+	"github.com/pgsty/silo-pkg/v3/policy"
+	"github.com/pgsty/silo-pkg/v3/sync/errgroup"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -50,7 +51,26 @@ type BucketMetadataSys struct {
 	initialized bool
 	group       *singleflight.Group
 	metadataMap map[string]BucketMetadata
+	// loadFailed records real buckets whose metadata has never been loaded
+	// successfully because the startup load or a refresh failed. They are
+	// absent from metadataMap even though the subsystem is initialized, and
+	// without this bit a resident-only lookup could not tell them apart from a
+	// name that is not a bucket at all. It never holds a resident bucket, is
+	// bounded by the number of failed loads, and is empty in normal operation.
+	loadFailed map[string]struct{}
 }
+
+// noteLoadFailure and clearLoadFailure maintain loadFailed; both expect the
+// caller to hold sys.Lock. A bucket that is resident keeps its last loaded
+// metadata through a failed refresh, exactly like every other bucket
+// configuration, so the set only ever holds non-resident buckets.
+func (sys *BucketMetadataSys) noteLoadFailure(bucket string) {
+	if _, resident := sys.metadataMap[bucket]; !resident {
+		sys.loadFailed[bucket] = struct{}{}
+	}
+}
+
+func (sys *BucketMetadataSys) clearLoadFailure(bucket string) { delete(sys.loadFailed, bucket) }
 
 // Count returns number of bucket metadata map entries.
 func (sys *BucketMetadataSys) Count() int {
@@ -66,6 +86,7 @@ func (sys *BucketMetadataSys) Remove(buckets ...string) {
 	for _, bucket := range buckets {
 		sys.group.Forget(bucket)
 		delete(sys.metadataMap, bucket)
+		sys.clearLoadFailure(bucket)
 		globalBucketMonitor.DeleteBucket(bucket)
 	}
 	sys.Unlock()
@@ -83,6 +104,11 @@ func (sys *BucketMetadataSys) RemoveStaleBuckets(diskBuckets set.StringSet) {
 		delete(sys.metadataMap, bucket)
 		globalBucketMonitor.DeleteBucket(bucket)
 	}
+	for bucket := range sys.loadFailed {
+		if !diskBuckets.Contains(bucket) {
+			sys.clearLoadFailure(bucket)
+		}
+	}
 }
 
 // Set - sets a new metadata in-memory.
@@ -94,11 +120,12 @@ func (sys *BucketMetadataSys) Set(bucket string, meta BucketMetadata) {
 	if !isMinioMetaBucketName(bucket) {
 		sys.Lock()
 		sys.metadataMap[bucket] = meta
+		sys.clearLoadFailure(bucket)
 		sys.Unlock()
 	}
 }
 
-func (sys *BucketMetadataSys) updateAndParse(ctx context.Context, bucket string, configFile string, configData []byte, parse bool) (updatedAt time.Time, err error) {
+func (sys *BucketMetadataSys) updateAndParse(ctx context.Context, bucket string, configFile string, configData []byte, parse, lifecycleDelete bool) (updatedAt time.Time, err error) {
 	objAPI := newObjectLayerFn()
 	if objAPI == nil {
 		return updatedAt, errServerNotInitialized
@@ -107,60 +134,78 @@ func (sys *BucketMetadataSys) updateAndParse(ctx context.Context, bucket string,
 	if isMinioMetaBucketName(bucket) {
 		return updatedAt, errInvalidArgument
 	}
-
-	meta, err := loadBucketMetadataParse(ctx, objAPI, bucket, parse)
+	notifyCtx := ctx
+	ctx, unlock, err := lockBucketMetadata(ctx, objAPI, bucket)
 	if err != nil {
-		if !globalIsErasure && !globalIsDistErasure && errors.Is(err, errVolumeNotFound) {
-			// Only single drive mode needs this fallback.
-			meta = newBucketMetadata(bucket)
-		} else {
-			return updatedAt, err
-		}
-	}
-	updatedAt = UTCNow()
-	switch configFile {
-	case bucketPolicyConfig:
-		meta.PolicyConfigJSON = configData
-		meta.PolicyConfigUpdatedAt = updatedAt
-	case bucketNotificationConfig:
-		meta.NotificationConfigXML = configData
-		meta.NotificationConfigUpdatedAt = updatedAt
-	case bucketLifecycleConfig:
-		meta.LifecycleConfigXML = configData
-		meta.LifecycleConfigUpdatedAt = updatedAt
-	case bucketSSEConfig:
-		meta.EncryptionConfigXML = configData
-		meta.EncryptionConfigUpdatedAt = updatedAt
-	case bucketTaggingConfig:
-		meta.TaggingConfigXML = configData
-		meta.TaggingConfigUpdatedAt = updatedAt
-	case bucketQuotaConfigFile:
-		meta.QuotaConfigJSON = configData
-		meta.QuotaConfigUpdatedAt = updatedAt
-	case objectLockConfig:
-		meta.ObjectLockConfigXML = configData
-		meta.ObjectLockConfigUpdatedAt = updatedAt
-	case bucketVersioningConfig:
-		meta.VersioningConfigXML = configData
-		meta.VersioningConfigUpdatedAt = updatedAt
-	case bucketReplicationConfig:
-		meta.ReplicationConfigXML = configData
-		meta.ReplicationConfigUpdatedAt = updatedAt
-	case bucketTargetsFile:
-		meta.BucketTargetsConfigJSON, meta.BucketTargetsConfigMetaJSON, err = encryptBucketMetadata(ctx, meta.Name, configData, kms.Context{
-			bucket:            meta.Name,
-			bucketTargetsFile: bucketTargetsFile,
-		})
-		if err != nil {
-			return updatedAt, fmt.Errorf("Error encrypting bucket target metadata %w", err)
-		}
-		meta.BucketTargetsConfigUpdatedAt = updatedAt
-		meta.BucketTargetsConfigMetaUpdatedAt = updatedAt
-	default:
-		return updatedAt, fmt.Errorf("Unknown bucket %s metadata update requested %s", bucket, configFile)
+		return updatedAt, err
 	}
 
-	return updatedAt, sys.save(ctx, meta)
+	err = func() error {
+		defer unlock()
+		meta, err := loadBucketMetadataParse(ctx, objAPI, bucket, parse)
+		if err != nil {
+			if !globalIsErasure && !globalIsDistErasure && errors.Is(err, errVolumeNotFound) {
+				// Only single drive mode needs this fallback.
+				meta = newBucketMetadata(bucket)
+			} else {
+				return err
+			}
+		}
+		if lifecycleDelete {
+			configData, err = lifecycleDeleteConfig(meta.LifecycleConfigXML)
+			if err != nil {
+				return err
+			}
+		}
+		updatedAt = UTCNow()
+		switch configFile {
+		case bucketPolicyConfig:
+			meta.PolicyConfigJSON = configData
+			meta.PolicyConfigUpdatedAt = updatedAt
+		case bucketNotificationConfig:
+			meta.NotificationConfigXML = configData
+			meta.NotificationConfigUpdatedAt = updatedAt
+		case bucketLifecycleConfig:
+			meta.LifecycleConfigXML = configData
+			meta.LifecycleConfigUpdatedAt = updatedAt
+		case bucketSSEConfig:
+			meta.EncryptionConfigXML = configData
+			meta.EncryptionConfigUpdatedAt = updatedAt
+		case bucketTaggingConfig:
+			meta.TaggingConfigXML = configData
+			meta.TaggingConfigUpdatedAt = updatedAt
+		case bucketQuotaConfigFile:
+			meta.QuotaConfigJSON = configData
+			meta.QuotaConfigUpdatedAt = updatedAt
+		case objectLockConfig:
+			meta.ObjectLockConfigXML = configData
+			meta.ObjectLockConfigUpdatedAt = updatedAt
+		case bucketVersioningConfig:
+			meta.VersioningConfigXML = configData
+			meta.VersioningConfigUpdatedAt = updatedAt
+		case bucketReplicationConfig:
+			meta.ReplicationConfigXML = configData
+			meta.ReplicationConfigUpdatedAt = updatedAt
+		case bucketTargetsFile:
+			meta.BucketTargetsConfigJSON, meta.BucketTargetsConfigMetaJSON, err = encryptBucketMetadata(ctx, meta.Name, configData, kms.Context{
+				bucket:            meta.Name,
+				bucketTargetsFile: bucketTargetsFile,
+			})
+			if err != nil {
+				return fmt.Errorf("Error encrypting bucket target metadata %w", err)
+			}
+			meta.BucketTargetsConfigUpdatedAt = updatedAt
+			meta.BucketTargetsConfigMetaUpdatedAt = updatedAt
+		default:
+			return fmt.Errorf("Unknown bucket %s metadata update requested %s", bucket, configFile)
+		}
+		return sys.saveMetadata(ctx, objAPI, meta)
+	}()
+	if err != nil {
+		return updatedAt, err
+	}
+	globalNotificationSys.LoadBucketMetadata(bgContext(notifyCtx), bucket) // Do not use caller context here
+	return updatedAt, nil
 }
 
 func (sys *BucketMetadataSys) save(ctx context.Context, meta BucketMetadata) error {
@@ -173,59 +218,78 @@ func (sys *BucketMetadataSys) save(ctx context.Context, meta BucketMetadata) err
 		return errInvalidArgument
 	}
 
-	if err := meta.Save(ctx, objAPI); err != nil {
+	if err := sys.saveMetadata(ctx, objAPI, meta); err != nil {
 		return err
 	}
 
-	sys.Set(meta.Name, meta)
 	globalNotificationSys.LoadBucketMetadata(bgContext(ctx), meta.Name) // Do not use caller context here
 	return nil
+}
+
+// saveMetadata persists and publishes metadata locally. Callers performing a
+// read-modify-write must hold metadata.lock and release it before peer fan-out.
+func (sys *BucketMetadataSys) saveMetadata(ctx context.Context, objAPI ObjectLayer, meta BucketMetadata) error {
+	if err := meta.Save(ctx, objAPI); err != nil {
+		return err
+	}
+	sys.Set(meta.Name, meta)
+	return nil
+}
+
+func lockBucketMetadata(ctx context.Context, objectAPI ObjectLayer, bucket string) (context.Context, func(), error) {
+	return lockBucketMetadataWithTimeout(ctx, objectAPI, bucket, globalOperationTimeout)
+}
+
+func lockBucketMetadataWithTimeout(ctx context.Context, objectAPI ObjectLayer, bucket string, timeout *dynamicTimeout) (context.Context, func(), error) {
+	lock := objectAPI.NewNSLock(minioMetaBucket, pathJoin(bucketMetaPrefix, bucket, "metadata.lock"))
+	lkctx, err := lock.GetLock(ctx, timeout)
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx = context.WithValue(lkctx.Context(), bucketMetadataLockContextKey{}, bucket)
+	return ctx, func() { lock.Unlock(lkctx) }, nil
+}
+
+type bucketMetadataLockContextKey struct{}
+
+func bucketMetadataLockHeld(ctx context.Context, bucket string) bool {
+	lockedBucket, _ := ctx.Value(bucketMetadataLockContextKey{}).(string)
+	return lockedBucket == bucket
 }
 
 // Delete delete the bucket metadata for the specified bucket.
 // must be used by all callers instead of using Update() with nil configData.
 func (sys *BucketMetadataSys) Delete(ctx context.Context, bucket string, configFile string) (updatedAt time.Time, err error) {
-	if configFile == bucketLifecycleConfig {
-		// Get bucket config from current site
-		meta, e := globalBucketMetadataSys.GetConfigFromDisk(ctx, bucket)
-		if e != nil && !errors.Is(e, errConfigNotFound) {
-			return updatedAt, e
-		}
-		var expiryRuleRemoved bool
-		if len(meta.LifecycleConfigXML) > 0 {
-			var lcCfg lifecycle.Lifecycle
-			if err := xml.Unmarshal(meta.LifecycleConfigXML, &lcCfg); err != nil {
-				return updatedAt, err
-			}
-			// find a single expiry rule set the flag
-			for _, rl := range lcCfg.Rules {
-				if !rl.Expiration.IsNull() || !rl.NoncurrentVersionExpiration.IsNull() {
-					expiryRuleRemoved = true
-					break
-				}
-			}
-		}
+	return sys.updateAndParse(ctx, bucket, configFile, nil, false, configFile == bucketLifecycleConfig)
+}
 
-		// Form empty ILM details with `ExpiryUpdatedAt` field and save
-		var cfgData []byte
-		if expiryRuleRemoved {
-			var lcCfg lifecycle.Lifecycle
-			currtime := time.Now()
-			lcCfg.ExpiryUpdatedAt = &currtime
-			cfgData, err = xml.Marshal(lcCfg)
-			if err != nil {
-				return updatedAt, err
+func lifecycleDeleteConfig(current []byte) ([]byte, error) {
+	var expiryRuleRemoved bool
+	if len(current) > 0 {
+		var lcCfg lifecycle.Lifecycle
+		if err := xml.Unmarshal(current, &lcCfg); err != nil {
+			return nil, err
+		}
+		for _, rl := range lcCfg.Rules {
+			if !rl.Expiration.IsNull() || !rl.NoncurrentVersionExpiration.IsNull() {
+				expiryRuleRemoved = true
+				break
 			}
 		}
-		return sys.updateAndParse(ctx, bucket, configFile, cfgData, false)
 	}
-	return sys.updateAndParse(ctx, bucket, configFile, nil, false)
+	if !expiryRuleRemoved {
+		return nil, nil
+	}
+	var lcCfg lifecycle.Lifecycle
+	currtime := time.Now()
+	lcCfg.ExpiryUpdatedAt = &currtime
+	return xml.Marshal(lcCfg)
 }
 
 // Update update bucket metadata for the specified bucket.
 // The configData data should not be modified after being sent here.
 func (sys *BucketMetadataSys) Update(ctx context.Context, bucket string, configFile string, configData []byte) (updatedAt time.Time, err error) {
-	return sys.updateAndParse(ctx, bucket, configFile, configData, true)
+	return sys.updateAndParse(ctx, bucket, configFile, configData, true, false)
 }
 
 // Get metadata for a bucket.
@@ -359,6 +423,57 @@ func (sys *BucketMetadataSys) GetSSEConfig(bucket string) (*bucketsse.BucketSSEC
 	return meta.sseConfig, meta.EncryptionConfigUpdatedAt, nil
 }
 
+// GetResidentCorsConfig returns the CORS configuration of a bucket whose
+// metadata is already resident in memory. It runs before authentication for
+// every Origin-bearing request with a client-supplied path segment, so it
+// never loads or caches metadata. A non-resident name gets no CORS answer
+// (errBucketMetadataNotInitialized) while startup loading is still running,
+// and afterwards when it is a real bucket whose metadata failed to load: a
+// presigned URL is authenticated on its own, so the bucket's CORS document is
+// the only origin boundary a browser enforces for it. Any other non-resident
+// name reports errConfigNotFound and the caller applies the global CORS
+// policy exactly as releases without per-bucket CORS did.
+func (sys *BucketMetadataSys) GetResidentCorsConfig(bucket string) (*cors.Config, time.Time, error) {
+	if isReservedOrInvalidBucket(bucket, true) {
+		return nil, time.Time{}, errConfigNotFound
+	}
+	sys.RLock()
+	meta, ok := sys.metadataMap[bucket]
+	_, failed := sys.loadFailed[bucket]
+	initialized := sys.initialized
+	sys.RUnlock()
+	if !ok {
+		if !initialized || failed {
+			return nil, time.Time{}, errBucketMetadataNotInitialized
+		}
+		return nil, time.Time{}, errConfigNotFound
+	}
+	if meta.corsConfigErr != nil {
+		return nil, meta.CorsConfigUpdatedAt, meta.corsConfigErr
+	}
+	if meta.corsConfig == nil {
+		return nil, time.Time{}, errConfigNotFound
+	}
+	return meta.corsConfig, meta.CorsConfigUpdatedAt, nil
+}
+
+// GetCorsConfigXML returns the raw stored CORS configuration XML for the
+// given bucket, preserving the document exactly as it was PUT (including
+// the S3 xmlns and any unmodeled elements).
+func (sys *BucketMetadataSys) GetCorsConfigXML(bucket string) ([]byte, time.Time, error) {
+	meta, _, err := sys.GetConfig(GlobalContext, bucket)
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+	if meta.corsConfigErr != nil {
+		return nil, meta.CorsConfigUpdatedAt, meta.corsConfigErr
+	}
+	if len(meta.CorsConfigXML) == 0 {
+		return nil, time.Time{}, errConfigNotFound
+	}
+	return meta.CorsConfigXML, meta.CorsConfigUpdatedAt, nil
+}
+
 // CreatedAt returns the time of creation of bucket
 func (sys *BucketMetadataSys) CreatedAt(bucket string) (time.Time, error) {
 	meta, _, err := sys.GetConfig(GlobalContext, bucket)
@@ -488,6 +603,7 @@ func (sys *BucketMetadataSys) GetConfig(ctx context.Context, bucket string) (met
 	}
 	sys.Lock()
 	sys.metadataMap[bucket] = meta
+	sys.clearLoadFailure(bucket)
 	sys.Unlock()
 
 	return meta, true, nil
@@ -539,8 +655,10 @@ func (sys *BucketMetadataSys) concurrentLoad(ctx context.Context, buckets []stri
 	sys.Lock()
 	for i, meta := range bucketMetas {
 		if errs[i] != nil {
+			sys.noteLoadFailure(buckets[i])
 			continue
 		}
+		sys.clearLoadFailure(buckets[i])
 		sys.metadataMap[buckets[i]] = meta
 	}
 	sys.Unlock()
@@ -590,6 +708,9 @@ func (sys *BucketMetadataSys) refreshBucketsMetadataLoop(ctx context.Context) {
 				meta, err := loadBucketMetadata(ctx, sys.objAPI, bucket)
 				if err != nil {
 					internalLogIf(ctx, err, logger.WarningKind)
+					sys.Lock()
+					sys.noteLoadFailure(bucket)
+					sys.Unlock()
 					wait() // wait to proceed to next entry.
 					continue
 				}
@@ -600,6 +721,7 @@ func (sys *BucketMetadataSys) refreshBucketsMetadataLoop(ctx context.Context) {
 					updated = true
 					sys.metadataMap[bucket] = meta
 				}
+				sys.clearLoadFailure(bucket)
 				sys.Unlock()
 
 				if updated {
@@ -647,6 +769,7 @@ func (sys *BucketMetadataSys) init(ctx context.Context, buckets []string) {
 func (sys *BucketMetadataSys) Reset() {
 	sys.Lock()
 	clear(sys.metadataMap)
+	clear(sys.loadFailed)
 	sys.Unlock()
 }
 
@@ -654,6 +777,7 @@ func (sys *BucketMetadataSys) Reset() {
 func NewBucketMetadataSys() *BucketMetadataSys {
 	return &BucketMetadataSys{
 		metadataMap: make(map[string]BucketMetadata),
+		loadFailed:  make(map[string]struct{}),
 		group:       &singleflight.Group{},
 	}
 }

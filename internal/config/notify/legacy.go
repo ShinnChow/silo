@@ -26,6 +26,25 @@ import (
 	"github.com/minio/minio/internal/event/target"
 )
 
+// LegacyDatabaseTargetError reports a pre-KV database notification target
+// that cannot be migrated safely. It deliberately carries no configuration
+// values so credentials cannot escape through startup logs.
+type LegacyDatabaseTargetError struct {
+	subsystem     string
+	target        string
+	connectionKey string
+	invalid       bool
+}
+
+func (e *LegacyDatabaseTargetError) Error() string {
+	if e.invalid {
+		return fmt.Sprintf("%s:%s has invalid %s or target settings; fix the target before migrating to SILO",
+			e.subsystem, e.target, e.connectionKey)
+	}
+	return fmt.Sprintf("%s:%s requires %s; discrete database connection fields are not migrated to SILO",
+		e.subsystem, e.target, e.connectionKey)
+}
+
 // SetNotifyKafka - helper for config migration from older config.
 func SetNotifyKafka(s config.Config, name string, cfg target.KafkaArgs) error {
 	if !cfg.Enable {
@@ -325,8 +344,21 @@ func SetNotifyPostgres(s config.Config, psqName string, cfg target.PostgreSQLArg
 		return nil
 	}
 
+	if cfg.ConnectionString == "" {
+		return &LegacyDatabaseTargetError{
+			subsystem:     config.NotifyPostgresSubSys,
+			target:        psqName,
+			connectionKey: target.PostgresConnectionString,
+		}
+	}
+
 	if err := cfg.Validate(); err != nil {
-		return err
+		return &LegacyDatabaseTargetError{
+			subsystem:     config.NotifyPostgresSubSys,
+			target:        psqName,
+			connectionKey: target.PostgresConnectionString,
+			invalid:       true,
+		}
 	}
 
 	s[config.NotifyPostgresSubSys][psqName] = config.KVS{
@@ -345,26 +377,6 @@ func SetNotifyPostgres(s config.Config, psqName string, cfg target.PostgreSQLArg
 		config.KV{
 			Key:   target.PostgresTable,
 			Value: cfg.Table,
-		},
-		config.KV{
-			Key:   target.PostgresHost,
-			Value: cfg.Host.String(),
-		},
-		config.KV{
-			Key:   target.PostgresPort,
-			Value: cfg.Port,
-		},
-		config.KV{
-			Key:   target.PostgresUsername,
-			Value: cfg.Username,
-		},
-		config.KV{
-			Key:   target.PostgresPassword,
-			Value: cfg.Password,
-		},
-		config.KV{
-			Key:   target.PostgresDatabase,
-			Value: cfg.Database,
 		},
 		config.KV{
 			Key:   target.PostgresQueueDir,
@@ -538,8 +550,21 @@ func SetNotifyMySQL(s config.Config, sqlName string, cfg target.MySQLArgs) error
 		return nil
 	}
 
+	if cfg.DSN == "" {
+		return &LegacyDatabaseTargetError{
+			subsystem:     config.NotifyMySQLSubSys,
+			target:        sqlName,
+			connectionKey: target.MySQLDSNString,
+		}
+	}
+
 	if err := cfg.Validate(); err != nil {
-		return err
+		return &LegacyDatabaseTargetError{
+			subsystem:     config.NotifyMySQLSubSys,
+			target:        sqlName,
+			connectionKey: target.MySQLDSNString,
+			invalid:       true,
+		}
 	}
 
 	s[config.NotifyMySQLSubSys][sqlName] = config.KVS{
@@ -558,26 +583,6 @@ func SetNotifyMySQL(s config.Config, sqlName string, cfg target.MySQLArgs) error
 		config.KV{
 			Key:   target.MySQLTable,
 			Value: cfg.Table,
-		},
-		config.KV{
-			Key:   target.MySQLHost,
-			Value: cfg.Host.String(),
-		},
-		config.KV{
-			Key:   target.MySQLPort,
-			Value: cfg.Port,
-		},
-		config.KV{
-			Key:   target.MySQLUsername,
-			Value: cfg.User,
-		},
-		config.KV{
-			Key:   target.MySQLPassword,
-			Value: cfg.Password,
-		},
-		config.KV{
-			Key:   target.MySQLDatabase,
-			Value: cfg.Database,
 		},
 		config.KV{
 			Key:   target.MySQLQueueDir,

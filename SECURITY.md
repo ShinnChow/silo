@@ -10,6 +10,25 @@ Security fixes are tracked on the active development branch and summarized in
 [docs/security/advisories.md](docs/security/advisories.md). Only the current
 Silo release line is supported unless an advisory says otherwise.
 
+## Inherited Fix Evidence
+
+The canonical ledger also records security fixes inherited from upstream when
+they are part of the Silo release baseline. Source and fork commits are linked
+separately even when the fork preserves the original commit object and SHA.
+
+- [CVE-2025-62506](https://github.com/advisories/GHSA-jjjj-jwhf-8rgr):
+  upstream [PR #21642](https://github.com/minio/minio/pull/21642) merged as
+  [`minio/minio@c1a49490`](https://github.com/minio/minio/commit/c1a49490c78e9c3ebcad86ba0662319138ace190),
+  inherited unchanged as
+  [`pgsty/silo@c1a49490`](https://github.com/pgsty/silo/commit/c1a49490c78e9c3ebcad86ba0662319138ace190),
+  and is present in every Silo community release beginning with
+  [`RELEASE.2025-12-03T12-00-00Z`](https://github.com/pgsty/silo/releases/tag/RELEASE.2025-12-03T12-00-00Z).
+  The inherited [service-account](https://github.com/pgsty/silo/blob/c1a49490c78e9c3ebcad86ba0662319138ace190/cmd/admin-handlers-users_test.go#L211-L212)
+  and [STS](https://github.com/pgsty/silo/blob/c1a49490c78e9c3ebcad86ba0662319138ace190/cmd/sts-handlers_test.go#L45-L46)
+  regression groups remain part of `go test ./cmd`; see the
+  [canonical ledger](docs/security/advisories.md#inherited-upstream-advisory-baseline)
+  for the operator-facing record.
+
 ## Reporting a Vulnerability
 
 For vulnerabilities in this fork:

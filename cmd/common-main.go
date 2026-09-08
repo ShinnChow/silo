@@ -36,6 +36,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/dustin/go-humanize"
 	fcolor "github.com/fatih/color"
@@ -57,10 +59,10 @@ import (
 	"github.com/minio/minio/internal/handlers"
 	"github.com/minio/minio/internal/kms"
 	"github.com/minio/minio/internal/logger"
-	"github.com/minio/pkg/v3/certs"
-	"github.com/minio/pkg/v3/console"
-	"github.com/minio/pkg/v3/env"
-	xnet "github.com/minio/pkg/v3/net"
+	"github.com/pgsty/silo-pkg/v3/certs"
+	"github.com/pgsty/silo-pkg/v3/console"
+	"github.com/pgsty/silo-pkg/v3/env"
+	xnet "github.com/pgsty/silo-pkg/v3/net"
 	"golang.org/x/term"
 )
 
@@ -118,15 +120,40 @@ func init() {
 
 const consolePrefix = "CONSOLE_"
 
+// consoleMinIOServerEnv derives the CONSOLE_MINIO_SERVER value the embedded
+// Console uses to reach the S3/STS API, and whether TLS verification of that
+// endpoint must be skipped. With no explicit endpoint configured the Console
+// reaches the API over the loopback address, whose TLS certificate is not
+// expected to carry a 127.0.0.1 SAN; because Console verifies outbound TLS by
+// default, the loopback origin has to be exempted or embedded login (local and
+// LDAP alike) fails at the STS handshake. The exemption is endpoint-scoped in
+// Console, so every other HTTPS peer stays verified. An explicitly configured
+// endpoint is always reached under its own verified name and is never exempted.
+func consoleMinIOServerEnv(endpoint string, isTLS bool, port string) (server string, skipVerify bool) {
+	if endpoint != "" {
+		return endpoint, false
+	}
+	return fmt.Sprintf("%s://127.0.0.1:%s", getURLScheme(isTLS), port), isTLS
+}
+
 func minioConfigToConsoleFeatures() {
 	os.Setenv("CONSOLE_PBKDF_SALT", globalDeploymentID())
 	os.Setenv("CONSOLE_PBKDF_PASSPHRASE", globalDeploymentID())
-	if globalMinioEndpoint != "" {
-		os.Setenv("CONSOLE_MINIO_SERVER", globalMinioEndpoint)
+	consoleServer, skipVerify := consoleMinIOServerEnv(globalMinioEndpoint, globalIsTLS, globalMinioPort)
+	os.Setenv("CONSOLE_MINIO_SERVER", consoleServer)
+	if skipVerify {
+		// The embedded Console reaches the loopback S3/STS endpoint above, whose
+		// certificate is not expected to carry a 127.0.0.1 SAN. Console verifies
+		// outbound TLS by default (silo-console v2.3.x), so opt into the
+		// endpoint-scoped compatibility switch to preserve the documented loopback
+		// bypass; every other HTTPS peer (IdP, Prometheus, webhooks, ...) stays
+		// verified. initConsoleServer unsets CONSOLE_* before calling this, so the
+		// switch cannot be supplied by the operator on the embedded path.
+		os.Setenv("CONSOLE_MINIO_SERVER_TLS_SKIP_VERIFY", "on")
 	} else {
-		// Explicitly set 127.0.0.1 so Console will automatically bypass TLS verification to the local S3 API.
-		// This will save users from providing a certificate with IP or FQDN SAN that points to the local host.
-		os.Setenv("CONSOLE_MINIO_SERVER", fmt.Sprintf("%s://127.0.0.1:%s", getURLScheme(globalIsTLS), globalMinioPort))
+		// An explicitly configured endpoint is reached under its own verified name;
+		// never let a loopback exemption apply to it.
+		os.Unsetenv("CONSOLE_MINIO_SERVER_TLS_SKIP_VERIFY")
 	}
 	if value := env.Get(config.EnvMinIOLogQueryURL, ""); value != "" {
 		os.Setenv("CONSOLE_LOG_QUERY_URL", value)
@@ -230,10 +257,30 @@ func buildOpenIDConsoleConfig() consoleoauth2.OpenIDPCfg {
 	return m
 }
 
-func initConsoleServer() (*consoleapi.Server, error) {
-	// unset all console_ environment variables.
+// resetConsoleEnvironment preserves the embedded Console's supported resource
+// settings verbatim. Server derives all other Console settings itself.
+func resetConsoleEnvironment() {
 	for _, cenv := range env.List(consolePrefix) {
+		switch cenv {
+		case consoleapi.ConsoleWSMaxConnections,
+			consoleapi.ConsoleWSMaxConnectionsPerClient,
+			consoleapi.ConsoleWSMaxAnonymousConnections,
+			consoleapi.ConsoleWSMaxAnonymousConnectionsPerClient:
+			continue
+		}
 		os.Unsetenv(cenv)
+	}
+}
+
+func initConsoleServer() (*consoleapi.Server, error) {
+	resetConsoleEnvironment()
+	// Validate explicitly: ConfigureAPI logs errors, but embedded Console logs
+	// are normally silenced. Return configuration failures to Server startup.
+	if err := consoleapi.ConfigureEmbeddedSourceIPTrust(); err != nil {
+		return nil, err
+	}
+	if err := consoleapi.ConfigureWebSocketLimits(); err != nil {
+		return nil, err
 	}
 
 	// enable all console environment variables
@@ -540,6 +587,30 @@ func (e envKV) String() string {
 	return fmt.Sprintf("%s=%s", e.Key, e.Value)
 }
 
+func isValidEnvName(name string) bool {
+	if name == "" || !utf8.ValidString(name) {
+		return false
+	}
+	for _, ch := range name {
+		if ch == '=' || unicode.IsSpace(ch) || !unicode.IsGraphic(ch) {
+			return false
+		}
+	}
+	return true
+}
+
+func trimExportPrefix(envEntry string) string {
+	rest, ok := strings.CutPrefix(envEntry, "export")
+	if !ok || rest == "" {
+		return envEntry
+	}
+	trimmed := strings.TrimLeftFunc(rest, unicode.IsSpace)
+	if len(trimmed) == len(rest) {
+		return envEntry
+	}
+	return trimmed
+}
+
 func parsEnvEntry(envEntry string) (envKV, error) {
 	envEntry = strings.TrimSpace(envEntry)
 	if envEntry == "" {
@@ -554,13 +625,19 @@ func parsEnvEntry(envEntry string) (envKV, error) {
 			Skip: true,
 		}, nil
 	}
-	envTokens := strings.SplitN(strings.TrimSpace(strings.TrimPrefix(envEntry, "export")), config.EnvSeparator, 2)
+	envTokens := strings.SplitN(trimExportPrefix(envEntry), config.EnvSeparator, 2)
 	if len(envTokens) != 2 {
-		return envKV{}, fmt.Errorf("envEntry malformed; %s, expected to be of form 'KEY=value'", envEntry)
+		return envKV{}, errors.New("missing '='")
 	}
 
-	key := envTokens[0]
-	val := envTokens[1]
+	key := strings.TrimSpace(envTokens[0])
+	val := strings.TrimSpace(envTokens[1])
+	if !isValidEnvName(key) {
+		return envKV{}, fmt.Errorf("invalid environment variable name %q", key)
+	}
+	if strings.IndexByte(val, 0) >= 0 {
+		return envKV{}, errors.New("environment variable value contains NUL")
+	}
 
 	// Remove quotes from the value if found
 	if len(val) >= 2 {
@@ -587,10 +664,12 @@ func minioEnvironFromFile(envConfigFile string) ([]envKV, error) {
 	defer f.Close()
 	var ekvs []envKV
 	scanner := bufio.NewScanner(f)
+	lineNo := 0
 	for scanner.Scan() {
+		lineNo++
 		ekv, err := parsEnvEntry(scanner.Text())
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%s:%d: %w", envConfigFile, lineNo, err)
 		}
 		if ekv.Skip {
 			// Skips empty lines
@@ -599,7 +678,7 @@ func minioEnvironFromFile(envConfigFile string) ([]envKV, error) {
 		ekvs = append(ekvs, ekv)
 	}
 	if err = scanner.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s: %w", envConfigFile, err)
 	}
 	return ekvs, nil
 }
@@ -666,12 +745,15 @@ func loadEnvVarsFromFiles() {
 	}
 
 	if env.IsSet(config.EnvConfigEnvFile) {
-		ekvs, err := minioEnvironFromFile(env.Get(config.EnvConfigEnvFile, ""))
+		envConfigFile := env.Get(config.EnvConfigEnvFile, "")
+		ekvs, err := minioEnvironFromFile(envConfigFile)
 		if err != nil && !os.IsNotExist(err) {
 			logger.Fatal(err, "Unable to read the config environment file")
 		}
 		for _, ekv := range ekvs {
-			os.Setenv(ekv.Key, ekv.Value)
+			if err := os.Setenv(ekv.Key, ekv.Value); err != nil {
+				logger.Fatal(err, "Unable to set %s from config environment file %s", ekv.Key, envConfigFile)
+			}
 		}
 	}
 }

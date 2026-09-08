@@ -49,8 +49,9 @@ import (
 	xhttp "github.com/minio/minio/internal/http"
 	xioutil "github.com/minio/minio/internal/ioutil"
 	"github.com/minio/minio/internal/logger"
-	"github.com/minio/pkg/v3/trie"
-	"github.com/minio/pkg/v3/wildcard"
+	"github.com/minio/sio"
+	"github.com/pgsty/silo-pkg/v3/trie"
+	"github.com/pgsty/silo-pkg/v3/wildcard"
 	"github.com/valyala/bytebufferpool"
 )
 
@@ -610,7 +611,10 @@ func excludeForCompression(header http.Header, object string, cfg compress.Confi
 		return true
 	}
 
-	if crypto.Requested(header) && !cfg.AllowEncrypted {
+	// SSE-C replication sends raw ciphertext without compression metadata.
+	// Exclude new SSE-C data from compression; other modes follow allow_encryption.
+	if crypto.SSEC.IsRequested(header) ||
+		(crypto.Requested(header) && !cfg.AllowEncrypted) {
 		return true
 	}
 
@@ -675,19 +679,35 @@ func getPartFile(entriesTrie *trie.Trie, partNumber int, etag string) (partFile 
 	return partFile
 }
 
-func partNumberToRangeSpec(oi ObjectInfo, partNumber int) *HTTPRangeSpec {
+func partNumberToRangeSpec(oi ObjectInfo, partNumber int) (*HTTPRangeSpec, error) {
 	if oi.Size == 0 || len(oi.Parts) == 0 {
-		return nil
+		return nil, nil
 	}
+
+	// For an encrypted, uncompressed object derive each part's plaintext length
+	// from the stored ciphertext length instead of trusting ActualSize: parts
+	// written before this was normalised record the ciphertext length there.
+	// The range returned here is consumed in the plaintext domain, where
+	// GetDecryptedRange and DecryptedSize both use exactly this arithmetic.
+	_, isEncrypted := crypto.IsEncrypted(oi.UserDefined)
+	deriveFromSize := isEncrypted && !oi.IsCompressed()
 
 	var start int64
 	end := int64(-1)
 	for i := 0; i < len(oi.Parts) && i < partNumber; i++ {
+		partSize := oi.Parts[i].ActualSize
+		if deriveFromSize {
+			decrypted, err := sio.DecryptedSize(uint64(oi.Parts[i].Size))
+			if err != nil {
+				return nil, errObjectTampered
+			}
+			partSize = int64(decrypted)
+		}
 		start = end + 1
-		end = start + oi.Parts[i].ActualSize - 1
+		end = start + partSize - 1
 	}
 
-	return &HTTPRangeSpec{Start: start, End: end}
+	return &HTTPRangeSpec{Start: start, End: end}, nil
 }
 
 // Returns the compressed offset which should be skipped.
@@ -806,7 +826,10 @@ func NewGetObjectReader(rs *HTTPRangeSpec, oi ObjectInfo, opts ObjectOptions, h 
 	}
 
 	if rs == nil && opts.PartNumber > 0 {
-		rs = partNumberToRangeSpec(oi, opts.PartNumber)
+		rs, err = partNumberToRangeSpec(oi, opts.PartNumber)
+		if err != nil {
+			return nil, 0, 0, err
+		}
 	}
 
 	_, isEncrypted := crypto.IsEncrypted(oi.UserDefined)
@@ -1038,9 +1061,10 @@ type SealMD5CurrFn func([]byte) []byte
 // PutObjReader is a type that wraps sio.EncryptReader and
 // underlying hash.Reader in a struct
 type PutObjReader struct {
-	*hash.Reader              // actual data stream
-	rawReader    *hash.Reader // original data stream
-	sealMD5Fn    SealMD5CurrFn
+	*hash.Reader                // actual data stream
+	rawReader      *hash.Reader // original data stream used for ETag calculation
+	checksumReader *hash.Reader // logical plaintext stream used for S3 checksum calculation
+	sealMD5Fn      SealMD5CurrFn
 }
 
 // Size returns the absolute number of bytes the Reader
@@ -1093,15 +1117,51 @@ func (p *PutObjReader) WithEncryption(encReader *hash.Reader, objEncKey *crypto.
 // NewPutObjReader returns a new PutObjReader. It uses given hash.Reader's
 // MD5Current method to construct md5sum when requested downstream.
 func NewPutObjReader(rawReader *hash.Reader) *PutObjReader {
-	return &PutObjReader{Reader: rawReader, rawReader: rawReader}
+	return &PutObjReader{Reader: rawReader, rawReader: rawReader, checksumReader: rawReader}
+}
+
+// setChecksumReader sets the logical plaintext reader used for S3 checksums.
+// It can differ from rawReader when the storage stream is compressed.
+func (p *PutObjReader) setChecksumReader(r *hash.Reader) {
+	if r != nil {
+		p.checksumReader = r
+	}
+}
+
+// contentChecksumType returns the effective client-provided or server-computed
+// checksum type for the logical plaintext stream.
+func (p *PutObjReader) contentChecksumType() hash.ChecksumType {
+	if p.checksumReader == nil {
+		return hash.ChecksumNone
+	}
+	if t := p.checksumReader.ContentCRCType(); t.IsSet() {
+		return t
+	}
+	return p.checksumReader.ServerSideChecksumType
+}
+
+// contentChecksum returns the effective checksum for part metadata. A
+// client-provided checksum takes precedence; server computation is only a
+// fallback when the client omitted one.
+func (p *PutObjReader) contentChecksum() map[string]string {
+	if p.checksumReader == nil {
+		return nil
+	}
+	if checksum := p.checksumReader.ContentCRC(); checksum != nil {
+		return checksum
+	}
+	if checksum := p.checksumReader.ServerSideChecksumResult; checksum != nil && checksum.Valid() {
+		return map[string]string{checksum.Type.String(): checksum.Encoded}
+	}
+	return nil
 }
 
 // RawServerSideChecksumResult returns the ServerSideChecksumResult from the
-// underlying rawReader, since the PutObjReader might be encrypted data and
-// thus any checksum from that would be incorrect.
+// logical plaintext checksum reader, since the PutObjReader might contain
+// compressed or encrypted data and thus any checksum from that would be incorrect.
 func (p *PutObjReader) RawServerSideChecksumResult() *hash.Checksum {
-	if p.rawReader != nil {
-		return p.rawReader.ServerSideChecksumResult
+	if p.checksumReader != nil {
+		return p.checksumReader.ServerSideChecksumResult
 	}
 	return nil
 }

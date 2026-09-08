@@ -43,6 +43,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/minio/minio/internal/auth"
 	"github.com/minio/minio/internal/crypto"
+	minhash "github.com/minio/minio/internal/hash"
 	"github.com/minio/minio/internal/hash/sha256"
 	xhttp "github.com/minio/minio/internal/http"
 	ioutilx "github.com/minio/minio/internal/ioutil"
@@ -978,7 +979,10 @@ func testAPIGetObjectWithPartNumberHandler(obj ObjectLayer, instanceType, bucket
 			t.Fatalf("Object: %s Object Index %d: Unexpected err: %v", object, oindex, err)
 		}
 
-		rs := partNumberToRangeSpec(oinfo, partNumber)
+		rs, err := partNumberToRangeSpec(oinfo, partNumber)
+		if err != nil {
+			t.Fatalf("Object: %s Object Index %d: Unexpected err: %v", object, oindex, err)
+		}
 		size, err := oinfo.GetActualSize()
 		if err != nil {
 			t.Fatalf("Object: %s Object Index %d: Unexpected err: %v", object, oindex, err)
@@ -3384,6 +3388,62 @@ func testAPICompleteMultipartHandler(obj ObjectLayer, instanceType, bucketName s
 	// execute the object layer set to `nil` test.
 	// `ExecObjectLayerAPINilTest` manages the operation.
 	ExecObjectLayerAPINilTest(t, nilBucket, nilObject, instanceType, apiRouter, nilReq)
+}
+
+// TestGenerateCompleteMultipartUploadResponseChecksumType verifies that
+// ChecksumType is populated as FULL_OBJECT/COMPOSITE when the object carries
+// a checksum, and omitted from the XML entirely when it doesn't.
+func TestGenerateCompleteMultipartUploadResponseChecksumType(t *testing.T) {
+	bucket, key := "test-bucket", "test-object"
+
+	testCases := []struct {
+		name             string
+		checksum         *minhash.Checksum
+		wantChecksumType string
+	}{
+		{
+			name:             "no checksum",
+			checksum:         nil,
+			wantChecksumType: "",
+		},
+		{
+			name:             "full object checksum",
+			checksum:         minhash.NewChecksumFromData(minhash.ChecksumCRC32, []byte("full-object-data")),
+			wantChecksumType: xhttp.AmzChecksumTypeFullObject,
+		},
+		{
+			name: "composite multipart checksum",
+			checksum: func() *minhash.Checksum {
+				c := minhash.NewChecksumFromData(minhash.ChecksumCRC32C|minhash.ChecksumMultipart, []byte("combined-part-checksums"))
+				c.WantParts = 2
+				return c
+			}(),
+			wantChecksumType: xhttp.AmzChecksumTypeComposite,
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			oi := ObjectInfo{ETag: "d41d8cd98f00b204e9800998ecf8427e"}
+			if tt.checksum != nil {
+				oi.Checksum = tt.checksum.AppendTo(nil, nil)
+			}
+
+			resp := generateCompleteMultipartUploadResponse(bucket, key, getGetObjectURL("", bucket, key), oi, nil)
+			if resp.ChecksumType != tt.wantChecksumType {
+				t.Fatalf("ChecksumType: got %q, want %q", resp.ChecksumType, tt.wantChecksumType)
+			}
+
+			encoded, err := xml.Marshal(resp)
+			if err != nil {
+				t.Fatalf("failed to marshal response: %v", err)
+			}
+			gotTag := strings.Contains(string(encoded), "<ChecksumType>")
+			if wantTag := tt.wantChecksumType != ""; gotTag != wantTag {
+				t.Fatalf("ChecksumType tag presence: got %v, want %v (xml: %s)", gotTag, wantTag, encoded)
+			}
+		})
+	}
 }
 
 // The UploadID from the response body is parsed and its existence is asserted with an attempt to ListParts using it.

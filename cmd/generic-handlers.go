@@ -33,7 +33,7 @@ import (
 	"github.com/minio/minio-go/v7/pkg/s3utils"
 	"github.com/minio/minio-go/v7/pkg/set"
 	"github.com/minio/minio/internal/grid"
-	xnet "github.com/minio/pkg/v3/net"
+	xnet "github.com/pgsty/silo-pkg/v3/net"
 
 	"github.com/minio/minio/internal/amztime"
 	"github.com/minio/minio/internal/config/dns"
@@ -476,9 +476,10 @@ func setRequestValidityMiddleware(h http.Handler) http.Handler {
 // is obtained from centralized etcd configuration service.
 func setBucketForwardingMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if origin := w.Header().Get("Access-Control-Allow-Origin"); origin == "null" {
+		if origin := w.Header().Get("Access-Control-Allow-Origin"); origin == "null" && !bucketCorsWasApplied(r) {
 			// This is a workaround change to ensure that "Origin: null"
-			// incoming request to a response back as "*" instead of "null"
+			// incoming request to a response back as "*" instead of "null".
+			// Per-bucket CORS preserves an explicitly allowed "null" origin.
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 		}
 		if globalDNSConfig == nil || !globalBucketFederation ||

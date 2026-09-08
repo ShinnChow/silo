@@ -849,6 +849,45 @@ func testListObjectsTestsForNonExistentBucket(obj ObjectLayer, instanceType stri
 	}
 }
 
+// Wrapper for calling testListObjectsShortcutsForNonExistentBucket for both
+// single-drive and multi-drive erasure setups.
+func TestListObjectsShortcutsForNonExistentBucket(t *testing.T) {
+	ExecObjectLayerTest(t, testListObjectsShortcutsForNonExistentBucket)
+}
+
+// Tests validate that storage-bypassing list shortcuts do not mask a missing
+// bucket as an empty result. The regular prefix case is a control for the
+// storage-backed listing path.
+func testListObjectsShortcutsForNonExistentBucket(obj ObjectLayer, instanceType string, t TestErrHandler) {
+	testCases := []struct {
+		name    string
+		prefix  string
+		marker  string
+		maxKeys int
+	}{
+		{name: "slash-prefixed prefix", prefix: "/", maxKeys: 1000},
+		{name: "zero limit", prefix: "obj", maxKeys: 0},
+		{name: "marker outside prefix", prefix: "a", marker: "b", maxKeys: 1000},
+		{name: "regular prefix", prefix: "foo/bar", maxKeys: 1000},
+	}
+	for _, tc := range testCases {
+		_, err := obj.ListObjects(context.Background(), "bucket", tc.prefix, tc.marker, "", tc.maxKeys)
+		if !isErrBucketNotFound(err) {
+			t.Errorf("%s: ListObjects %s: expected BucketNotFound, got %v", instanceType, tc.name, err)
+		}
+
+		_, err = obj.ListObjectsV2(context.Background(), "bucket", tc.prefix, "", "", tc.maxKeys, false, tc.marker)
+		if !isErrBucketNotFound(err) {
+			t.Errorf("%s: ListObjectsV2 %s: expected BucketNotFound, got %v", instanceType, tc.name, err)
+		}
+
+		_, err = obj.ListObjectVersions(context.Background(), "bucket", tc.prefix, tc.marker, "", "", tc.maxKeys)
+		if !isErrBucketNotFound(err) {
+			t.Errorf("%s: ListObjectVersions %s: expected BucketNotFound, got %v", instanceType, tc.name, err)
+		}
+	}
+}
+
 // Wrapper for calling testNonExistentObjectInBucket for both Erasure and FS.
 func TestNonExistentObjectInBucket(t *testing.T) {
 	ExecObjectLayerTest(t, testNonExistentObjectInBucket)

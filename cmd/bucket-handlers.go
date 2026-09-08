@@ -62,8 +62,8 @@ import (
 	"github.com/minio/minio/internal/ioutil"
 	"github.com/minio/minio/internal/kms"
 	"github.com/minio/minio/internal/logger"
-	"github.com/minio/pkg/v3/policy"
-	"github.com/minio/pkg/v3/sync/errgroup"
+	"github.com/pgsty/silo-pkg/v3/policy"
+	"github.com/pgsty/silo-pkg/v3/sync/errgroup"
 )
 
 const (
@@ -463,13 +463,20 @@ func (api objectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	// Make sure to update context to print ObjectNames for multi objects.
 	ctx = updateReqContext(ctx, objects...)
 
-	// Call checkRequestAuthType to populate ReqInfo.AccessKey before GetBucketInfo()
-	// Ignore errors here to preserve the S3 error behavior of GetBucketInfo()
-	checkRequestAuthType(ctx, r, policy.DeleteObjectAction, bucket, "")
-
 	deleteObjectsFn := objectAPI.DeleteObjects
 
-	// Return Malformed XML as S3 spec if the number of objects is empty
+	reqInfo := logger.GetReqInfo(ctx)
+	if reqInfo == nil {
+		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrAccessDenied), r.URL)
+		return
+	}
+	reqInfo.BucketName = bucket
+	reqInfo.ObjectName = ""
+	if s3Err := authenticateRequest(ctx, r, policy.DeleteObjectAction); s3Err != ErrNone {
+		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(s3Err), r.URL)
+		return
+	}
+	// Return Malformed XML as S3 spec if the number of objects is empty.
 	if len(deleteObjectsReq.Objects) == 0 || len(deleteObjectsReq.Objects) > maxDeleteList {
 		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrMalformedXML), r.URL)
 		return
@@ -499,11 +506,9 @@ func (api objectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	vc, _ := globalBucketVersioningSys.Get(bucket)
 	oss := make([]*objSweeper, len(deleteObjectsReq.Objects))
 	for index, object := range deleteObjectsReq.Objects {
-		if apiErrCode := checkRequestAuthTypeWithVID(ctx, r, policy.DeleteObjectAction, bucket, object.ObjectName, object.VersionID); apiErrCode != ErrNone {
-			if apiErrCode == ErrSignatureDoesNotMatch || apiErrCode == ErrInvalidAccessKeyID {
-				writeErrorResponse(ctx, w, errorCodes.ToAPIErr(apiErrCode), r.URL)
-				return
-			}
+		reqInfo.ObjectName = object.ObjectName
+		reqInfo.VersionID = object.VersionID
+		if apiErrCode := authorizeRequest(ctx, r, deleteObjectAction(object.VersionID)); apiErrCode != ErrNone {
 			apiErr := errorCodes.ToAPIErr(apiErrCode)
 			deleteResults[index].errInfo = DeleteError{
 				Code:      apiErr.Code,
@@ -1844,12 +1849,7 @@ func (api objectAPIHandlers) PutBucketObjectLockConfigHandler(w http.ResponseWri
 	// We encode the xml bytes as base64 to ensure there are no encoding
 	// errors.
 	cfgStr := base64.StdEncoding.EncodeToString(configData)
-	replLogIf(ctx, globalSiteReplicationSys.BucketMetaHook(ctx, madmin.SRBucketMeta{
-		Type:             madmin.SRBucketMetaTypeObjectLockConfig,
-		Bucket:           bucket,
-		ObjectLockConfig: &cfgStr,
-		UpdatedAt:        updatedAt,
-	}))
+	replLogIf(ctx, globalSiteReplicationSys.BucketMetaHook(ctx, newSRBucketObjectLockMeta(bucket, &cfgStr, updatedAt)))
 
 	// Write success response.
 	writeSuccessResponseHeadersOnly(w)

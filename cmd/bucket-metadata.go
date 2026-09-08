@@ -31,6 +31,7 @@ import (
 
 	"github.com/minio/madmin-go/v3"
 	"github.com/minio/minio-go/v7/pkg/tags"
+	"github.com/minio/minio/internal/bucket/cors"
 	bucketsse "github.com/minio/minio/internal/bucket/encryption"
 	"github.com/minio/minio/internal/bucket/lifecycle"
 	objectlock "github.com/minio/minio/internal/bucket/object/lock"
@@ -40,8 +41,8 @@ import (
 	"github.com/minio/minio/internal/event"
 	"github.com/minio/minio/internal/kms"
 	"github.com/minio/minio/internal/logger"
-	"github.com/minio/pkg/v3/policy"
 	"github.com/minio/sio"
+	"github.com/pgsty/silo-pkg/v3/policy"
 )
 
 const (
@@ -57,6 +58,9 @@ var (
 	enabledBucketObjectLockConfig = []byte(`<ObjectLockConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><ObjectLockEnabled>Enabled</ObjectLockEnabled></ObjectLockConfiguration>`)
 	enabledBucketVersioningConfig = []byte(`<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>Enabled</Status></VersioningConfiguration>`)
 )
+
+// Bucket CORS configuration file.
+const bucketCorsConfig = "cors.xml"
 
 //go:generate msgp -file $GOFILE
 
@@ -80,6 +84,7 @@ type BucketMetadata struct {
 	ReplicationConfigXML        []byte
 	BucketTargetsConfigJSON     []byte
 	BucketTargetsConfigMetaJSON []byte
+	CorsConfigXML               []byte
 
 	PolicyConfigUpdatedAt            time.Time
 	ObjectLockConfigUpdatedAt        time.Time
@@ -92,6 +97,7 @@ type BucketMetadata struct {
 	NotificationConfigUpdatedAt      time.Time
 	BucketTargetsConfigUpdatedAt     time.Time
 	BucketTargetsConfigMetaUpdatedAt time.Time
+	CorsConfigUpdatedAt              time.Time
 	// Add a new UpdatedAt field and update lastUpdate function
 
 	// Unexported fields. Must be updated atomically.
@@ -106,6 +112,8 @@ type BucketMetadata struct {
 	replicationConfig      *replication.Config
 	bucketTargetConfig     *madmin.BucketTargets
 	bucketTargetConfigMeta map[string]string
+	corsConfig             *cors.Config
+	corsConfigErr          error
 }
 
 // newBucketMetadata creates BucketMetadata with the supplied name and Created to Now.
@@ -159,6 +167,9 @@ func (b BucketMetadata) lastUpdate() (t time.Time) {
 	}
 	if b.BucketTargetsConfigMetaUpdatedAt.After(t) {
 		t = b.BucketTargetsConfigMetaUpdatedAt
+	}
+	if b.CorsConfigUpdatedAt.After(t) {
+		t = b.CorsConfigUpdatedAt
 	}
 
 	return t
@@ -238,8 +249,17 @@ func loadBucketMetadataParse(ctx context.Context, objectAPI ObjectLayer, bucket 
 		}
 
 		if len(configs) > 0 {
-			// Old bucket without bucket metadata. Hence we migrate existing settings.
-			if err = b.convertLegacyConfigs(ctx, objectAPI, configs); err != nil {
+			if !bucketMetadataLockHeld(ctx, bucket) {
+				migrated, lockErr := loadBucketMetadataParseUnderLock(ctx, objectAPI, bucket, parse)
+				if lockErr == nil {
+					return migrated, nil
+				}
+				if !errors.Is(lockErr, errBucketMetadataMigrationLockUnavailable) {
+					return b, lockErr
+				}
+				internalLogOnceIf(ctx, fmt.Errorf("unable to persist bucket metadata migration for %s, using the legacy configuration in memory: %w", bucket, lockErr), "bucket-metadata-migration-lock-"+bucket)
+				b.applyLegacyConfigs(configs)
+			} else if err = b.convertLegacyConfigs(ctx, objectAPI, configs); err != nil {
 				return b, err
 			}
 		}
@@ -251,14 +271,45 @@ func loadBucketMetadataParse(ctx context.Context, objectAPI ObjectLayer, bucket 
 			return b, err
 		}
 	}
+	if b.corsConfigErr != nil {
+		// Keep the rest of the bucket metadata available so an operator can
+		// replace or delete a CORS document accepted by an older, more lenient
+		// build. Defer unrelated metadata migration until CORS is repaired.
+		return b, nil
+	}
 
 	// migrate unencrypted remote targets
+	if len(b.BucketTargetsConfigJSON) != 0 && GlobalKMS != nil && len(b.BucketTargetsConfigMetaJSON) == 0 && !bucketMetadataLockHeld(ctx, bucket) {
+		migrated, lockErr := loadBucketMetadataParseUnderLock(ctx, objectAPI, bucket, parse)
+		if lockErr == nil {
+			return migrated, nil
+		}
+		if !errors.Is(lockErr, errBucketMetadataMigrationLockUnavailable) {
+			return b, lockErr
+		}
+		internalLogOnceIf(ctx, fmt.Errorf("unable to persist encrypted bucket target metadata for %s, using the existing configuration in memory: %w", bucket, lockErr), "bucket-metadata-migration-lock-"+bucket)
+		return b, nil
+	}
 	if err = b.migrateTargetConfig(ctx, objectAPI); err != nil {
 		return b, err
 	}
 
 	return b, nil
 }
+
+func loadBucketMetadataParseUnderLock(ctx context.Context, objectAPI ObjectLayer, bucket string, parse bool) (BucketMetadata, error) {
+	ctx, unlock, err := lockBucketMetadataWithTimeout(ctx, objectAPI, bucket, bucketMetadataMigrationTimeout)
+	if err != nil {
+		return newBucketMetadata(bucket), fmt.Errorf("%w: %v", errBucketMetadataMigrationLockUnavailable, err)
+	}
+	defer unlock()
+	return loadBucketMetadataParse(ctx, objectAPI, bucket, parse)
+}
+
+var (
+	bucketMetadataMigrationTimeout            = newDynamicTimeout(5*time.Second, time.Second)
+	errBucketMetadataMigrationLockUnavailable = errors.New("bucket metadata migration lock unavailable")
+)
 
 // loadBucketMetadata loads and migrates to bucket metadata.
 func loadBucketMetadata(ctx context.Context, objectAPI ObjectLayer, bucket string) (BucketMetadata, error) {
@@ -310,8 +361,20 @@ func (b *BucketMetadata) parseAllConfigs(ctx context.Context, objectAPI ObjectLa
 		b.taggingConfig = nil
 	}
 
-	if bytes.Equal(b.ObjectLockConfigXML, enabledBucketObjectLockConfig) {
-		b.VersioningConfigXML = enabledBucketVersioningConfig
+	b.corsConfigErr = nil
+	if len(b.CorsConfigXML) != 0 {
+		cfg, corsErr := cors.ParseBucketCorsConfig(bytes.NewReader(b.CorsConfigXML))
+		if corsErr == nil {
+			corsErr = cfg.Validate()
+		}
+		if corsErr != nil {
+			b.corsConfig = nil
+			b.corsConfigErr = fmt.Errorf("invalid bucket CORS configuration: %w", corsErr)
+		} else {
+			b.corsConfig = cfg
+		}
+	} else {
+		b.corsConfig = nil
 	}
 
 	if len(b.ObjectLockConfigXML) != 0 {
@@ -321,6 +384,15 @@ func (b *BucketMetadata) parseAllConfigs(ctx context.Context, objectAPI ObjectLa
 		}
 	} else {
 		b.objectLockConfig = nil
+	}
+	if b.objectLockConfig != nil {
+		// Object Lock requires every object to be versioned. Whatever the lock
+		// document contains, a suspended or prefix-excluded versioning document
+		// is replaced by plain Enabled versioning; Save persists the result.
+		config, versioningErr := versioning.ParseConfig(bytes.NewReader(b.VersioningConfigXML))
+		if versioningErr != nil || !config.Enabled() || config.PrefixesExcluded() {
+			b.VersioningConfigXML = enabledBucketVersioningConfig
+		}
 	}
 
 	if len(b.VersioningConfigXML) != 0 {
@@ -404,7 +476,7 @@ func (b *BucketMetadata) getAllLegacyConfigs(ctx context.Context, objectAPI Obje
 	return configs, nil
 }
 
-func (b *BucketMetadata) convertLegacyConfigs(ctx context.Context, objectAPI ObjectLayer, configs map[string][]byte) error {
+func (b *BucketMetadata) applyLegacyConfigs(configs map[string][]byte) {
 	for legacyFile, configData := range configs {
 		switch legacyFile {
 		case legacyBucketObjectLockEnabledConfigFile:
@@ -436,6 +508,10 @@ func (b *BucketMetadata) convertLegacyConfigs(ctx context.Context, objectAPI Obj
 		}
 	}
 	b.defaultTimestamps()
+}
+
+func (b *BucketMetadata) convertLegacyConfigs(ctx context.Context, objectAPI ObjectLayer, configs map[string][]byte) error {
+	b.applyLegacyConfigs(configs)
 
 	if err := b.Save(ctx, objectAPI); err != nil {
 		return err
@@ -502,6 +578,9 @@ func (b *BucketMetadata) defaultTimestamps() {
 func (b *BucketMetadata) Save(ctx context.Context, api ObjectLayer) error {
 	if err := b.parseAllConfigs(ctx, api); err != nil {
 		return err
+	}
+	if b.corsConfigErr != nil {
+		return b.corsConfigErr
 	}
 
 	data := make([]byte, 4, b.Msgsize()+4)

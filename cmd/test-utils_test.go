@@ -66,7 +66,7 @@ import (
 	"github.com/minio/minio/internal/hash"
 	"github.com/minio/minio/internal/logger"
 	"github.com/minio/mux"
-	"github.com/minio/pkg/v3/policy"
+	"github.com/pgsty/silo-pkg/v3/policy"
 )
 
 // TestMain to set up global env.
@@ -1373,6 +1373,11 @@ func getBucketLifecycleURL(endPoint, bucketName string) (ret string) {
 	return makeTestTargetURL(endPoint, bucketName, "", queryValue)
 }
 
+// return URL for set/get/delete cors of the bucket.
+func getBucketCorsURL(endPoint, bucketName string) string {
+	return makeTestTargetURL(endPoint, bucketName, "", url.Values{"cors": []string{""}})
+}
+
 // return URL for listing objects in the bucket with V1 legacy API.
 func getListObjectsV1URL(endPoint, bucketName, prefix, maxKeys, encodingType string) string {
 	queryValue := url.Values{}
@@ -2052,6 +2057,15 @@ func registerBucketLevelFunc(bucket *mux.Router, api objectAPIHandlers, apiFunct
 		case "ListenNotification":
 			// Register ListenNotification Handler.
 			bucket.Methods(http.MethodGet).HandlerFunc(api.ListenNotificationHandler).Queries("events", "{events:.*}")
+		case "PutBucketCors":
+			// Register PutBucketCors handler.
+			bucket.Methods(http.MethodPut).HandlerFunc(api.PutBucketCorsHandler).Queries("cors", "")
+		case "GetBucketCors":
+			// Register GetBucketCors handler.
+			bucket.Methods(http.MethodGet).HandlerFunc(api.GetBucketCorsHandler).Queries("cors", "")
+		case "DeleteBucketCors":
+			// Register DeleteBucketCors handler.
+			bucket.Methods(http.MethodDelete).HandlerFunc(api.DeleteBucketCorsHandler).Queries("cors", "")
 		}
 	}
 }

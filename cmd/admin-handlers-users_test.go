@@ -40,12 +40,53 @@ import (
 	"github.com/minio/minio-go/v7/pkg/set"
 	"github.com/minio/minio-go/v7/pkg/signer"
 	"github.com/minio/minio/internal/auth"
-	"github.com/minio/pkg/v3/env"
+	"github.com/pgsty/silo-pkg/v3/env"
+	"github.com/pgsty/silo-pkg/v3/policy"
 )
 
 const (
 	testDefaultTimeout = 30 * time.Second
 )
+
+func TestSetUserStatusAdminAction(t *testing.T) {
+	tests := []struct {
+		name   string
+		status string
+		want   policy.AdminAction
+	}{
+		{name: "enable", status: string(madmin.AccountEnabled), want: policy.EnableUserAdminAction},
+		{name: "disable", status: string(madmin.AccountDisabled), want: policy.DisableUserAdminAction},
+		{name: "invalid preserves authenticated default", status: "invalid", want: policy.EnableUserAdminAction},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := setUserStatusAdminAction(tt.status); got != tt.want {
+				t.Fatalf("setUserStatusAdminAction(%q) = %q, want %q", tt.status, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSetGroupStatusAdminAction(t *testing.T) {
+	tests := []struct {
+		name   string
+		status string
+		want   policy.AdminAction
+	}{
+		{name: "enable", status: string(madmin.GroupEnabled), want: policy.EnableGroupAdminAction},
+		{name: "disable", status: string(madmin.GroupDisabled), want: policy.DisableGroupAdminAction},
+		{name: "invalid preserves authenticated default", status: "invalid", want: policy.EnableGroupAdminAction},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := setGroupStatusAdminAction(tt.status); got != tt.want {
+				t.Fatalf("setGroupStatusAdminAction(%q) = %q, want %q", tt.status, got, tt.want)
+			}
+		})
+	}
+}
 
 // API suite container for IAM
 type TestSuiteIAM struct {
@@ -202,8 +243,11 @@ func TestIAMInternalIDPServerSuite(t *testing.T) {
 
 				suite.SetUpSuite(c)
 				suite.TestUserCreate(c)
+				suite.TestUserStatusActionAuthorization(c)
+				suite.TestGroupStatusActionAuthorization(c)
 				suite.TestUserPolicyEscalationBug(c)
 				suite.TestPolicyCreate(c)
+				suite.TestServiceAccountBareARNPolicyRejected(c)
 				suite.TestCannedPolicies(c)
 				suite.TestGroupAddRemove(c)
 				suite.TestServiceAccountOpsByAdmin(c)
@@ -309,6 +353,184 @@ func (s *TestSuiteIAM) TestUserCreate(c *check) {
 	err = client.MakeBucket(ctx, getRandomBucketName(), minio.MakeBucketOptions{})
 	if err == nil {
 		c.Fatalf("user account was not deleted!")
+	}
+}
+
+func (s *TestSuiteIAM) TestUserStatusActionAuthorization(c *check) {
+	ctx, cancel := context.WithTimeout(context.Background(), testDefaultTimeout)
+	defer cancel()
+
+	var createdUsers []string
+	var createdPolicies []string
+	defer func() {
+		for _, user := range createdUsers {
+			if err := s.adm.RemoveUser(ctx, user); err != nil {
+				c.Errorf("unable to remove test user %s: %v", user, err)
+			}
+		}
+		for _, policyName := range createdPolicies {
+			if err := s.adm.RemoveCannedPolicy(ctx, policyName); err != nil {
+				c.Errorf("unable to remove test policy %s: %v", policyName, err)
+			}
+		}
+	}()
+
+	createUser := func() (string, string) {
+		accessKey, secretKey := mustGenerateCredentials(c)
+		if err := s.adm.SetUser(ctx, accessKey, secretKey, madmin.AccountEnabled); err != nil {
+			c.Fatalf("unable to create test user: %v", err)
+		}
+		createdUsers = append(createdUsers, accessKey)
+		return accessKey, secretKey
+	}
+
+	createStatusClient := func(action policy.AdminAction) *madmin.AdminClient {
+		accessKey, secretKey := createUser()
+		policyName := getRandomBucketName()
+		policyBytes := fmt.Appendf(nil, `{
+ "Version": "2012-10-17",
+ "Statement": [{
+  "Effect": "Allow",
+  "Action": ["%s"]
+ }]
+}`, action)
+		if err := s.adm.AddCannedPolicy(ctx, policyName, policyBytes); err != nil {
+			c.Fatalf("unable to add status policy: %v", err)
+		}
+		createdPolicies = append(createdPolicies, policyName)
+		if _, err := s.adm.AttachPolicy(ctx, madmin.PolicyAssociationReq{
+			Policies: []string{policyName},
+			User:     accessKey,
+		}); err != nil {
+			c.Fatalf("unable to attach status policy: %v", err)
+		}
+
+		client, err := madmin.NewWithOptions(s.endpoint, &madmin.Options{
+			Creds:  credentials.NewStaticV4(accessKey, secretKey, ""),
+			Secure: s.secure,
+		})
+		if err != nil {
+			c.Fatalf("unable to create status admin client: %v", err)
+		}
+		client.SetCustomTransport(s.TestSuiteCommon.client.Transport)
+		return client
+	}
+
+	targetAccessKey, _ := createUser()
+	disableClient := createStatusClient(policy.DisableUserAdminAction)
+	if err := disableClient.SetUserStatus(ctx, targetAccessKey, madmin.AccountDisabled); err != nil {
+		c.Fatalf("DisableUser-only client could not disable a user: %v", err)
+	}
+	if err := disableClient.SetUserStatus(ctx, targetAccessKey, madmin.AccountEnabled); err == nil || madmin.ToErrorResponse(err).Code != "AccessDenied" {
+		c.Fatalf("DisableUser-only client unexpectedly enabled a user: %v", err)
+	}
+
+	enableClient := createStatusClient(policy.EnableUserAdminAction)
+	if err := enableClient.SetUserStatus(ctx, targetAccessKey, madmin.AccountEnabled); err != nil {
+		c.Fatalf("EnableUser-only client could not enable a user: %v", err)
+	}
+	if err := enableClient.SetUserStatus(ctx, targetAccessKey, madmin.AccountDisabled); err == nil || madmin.ToErrorResponse(err).Code != "AccessDenied" {
+		c.Fatalf("EnableUser-only client unexpectedly disabled a user: %v", err)
+	}
+}
+
+func (s *TestSuiteIAM) TestGroupStatusActionAuthorization(c *check) {
+	ctx, cancel := context.WithTimeout(context.Background(), testDefaultTimeout)
+	defer cancel()
+
+	var createdUsers []string
+	var createdPolicies []string
+	group := getRandomBucketName()
+	var groupCreated bool
+	defer func() {
+		if groupCreated {
+			if err := s.adm.UpdateGroupMembers(ctx, madmin.GroupAddRemove{
+				Group:    group,
+				Members:  createdUsers[:1],
+				IsRemove: true,
+			}); err != nil {
+				c.Errorf("unable to remove group member: %v", err)
+			}
+			if err := s.adm.UpdateGroupMembers(ctx, madmin.GroupAddRemove{Group: group, IsRemove: true}); err != nil {
+				c.Errorf("unable to remove test group: %v", err)
+			}
+		}
+		for _, user := range createdUsers {
+			if err := s.adm.RemoveUser(ctx, user); err != nil {
+				c.Errorf("unable to remove test user %s: %v", user, err)
+			}
+		}
+		for _, policyName := range createdPolicies {
+			if err := s.adm.RemoveCannedPolicy(ctx, policyName); err != nil {
+				c.Errorf("unable to remove test policy %s: %v", policyName, err)
+			}
+		}
+	}()
+
+	createUser := func() (string, string) {
+		accessKey, secretKey := mustGenerateCredentials(c)
+		if err := s.adm.SetUser(ctx, accessKey, secretKey, madmin.AccountEnabled); err != nil {
+			c.Fatalf("unable to create test user: %v", err)
+		}
+		createdUsers = append(createdUsers, accessKey)
+		return accessKey, secretKey
+	}
+
+	targetAccessKey, _ := createUser()
+	if err := s.adm.UpdateGroupMembers(ctx, madmin.GroupAddRemove{
+		Group:   group,
+		Members: []string{targetAccessKey},
+	}); err != nil {
+		c.Fatalf("unable to create test group: %v", err)
+	}
+	groupCreated = true
+
+	createStatusClient := func(action policy.AdminAction) *madmin.AdminClient {
+		accessKey, secretKey := createUser()
+		policyName := getRandomBucketName()
+		policyBytes := fmt.Appendf(nil, `{
+ "Version": "2012-10-17",
+ "Statement": [{
+  "Effect": "Allow",
+  "Action": ["%s"]
+ }]
+}`, action)
+		if err := s.adm.AddCannedPolicy(ctx, policyName, policyBytes); err != nil {
+			c.Fatalf("unable to add group status policy: %v", err)
+		}
+		createdPolicies = append(createdPolicies, policyName)
+		if _, err := s.adm.AttachPolicy(ctx, madmin.PolicyAssociationReq{
+			Policies: []string{policyName},
+			User:     accessKey,
+		}); err != nil {
+			c.Fatalf("unable to attach group status policy: %v", err)
+		}
+
+		client, err := madmin.NewWithOptions(s.endpoint, &madmin.Options{
+			Creds:  credentials.NewStaticV4(accessKey, secretKey, ""),
+			Secure: s.secure,
+		})
+		if err != nil {
+			c.Fatalf("unable to create group status admin client: %v", err)
+		}
+		client.SetCustomTransport(s.TestSuiteCommon.client.Transport)
+		return client
+	}
+
+	disableClient := createStatusClient(policy.DisableGroupAdminAction)
+	if err := disableClient.SetGroupStatus(ctx, group, madmin.GroupDisabled); err != nil {
+		c.Fatalf("DisableGroup-only client could not disable a group: %v", err)
+	}
+	if err := disableClient.SetGroupStatus(ctx, group, madmin.GroupEnabled); err == nil || madmin.ToErrorResponse(err).Code != "AccessDenied" {
+		c.Fatalf("DisableGroup-only client unexpectedly enabled a group: %v", err)
+	}
+
+	enableClient := createStatusClient(policy.EnableGroupAdminAction)
+	if err := enableClient.SetGroupStatus(ctx, group, madmin.GroupEnabled); err != nil {
+		c.Fatalf("EnableGroup-only client could not enable a group: %v", err)
+	}
+	if err := enableClient.SetGroupStatus(ctx, group, madmin.GroupDisabled); err == nil || madmin.ToErrorResponse(err).Code != "AccessDenied" {
+		c.Fatalf("EnableGroup-only client unexpectedly disabled a group: %v", err)
 	}
 }
 
@@ -600,6 +822,20 @@ func (s *TestSuiteIAM) TestPolicyCreate(c *check) {
 		c.Fatalf("invalid policy creation success")
 	}
 
+	for i, resource := range []string{"arn:aws:s3:::", "*arn:aws:s3:::"} {
+		barePolicyBytes := fmt.Appendf(nil, `{
+ "Version": "2012-10-17",
+ "Statement": [{
+  "Effect": "Deny",
+  "Action": ["s3:GetObject"],
+  "Resource": ["%s"]
+ }]
+}`, resource)
+		if err = s.adm.AddCannedPolicy(ctx, fmt.Sprintf("%s-bare-%d", policy, i), barePolicyBytes); err == nil {
+			c.Fatalf("bare ARN policy creation succeeded for %q", resource)
+		}
+	}
+
 	// 3. Create a user, associate policy and verify access
 	accessKey, secretKey := mustGenerateCredentials(c)
 	err = s.adm.SetUser(ctx, accessKey, secretKey, madmin.AccountEnabled)
@@ -650,6 +886,51 @@ func (s *TestSuiteIAM) TestPolicyCreate(c *check) {
 	err = s.adm.RemoveCannedPolicy(ctx, policy)
 	if err != nil {
 		c.Fatalf("policy del err: %v", err)
+	}
+}
+
+func (s *TestSuiteIAM) TestServiceAccountBareARNPolicyRejected(c *check) {
+	ctx, cancel := context.WithTimeout(context.Background(), testDefaultTimeout)
+	defer cancel()
+
+	barePolicy := []byte(`{
+ "Version": "2012-10-17",
+ "Statement": [{
+  "Effect": "Allow",
+  "Action": ["s3:GetObject"],
+  "NotResource": ["arn:aws:s3:::"]
+ }]
+}`)
+	if _, err := s.adm.AddServiceAccount(ctx, madmin.AddServiceAccountReq{
+		TargetUser: globalActiveCred.AccessKey,
+		Policy:     barePolicy,
+	}); err == nil {
+		c.Fatal("service account creation accepted a bare ARN policy")
+	}
+
+	validPolicy := []byte(`{
+ "Version": "2012-10-17",
+ "Statement": [{
+  "Effect": "Allow",
+  "Action": ["s3:GetObject"],
+  "Resource": ["arn:aws:s3:::*"]
+ }]
+}`)
+	credentials, err := s.adm.AddServiceAccount(ctx, madmin.AddServiceAccountReq{
+		TargetUser: globalActiveCred.AccessKey,
+		Policy:     validPolicy,
+	})
+	if err != nil {
+		c.Fatalf("service account creation rejected an explicit resource: %v", err)
+	}
+	defer func() {
+		_ = s.adm.DeleteServiceAccount(ctx, credentials.AccessKey)
+	}()
+
+	if err = s.adm.UpdateServiceAccount(ctx, credentials.AccessKey, madmin.UpdateServiceAccountReq{
+		NewPolicy: barePolicy,
+	}); err == nil {
+		c.Fatal("service account update accepted a bare ARN policy")
 	}
 }
 

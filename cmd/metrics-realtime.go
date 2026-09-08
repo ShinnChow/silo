@@ -191,7 +191,9 @@ func collectLocalDisksMetrics(disks map[string]struct{}) map[string]madmin.DiskM
 			}
 		}
 
+		//nolint:staticcheck // Linux implementations can fail; BSD stubs return a constant nil error.
 		st, err := disk.GetDriveStats(d.Major, d.Minor)
+		//nolint:staticcheck // Keep the shared cross-platform error handling.
 		if err == nil {
 			dm.IOStats = madmin.DiskIOStats{
 				ReadIOs:        st.ReadIOs,

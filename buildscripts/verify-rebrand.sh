@@ -159,11 +159,13 @@ fi
 # The repository and its default branch are pgsty/silo and main. The invariant
 # is that the old name is never a live target, not that it is never spoken: the
 # READMEs have to name it to explain the rename and to point at the archived
-# artifacts, which is the opposite of stranding a reader on it.
+# artifacts, which is the opposite of stranding a reader on it. CONTRIBUTORS.md
+# also quotes historical issue titles.
 #
 # So two rules. First, no live URL may resolve to the old repository anywhere,
-# READMEs included.
-stale_repo_url="$(rg -n -e 'github\.com/pgsty/minio' -e 'hub\.docker\.com/r/pgsty/minio' \
+# READMEs and CONTRIBUTORS.md included.
+old_repo_pattern='pgsty/minio(\.git)?([^[:alnum:]_.-]|$)'
+stale_repo_url="$(rg -n -e "github\.com/${old_repo_pattern}" -e "hub\.docker\.com/r/${old_repo_pattern}" \
 	--glob '!.git/**' --glob '!dist/**' \
 	--glob '!SILO_REBRANDING_MIGRATION.md' \
 	--glob '!buildscripts/rebrand-guard/compat-baseline.json' . |
@@ -175,10 +177,10 @@ fi
 
 # Second, the bare name may only appear where it is deliberate: the pinned
 # pre-rebrand image digest in the upgrade test, the two guards that refuse a
-# legacy image, and the two READMEs that document the rename and the archived
-# minio branch.
-repo_guard_allowlist='^(buildscripts/minio-upgrade\.sh|buildscripts/verify-rebrand\.sh|buildscripts/helm-migration-guard/main\.go|README\.md|README_ZH\.md):'
-stale_repo="$(rg -n 'pgsty/minio' --glob '!.git/**' --glob '!dist/**' \
+# legacy image, the two READMEs that document the rename and the archived
+# minio branch, and historical issue titles in CONTRIBUTORS.md.
+repo_guard_allowlist='^(buildscripts/minio-upgrade\.sh|buildscripts/verify-rebrand\.sh|buildscripts/helm-migration-guard/main\.go|README\.md|README_ZH\.md|CONTRIBUTORS\.md):'
+stale_repo="$(rg -n "${old_repo_pattern}" --glob '!.git/**' --glob '!dist/**' \
 	--glob '!SILO_REBRANDING_MIGRATION.md' \
 	--glob '!buildscripts/rebrand-guard/compat-baseline.json' . |
 	sed 's#^\./##' | grep -Ev "${repo_guard_allowlist}" || true)"

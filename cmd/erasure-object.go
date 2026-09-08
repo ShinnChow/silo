@@ -49,9 +49,9 @@ import (
 	xhttp "github.com/minio/minio/internal/http"
 	xioutil "github.com/minio/minio/internal/ioutil"
 	"github.com/minio/minio/internal/logger"
-	"github.com/minio/pkg/v3/mimedb"
-	"github.com/minio/pkg/v3/sync/errgroup"
 	"github.com/minio/sio"
+	"github.com/pgsty/silo-pkg/v3/mimedb"
+	"github.com/pgsty/silo-pkg/v3/sync/errgroup"
 )
 
 // list all errors which can be ignored in object operations.
@@ -266,9 +266,19 @@ func (er erasureObjects) GetObjectNInfo(ctx context.Context, bucket, object stri
 				ObjInfo: objInfo,
 			}, err
 		}
-
 		// Zero byte objects don't even need to further initialize pipes etc.
-		return NewGetObjectReaderFromReader(bytes.NewReader(nil), objInfo, opts)
+		gr, err = NewGetObjectReaderFromReader(bytes.NewReader(nil), objInfo, opts)
+		if err != nil {
+			return gr, err
+		}
+		// With no data, the reader above cannot authenticate an SSE-C key the
+		// way NewGetObjectReader does. Check it after the preconditions so zero
+		// and non-zero reads preserve the same error ordering.
+		if err := checkSSECReadKey(h, objInfo, opts); err != nil {
+			gr.Close()
+			return nil, err
+		}
+		return gr, nil
 	}
 
 	if objInfo.IsRemote() {
@@ -1258,7 +1268,7 @@ func (er erasureObjects) putObject(ctx context.Context, bucket string, object st
 
 	data := r.Reader
 
-	if opts.CheckPrecondFn != nil {
+	if opts.CheckPrecondFn != nil || opts.ReplicaLockReconcile {
 		if !opts.NoLock {
 			ns := er.NewNSLock(bucket, object)
 			lkctx, err := ns.GetLock(ctx, globalOperationTimeout)
@@ -1271,17 +1281,33 @@ func (er erasureObjects) putObject(ctx context.Context, bucket string, object st
 		}
 
 		obj, err := er.getObjectInfo(ctx, bucket, object, opts)
-		if err == nil && opts.CheckPrecondFn(obj) {
-			return objInfo, PreConditionFailed{}
-		}
+		// A destination read that fails for a reason other than not-found must not
+		// be taken as a passed precondition or as absent lock state.
 		if err != nil && !isErrVersionNotFound(err) && !isErrObjectNotFound(err) {
 			return objInfo, err
 		}
+		if opts.CheckPrecondFn != nil {
+			if err == nil && opts.CheckPrecondFn(obj) {
+				return objInfo, PreConditionFailed{}
+			}
+			// if object doesn't exist return error for If-Match conditional requests
+			// If-None-Match should be allowed to proceed for non-existent objects
+			if err != nil && opts.HasIfMatch && (isErrObjectNotFound(err) || isErrVersionNotFound(err)) {
+				return objInfo, err
+			}
+		}
 
-		// if object doesn't exist return error for If-Match conditional requests
-		// If-None-Match should be allowed to proceed for non-existent objects
-		if err != nil && opts.HasIfMatch && (isErrObjectNotFound(err) || isErrVersionNotFound(err)) {
-			return objInfo, err
+		// Order this trusted SSE-C replica's Object Lock against the addressed
+		// version's stored state, read on this erasure set under the write lock,
+		// so a value that lost the ordering cannot overwrite a newer one committed
+		// after the handler decided (issue #120). Only reconcile against an
+		// existing version; on not-found the write's own accepted lock is kept.
+		//
+		// Scope: correct for a single erasure set. A multi-pool deployment
+		// (duplicate versions across pools, ModTime ties, cross-pool lock
+		// authority) is out of scope and tracked in pgsty/silo#133.
+		if opts.ReplicaLockReconcile && err == nil {
+			reconcileStoredObjectLock(opts.UserDefined, storedObjectLockState(obj.UserDefined))
 		}
 	}
 
@@ -1485,11 +1511,15 @@ func (er erasureObjects) putObject(ctx context.Context, bucket string, object st
 	// over opts.WantChecksum.
 	if opts.WantServerSideChecksumType.IsSet() {
 		serverSideChecksum := r.RawServerSideChecksumResult()
-		if serverSideChecksum != nil {
-			fi.Checksum = serverSideChecksum.AppendTo(nil, nil)
-			if opts.EncryptFn != nil {
-				fi.Checksum = opts.EncryptFn("object-checksum", fi.Checksum)
-			}
+		if serverSideChecksum == nil || !serverSideChecksum.Valid() ||
+			serverSideChecksum.Type.Base() != opts.WantServerSideChecksumType.Base() {
+			err := fmt.Errorf("internal error: server-side checksum missing, invalid, or mismatched after reading object, want %q", opts.WantServerSideChecksumType.String())
+			bugLogIf(ctx, err)
+			return ObjectInfo{}, toObjectErr(err, bucket, object)
+		}
+		fi.Checksum = serverSideChecksum.AppendTo(nil, nil)
+		if opts.EncryptFn != nil {
+			fi.Checksum = opts.EncryptFn("object-checksum", fi.Checksum)
 		}
 	} else if fi.Checksum == nil && opts.WantChecksum != nil {
 		// Trailing headers checksums should now be filled.

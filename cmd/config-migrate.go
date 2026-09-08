@@ -33,8 +33,8 @@ import (
 	"github.com/minio/minio/internal/config/storageclass"
 	"github.com/minio/minio/internal/event/target"
 	"github.com/minio/minio/internal/logger"
-	xnet "github.com/minio/pkg/v3/net"
-	"github.com/minio/pkg/v3/quick"
+	xnet "github.com/pgsty/silo-pkg/v3/net"
+	"github.com/pgsty/silo-pkg/v3/quick"
 )
 
 // Save config file to corresponding backend
@@ -167,7 +167,9 @@ func readConfigWithoutMigrate(ctx context.Context, objAPI ObjectLayer) (config.C
 		notify.SetNotifyMQTT(newCfg, k, args)
 	}
 	for k, args := range cfg.Notify.MySQL {
-		notify.SetNotifyMySQL(newCfg, k, args)
+		if err := notify.SetNotifyMySQL(newCfg, k, args); err != nil {
+			return nil, err
+		}
 	}
 	for k, args := range cfg.Notify.NATS {
 		notify.SetNotifyNATS(newCfg, k, args)
@@ -176,7 +178,9 @@ func readConfigWithoutMigrate(ctx context.Context, objAPI ObjectLayer) (config.C
 		notify.SetNotifyNSQ(newCfg, k, args)
 	}
 	for k, args := range cfg.Notify.PostgreSQL {
-		notify.SetNotifyPostgres(newCfg, k, args)
+		if err := notify.SetNotifyPostgres(newCfg, k, args); err != nil {
+			return nil, err
+		}
 	}
 	for k, args := range cfg.Notify.Redis {
 		notify.SetNotifyRedis(newCfg, k, args)

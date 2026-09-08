@@ -39,9 +39,9 @@ import (
 	xhttp "github.com/minio/minio/internal/http"
 	xioutil "github.com/minio/minio/internal/ioutil"
 	"github.com/minio/minio/internal/logger"
-	"github.com/minio/pkg/v3/mimedb"
-	"github.com/minio/pkg/v3/sync/errgroup"
 	"github.com/minio/sio"
+	"github.com/pgsty/silo-pkg/v3/mimedb"
+	"github.com/pgsty/silo-pkg/v3/sync/errgroup"
 )
 
 func (er erasureObjects) getUploadIDDir(bucket, object, uploadID string) string {
@@ -597,12 +597,15 @@ func (er erasureObjects) PutObjectPart(ctx context.Context, bucket, object, uplo
 	onlineDisks := er.getDisks()
 	writeQuorum := fi.WriteQuorum(er.defaultWQuorum())
 
-	if cs := fi.Metadata[hash.MinIOMultipartChecksum]; cs != "" {
-		if r.ContentCRCType().String() != cs {
+	expectedChecksumType, checksumEnabled := multipartChecksumType(fi.Metadata)
+	if checksumEnabled {
+		got := r.contentChecksumType()
+		if !expectedChecksumType.IsSet() || !got.IsSet() || got.Base() != expectedChecksumType {
 			return pi, InvalidArgument{
 				Bucket: bucket,
 				Object: fi.Name,
-				Err:    fmt.Errorf("checksum missing, want %q, got %q", cs, r.ContentCRCType().String()),
+				Err: fmt.Errorf("checksum missing, want %q, got %q",
+					fi.Metadata[hash.MinIOMultipartChecksum], got.String()),
 			}
 		}
 	}
@@ -707,22 +710,35 @@ func (er erasureObjects) PutObjectPart(ctx context.Context, bucket, object, uplo
 	}
 
 	actualSize := data.ActualSize()
-	if actualSize < 0 {
-		_, encrypted := crypto.IsEncrypted(fi.Metadata)
-		compressed := fi.IsCompressed()
-		switch {
-		case compressed:
-			// ... nothing changes for compressed stream.
-			// if actualSize is -1 we have no known way to
-			// determine what is the actualSize.
-		case encrypted:
-			decSize, err := sio.DecryptedSize(uint64(n))
-			if err == nil {
-				actualSize = int64(decSize)
-			}
-		default:
+	_, encrypted := crypto.IsEncrypted(fi.Metadata)
+	compressed := fi.IsCompressed()
+	switch {
+	case compressed:
+		// ... nothing changes for compressed stream.
+		// if actualSize is -1 we have no known way to
+		// determine what is the actualSize.
+	case encrypted:
+		// The uploaded length of an encrypted part is always derivable from the
+		// bytes just written, and the caller's value cannot be trusted: trusted
+		// SSE-C replication and the data movement paths hand over the ciphertext
+		// length. Derive it with the arithmetic the read path applies to
+		// part.Size, so the stored value matches how the part is read back.
+		decSize, err := sio.DecryptedSize(uint64(n))
+		if err != nil {
+			return pi, toObjectErr(errObjectTampered, bucket, object, uploadID)
+		}
+		actualSize = int64(decSize)
+	default:
+		if actualSize < 0 {
 			actualSize = n
 		}
+	}
+
+	partChecksums := r.contentChecksum()
+	if checksumEnabled && partChecksums[expectedChecksumType.String()] == "" {
+		err := fmt.Errorf("internal error: checksum missing after reading part, want %q", expectedChecksumType.String())
+		bugLogIf(ctx, err)
+		return pi, toObjectErr(err, bucket, object, uploadID)
 	}
 
 	partInfo := ObjectPartInfo{
@@ -732,7 +748,7 @@ func (er erasureObjects) PutObjectPart(ctx context.Context, bucket, object, uplo
 		ActualSize: actualSize,
 		ModTime:    UTCNow(),
 		Index:      index,
-		Checksums:  r.ContentCRC(),
+		Checksums:  partChecksums,
 	}
 
 	partFI, err := partInfo.MarshalMsg(nil)
@@ -1098,7 +1114,7 @@ func (er erasureObjects) CompleteMultipartUpload(ctx context.Context, bucket str
 		auditObjectErasureSet(ctx, "CompleteMultipartUpload", object, &er)
 	}
 
-	if opts.CheckPrecondFn != nil {
+	if opts.CheckPrecondFn != nil || opts.ReplicaLockReconcile {
 		if !opts.NoLock {
 			ns := er.NewNSLock(bucket, object)
 			lkctx, err := ns.GetLock(ctx, globalOperationTimeout)
@@ -1110,18 +1126,24 @@ func (er erasureObjects) CompleteMultipartUpload(ctx context.Context, bucket str
 			opts.NoLock = true
 		}
 
-		obj, err := er.getObjectInfo(ctx, bucket, object, opts)
-		if err == nil && opts.CheckPrecondFn(obj) {
-			return ObjectInfo{}, PreConditionFailed{}
-		}
-		if err != nil && !isErrVersionNotFound(err) && !isErrObjectNotFound(err) {
-			return ObjectInfo{}, err
-		}
+		// The Object Lock reconcile below needs the version being committed, read
+		// after checkUploadIDExists, so only the precondition read happens here;
+		// both run under this same write lock, held until the version is renamed
+		// into place.
+		if opts.CheckPrecondFn != nil {
+			obj, err := er.getObjectInfo(ctx, bucket, object, opts)
+			if err == nil && opts.CheckPrecondFn(obj) {
+				return ObjectInfo{}, PreConditionFailed{}
+			}
+			if err != nil && !isErrVersionNotFound(err) && !isErrObjectNotFound(err) {
+				return ObjectInfo{}, err
+			}
 
-		// if object doesn't exist return error for If-Match conditional requests
-		// If-None-Match should be allowed to proceed for non-existent objects
-		if err != nil && opts.HasIfMatch && (isErrObjectNotFound(err) || isErrVersionNotFound(err)) {
-			return ObjectInfo{}, err
+			// if object doesn't exist return error for If-Match conditional requests
+			// If-None-Match should be allowed to proceed for non-existent objects
+			if err != nil && opts.HasIfMatch && (isErrObjectNotFound(err) || isErrVersionNotFound(err)) {
+				return ObjectInfo{}, err
+			}
 		}
 	}
 
@@ -1131,6 +1153,42 @@ func (er erasureObjects) CompleteMultipartUpload(ctx context.Context, bucket str
 			return oi, toObjectErr(err, bucket)
 		}
 		return oi, toObjectErr(err, bucket, object, uploadID)
+	}
+
+	// A trusted SSE-C replica completion re-orders the Object Lock carried in the
+	// upload metadata against the version it is about to replace, read on this
+	// erasure set under the write lock held above, so a hold or retention that
+	// reached the version after this upload was initiated is not rolled back at
+	// completion (issue #120). Scoped to SSE-C uploads, the only ones this issue
+	// routes through completion.
+	//
+	// Scope: correct for a single erasure set. A multi-pool deployment (duplicate
+	// versions across pools, ModTime ties, cross-pool lock authority) is out of
+	// scope and tracked in pgsty/silo#133.
+	if opts.ReplicaLockReconcile && crypto.SSEC.IsEncrypted(fi.Metadata) {
+		// A persisted upload records the null version as an empty VersionID; look
+		// it up as the null version so the reconcile reads the addressed version's
+		// stored lock, not the latest version's.
+		lookupVersionID := fi.VersionID
+		if lookupVersionID == "" {
+			lookupVersionID = nullVersionID
+		}
+		curr, gerr := er.getObjectInfo(ctx, bucket, object, ObjectOptions{
+			VersionID:        lookupVersionID,
+			Versioned:        opts.Versioned,
+			VersionSuspended: opts.VersionSuspended,
+			NoLock:           true,
+		})
+		switch {
+		case gerr == nil:
+			reconcileStoredObjectLock(fi.Metadata, storedObjectLockState(curr.UserDefined))
+		case isErrVersionNotFound(gerr) || isErrObjectNotFound(gerr):
+			// No existing version to order against: keep the upload's own accepted
+			// lock, including a pre-upgrade upload that persisted values without
+			// their ordering timestamps.
+		default:
+			return oi, toObjectErr(gerr, bucket, object)
+		}
 	}
 
 	uploadIDPath := er.getUploadIDDir(bucket, object, uploadID)
@@ -1163,11 +1221,20 @@ func (er erasureObjects) CompleteMultipartUpload(ctx context.Context, bucket str
 	var checksumType hash.ChecksumType
 	if cs := fi.Metadata[hash.MinIOMultipartChecksum]; cs != "" {
 		checksumType = hash.NewChecksumType(cs, fi.Metadata[hash.MinIOMultipartChecksumType])
-		if opts.WantChecksum != nil && !opts.WantChecksum.Type.Is(checksumType) {
-			return oi, InvalidArgument{
-				Bucket: bucket,
-				Object: fi.Name,
-				Err:    fmt.Errorf("checksum type mismatch. got %q (%s) expected %q (%s)", checksumType.String(), checksumType.ObjType(), opts.WantChecksum.Type.String(), opts.WantChecksum.Type.ObjType()),
+		expectedType := checksumType | hash.ChecksumMultipart | hash.ChecksumIncludesMultipart
+		if opts.WantChecksum != nil {
+			providedType := opts.WantChecksum.Type | hash.ChecksumMultipart | hash.ChecksumIncludesMultipart
+			if providedType.Base() != expectedType.Base() {
+				return oi, InvalidArgument{
+					Bucket: bucket,
+					Object: fi.Name,
+					Err:    fmt.Errorf("checksum algorithm mismatch. got %q expected %q", providedType.String(), expectedType.String()),
+				}
+			}
+		}
+		if opts.wantChecksumType != "" {
+			if opts.wantChecksumType != expectedType.ObjType() {
+				return oi, completeMultipartChecksumTypeMismatch(opts.wantChecksumType, expectedType.ObjType())
 			}
 		}
 		checksumType |= hash.ChecksumMultipart | hash.ChecksumIncludesMultipart
@@ -1298,19 +1365,18 @@ func (er erasureObjects) CompleteMultipartUpload(ctx context.Context, bucket str
 					break
 				}
 			}
-			// Part checksums are optional in the CompleteMultipartUpload body when
-			// the upload was created with a full object checksum type: clients send
-			// the object level checksum instead and do not retain part checksums.
-			// A part that carries any checksum at all is still validated against
-			// what we stored - including one sent under the wrong algorithm, which
-			// cannot match and is rejected. The object level checksum, if supplied,
-			// is verified against the merged part checksums below.
-			allowMissingPartCS := checksumType.FullObjectRequested() && !suppliedAnyCS
-			if !allowMissingPartCS && gotCS != crc {
+			// Full object completions may omit part checksums. Composite
+			// completions may not. Any checksum that is supplied is still
+			// validated, including one sent under the wrong algorithm.
+			if !suppliedAnyCS {
+				if !checksumType.FullObjectRequested() {
+					return oi, missingPartChecksum(checksumType.String(), part.PartNumber)
+				}
+			} else if gotCS != crc {
 				return oi, InvalidPart{
 					PartNumber: part.PartNumber,
-					ExpETag:    gotCS,
-					GotETag:    crc,
+					ExpETag:    crc,
+					GotETag:    gotCS,
 				}
 			}
 			cs := hash.NewChecksumString(checksumType.String(), crc)
@@ -1360,15 +1426,14 @@ func (er erasureObjects) CompleteMultipartUpload(ctx context.Context, bucket str
 	if opts.WantChecksum != nil {
 		if checksumType.FullObjectRequested() {
 			if opts.WantChecksum.Encoded != checksum.Encoded {
-				err := hash.ChecksumMismatch{
-					Want: opts.WantChecksum.Encoded,
-					Got:  checksum.Encoded,
-				}
-				return oi, err
+				return oi, completeMultipartChecksumMismatch(checksumType.String())
 			}
 		} else {
 			err := opts.WantChecksum.Matches(checksumCombined, len(parts))
 			if err != nil {
+				if hash.IsChecksumMismatch(err) {
+					return oi, completeMultipartChecksumMismatch(checksumType.String())
+				}
 				return oi, err
 			}
 		}

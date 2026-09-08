@@ -23,7 +23,7 @@ permissions:
   artifact-metadata: write
 
 concurrency:
-  group: finalize-release
+  group: release-${{ inputs.tag }}
   cancel-in-progress: false
 
 jobs:

@@ -84,7 +84,8 @@ type ObjectOptions struct {
 	Expiration          ExpirationOptions
 	LifecycleAuditEvent lcAuditEvent
 
-	WantChecksum *hash.Checksum // x-amz-checksum-XXX checksum sent to PutObject/ CompleteMultipartUpload.
+	WantChecksum     *hash.Checksum // x-amz-checksum-XXX checksum sent to PutObject/ CompleteMultipartUpload.
+	wantChecksumType string         // explicit x-amz-checksum-type value on CompleteMultipartUpload.
 
 	WantServerSideChecksumType hash.ChecksumType // if set, we compute a server-side checksum of this type
 
@@ -98,6 +99,7 @@ type ObjectOptions struct {
 	ReplicationSourceTaggingTimestamp   time.Time // set if MinIOSourceTaggingTimestamp received
 	ReplicationSourceLegalholdTimestamp time.Time // set if MinIOSourceObjectLegalholdTimestamp received
 	ReplicationSourceRetentionTimestamp time.Time // set if MinIOSourceObjectRetentionTimestamp received
+	ReplicaLockReconcile                bool      // set for a trusted SSE-C replica full write/completion: re-order Object Lock against the destination version read under the write lock (single erasure set; see pgsty/silo#133)
 	DeletePrefix                        bool      // set true to enforce a prefix deletion, only application for DeleteObject API,
 	DeletePrefixObject                  bool      // set true when object's erasure set is resolvable by object name (using getHashedSetIndex)
 

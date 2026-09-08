@@ -43,9 +43,9 @@ import (
 	"github.com/minio/minio/internal/config/storageclass"
 	xioutil "github.com/minio/minio/internal/ioutil"
 	"github.com/minio/minio/internal/logger"
-	"github.com/minio/pkg/v3/sync/errgroup"
-	"github.com/minio/pkg/v3/wildcard"
-	"github.com/minio/pkg/v3/workers"
+	"github.com/pgsty/silo-pkg/v3/sync/errgroup"
+	"github.com/pgsty/silo-pkg/v3/wildcard"
+	"github.com/pgsty/silo-pkg/v3/workers"
 	"github.com/puzpuzpuz/xsync/v3"
 )
 
@@ -909,23 +909,57 @@ func (z *erasureServerPools) MakeBucket(ctx context.Context, bucket string, opts
 		return err
 	}
 
-	// If it doesn't exist we get a new, so ignore errors
-	meta := newBucketMetadata(bucket)
-	meta.SetCreatedAt(opts.CreatedAt)
-	if opts.LockEnabled {
-		meta.VersioningConfigXML = enabledBucketVersioningConfig
-		meta.ObjectLockConfigXML = enabledBucketObjectLockConfig
+	if isMinioMetaBucketName(bucket) {
+		meta := newBucketMetadata(bucket)
+		meta.SetCreatedAt(opts.CreatedAt)
+		if err := meta.Save(context.Background(), z); err != nil {
+			return toObjectErr(err, bucket)
+		}
+		globalBucketMetadataSys.Set(bucket, meta)
+		return nil
 	}
 
-	if opts.VersioningEnabled {
-		meta.VersioningConfigXML = enabledBucketVersioningConfig
-	}
-
-	if err := meta.Save(context.Background(), z); err != nil {
+	ctx, unlock, err := lockBucketMetadata(ctx, z, bucket)
+	if err != nil {
 		return toObjectErr(err, bucket)
 	}
-
-	globalBucketMetadataSys.Set(bucket, meta)
+	err = func() error {
+		defer unlock()
+		meta := newBucketMetadata(bucket)
+		if opts.ForceCreate {
+			existing, err := loadBucketMetadataParse(ctx, z, bucket, true)
+			if err == nil {
+				meta = existing
+			} else if !errors.Is(err, errConfigNotFound) {
+				return err
+			}
+		}
+		if meta.Created.IsZero() {
+			meta.SetCreatedAt(opts.CreatedAt)
+		}
+		if opts.LockEnabled {
+			if err := enablePeerBucketVersioning(&meta, true); err != nil {
+				return err
+			}
+			if len(meta.ObjectLockConfigXML) == 0 {
+				meta.ObjectLockConfigXML = enabledBucketObjectLockConfig
+				meta.ObjectLockConfigUpdatedAt = meta.Created
+			}
+		}
+		if opts.VersioningEnabled {
+			if err := enablePeerBucketVersioning(&meta, opts.LockEnabled); err != nil {
+				return err
+			}
+		}
+		if err = meta.Save(bgContext(ctx), z); err != nil {
+			return err
+		}
+		globalBucketMetadataSys.Set(bucket, meta)
+		return nil
+	}()
+	if err != nil {
+		return toObjectErr(err, bucket)
+	}
 
 	// Success.
 	return nil
@@ -1166,6 +1200,14 @@ func (z *erasureServerPools) DeleteObject(ctx context.Context, bucket string, ob
 	}
 
 	// Acquire a write lock before deleting the object.
+	//
+	// NOTE: this lock is taken at the server-pool level. The conditional
+	// (If-Match) precondition below relies on this lock making the read-check-
+	// delete sequence atomic. That holds for a single erasure set: the write
+	// path (PutObject) locks at the destination set, which shares this lock's
+	// namespace only within one set. Multi-pool conditional-delete atomicity
+	// (concurrent writers across pools, cross-pool version selection) is a
+	// separate concern tracked as a follow-up.
 	lk := z.NewNSLock(bucket, object)
 	lkctx, err := lk.GetLock(ctx, globalDeleteOperationTimeout)
 	if err != nil {
@@ -1208,7 +1250,53 @@ func (z *erasureServerPools) DeleteObject(ctx context.Context, bucket string, ob
 		if _, ok := err.(InsufficientReadQuorum); ok {
 			return objInfo, InsufficientWriteQuorum{}
 		}
+		// A conditional (If-Match) delete addressing a specific version treats an
+		// absent key as an absent version. getPoolInfoExistingWithOpts strips
+		// VersionID, so a missing key surfaces ObjectNotFound here even for a
+		// version-scoped delete; normalize it to VersionNotFound (NoSuchVersion),
+		// matching this function's tail. The unconditional path is unchanged.
+		if opts.CheckPrecondFn != nil && opts.VersionID != "" && isErrObjectNotFound(err) {
+			return objInfo, VersionNotFound{Bucket: bucket, Object: object, VersionID: opts.VersionID}
+		}
 		return objInfo, err
+	}
+
+	// Evaluate the conditional (If-Match) precondition while the write lock
+	// acquired above is held, before the delete-marker short-circuit and before
+	// any version is removed, so the object cannot change between the check and
+	// the delete. This is scoped to a single erasure set (see the note at the
+	// lock above): only there do the delete lock and the write path share the
+	// same lock namespace, making the check-then-delete atomic.
+	if opts.CheckPrecondFn != nil {
+		// pinfo.ObjInfo is the current latest version. getPoolInfoExistingWithOpts
+		// intentionally strips VersionID, so for a version-scoped delete read the
+		// specifically addressed version and evaluate the precondition against it.
+		checkInfo := pinfo.ObjInfo
+		if opts.VersionID != "" {
+			vopts := opts
+			vopts.NoLock = true // delete lock already held above
+			vopts.CheckPrecondFn = nil
+			vi, verr := z.serverPools[pinfo.Index].GetObjectInfo(ctx, bucket, object, vopts)
+			if verr != nil && (!isErrMethodNotAllowed(verr) || !vi.DeleteMarker) {
+				// Genuine read failure for the addressed version: a missing
+				// version -> VersionNotFound (NoSuchVersion), read-quorum loss, etc.
+				return objInfo, verr
+			}
+			// verr is nil for a live version, or MethodNotAllowed with a populated
+			// delete-marker ObjectInfo when the addressed version is a delete
+			// marker. In the latter case evaluate the precondition against the
+			// marker, which fails any If-Match (-> 412), rather than surfacing 405.
+			checkInfo = vi
+		} else if checkInfo.Name == "" {
+			// The current state could not be read (e.g. read-quorum loss); refuse
+			// the conditional delete rather than act on an unverified precondition.
+			return objInfo, InsufficientReadQuorum{}
+		}
+		if opts.CheckPrecondFn(checkInfo) {
+			return objInfo, PreConditionFailed{}
+		}
+		// Precondition satisfied; lower layers must not re-evaluate it.
+		opts.CheckPrecondFn = nil
 	}
 
 	// Delete marker already present we are not going to create new delete markers.
@@ -1389,6 +1477,8 @@ func (z *erasureServerPools) CopyObject(ctx context.Context, srcBucket, srcObjec
 		}
 	}
 
+	// CopyObjectHandler predicts the outcome of this decision in
+	// copyRewritesObjectData(); keep the two in sync.
 	if cpSrcDstSame && srcInfo.metadataOnly {
 		// Version ID is set for the destination and source == destination version ID.
 		if dstOpts.VersionID != "" && srcOpts.VersionID == dstOpts.VersionID {

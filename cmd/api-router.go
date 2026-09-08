@@ -18,15 +18,22 @@
 package cmd
 
 import (
+	"context"
+	"errors"
 	"net"
 	"net/http"
+	"strconv"
+	"strings"
 
 	consoleapi "github.com/minio/console/api"
+	bktcors "github.com/minio/minio/internal/bucket/cors"
 	xhttp "github.com/minio/minio/internal/http"
 	"github.com/minio/mux"
-	"github.com/minio/pkg/v3/wildcard"
+	"github.com/pgsty/silo-pkg/v3/wildcard"
 	"github.com/rs/cors"
 )
+
+type bucketCorsAppliedKey struct{}
 
 func newHTTPServerFn() *xhttp.Server {
 	globalObjLayerMutex.RLock()
@@ -110,11 +117,6 @@ var rejectedBucketAPIs = []rejectedAPI{
 		api:     "inventory",
 		methods: []string{http.MethodGet, http.MethodPut, http.MethodDelete},
 		queries: []string{"inventory", ""},
-	},
-	{
-		api:     "cors",
-		methods: []string{http.MethodPut, http.MethodDelete},
-		queries: []string{"cors", ""},
 	},
 	{
 		api:     "metrics",
@@ -459,15 +461,15 @@ func registerAPIRouter(router *mux.Router) {
 		router.Methods(http.MethodPut).
 			HandlerFunc(s3APIMiddleware(api.PutBucketACLHandler)).
 			Queries("acl", "")
-		// GetBucketCors - this is a dummy call.
+		// GetBucketCors
 		router.Methods(http.MethodGet).
 			HandlerFunc(s3APIMiddleware(api.GetBucketCorsHandler)).
 			Queries("cors", "")
-		// PutBucketCors - this is a dummy call.
+		// PutBucketCors
 		router.Methods(http.MethodPut).
 			HandlerFunc(s3APIMiddleware(api.PutBucketCorsHandler)).
 			Queries("cors", "")
-		// DeleteBucketCors - this is a dummy call.
+		// DeleteBucketCors
 		router.Methods(http.MethodDelete).
 			HandlerFunc(s3APIMiddleware(api.DeleteBucketCorsHandler)).
 			Queries("cors", "")
@@ -648,6 +650,94 @@ func registerAPIRouter(router *mux.Router) {
 	apiRouter.MethodNotAllowedHandler = collectAPIStats("methodnotallowed", httpTraceAll(methodNotAllowedHandler("S3")))
 }
 
+// applyBucketCors applies a bucket's CORS configuration to the request.
+// For an OPTIONS preflight it writes the full CORS response and returns true
+// (request is complete). For an actual request it adds the applicable
+// Access-Control-* response headers and returns false so the request
+// continues down the handler chain. If no rule matches a preflight it writes
+// 403 and returns true. A matched actual request is marked in its context so
+// inner legacy middleware does not rewrite an explicitly allowed null origin.
+func applyBucketCors(w http.ResponseWriter, r *http.Request, cfg *bktcors.Config) (handled bool) {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return false // not a CORS request
+	}
+	h := w.Header()
+	h.Add("Vary", "Origin")
+
+	isPreflight := r.Method == http.MethodOptions &&
+		r.Header.Get("Access-Control-Request-Method") != ""
+
+	if isPreflight {
+		method := r.Header.Get("Access-Control-Request-Method")
+		reqHeaders := splitAndTrim(r.Header.Get("Access-Control-Request-Headers"))
+		// A preflight response depends on all three request headers that
+		// determine the outcome, including when the request is rejected.
+		h.Add("Vary", "Access-Control-Request-Method")
+		h.Add("Vary", "Access-Control-Request-Headers")
+		rule, allowedOrigin, allowedHeaders, maxAgeSeconds, ok := cfg.MatchPreflight(origin, method, reqHeaders)
+		if !ok {
+			writeResponse(w, http.StatusForbidden, nil, mimeNone)
+			return true
+		}
+		setBucketCorsOriginHeaders(h, allowedOrigin, origin)
+		h.Set("Access-Control-Allow-Methods", strings.Join(rule.AllowedMethods, ", "))
+		if len(allowedHeaders) > 0 {
+			h.Set("Access-Control-Allow-Headers", strings.Join(allowedHeaders, ", "))
+		}
+		if len(rule.ExposeHeaders) > 0 {
+			h.Set("Access-Control-Expose-Headers", strings.Join(rule.ExposeHeaders, ", "))
+		}
+		if maxAgeSeconds != nil {
+			h.Set("Access-Control-Max-Age", strconv.Itoa(*maxAgeSeconds))
+		}
+		writeResponse(w, http.StatusOK, nil, mimeNone)
+		return true
+	}
+
+	// Actual request: attach headers if the origin+method match.
+	rule, allowedOrigin, ok := cfg.MatchRule(origin, r.Method)
+	if !ok {
+		return false // no matching rule → no CORS headers, continue normally
+	}
+	*r = *r.WithContext(context.WithValue(r.Context(), bucketCorsAppliedKey{}, struct{}{}))
+	setBucketCorsOriginHeaders(h, allowedOrigin, origin)
+	if len(rule.ExposeHeaders) > 0 {
+		h.Set("Access-Control-Expose-Headers", strings.Join(rule.ExposeHeaders, ", "))
+	}
+	return false
+}
+
+func bucketCorsWasApplied(r *http.Request) bool {
+	_, ok := r.Context().Value(bucketCorsAppliedKey{}).(struct{})
+	return ok
+}
+
+func setBucketCorsOriginHeaders(h http.Header, allowedOrigin, requestOrigin string) {
+	if allowedOrigin == "*" {
+		h.Set("Access-Control-Allow-Origin", "*")
+		h.Del("Access-Control-Allow-Credentials")
+		return
+	}
+	h.Set("Access-Control-Allow-Origin", requestOrigin)
+	h.Set("Access-Control-Allow-Credentials", "true")
+}
+
+// splitAndTrim splits a comma-separated header list into trimmed, non-empty values.
+func splitAndTrim(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	out := parts[:0]
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 // corsHandler handler for CORS (Cross Origin Resource Sharing)
 func corsHandler(handler http.Handler) http.Handler {
 	commonS3Headers := []string{
@@ -693,5 +783,32 @@ func corsHandler(handler http.Handler) http.Handler {
 		ExposedHeaders:   commonS3Headers,
 		AllowCredentials: true,
 	}
-	return cors.New(opts).Handler(handler)
+	globalCors := cors.New(opts).Handler(handler)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Origin") != "" {
+			if bucket, _ := request2BucketObjectName(r); bucket != "" && globalBucketMetadataSys != nil {
+				// Resident-only lookup: this runs before authentication with a
+				// client-supplied path segment as the bucket name, so it must
+				// never load or cache metadata. While startup loading is still
+				// running, for a real bucket whose metadata failed to load, and
+				// for a bucket whose stored CORS document failed to parse, the
+				// request gets no CORS headers; any other non-resident name falls
+				// back to the global policy below.
+				cfg, _, err := globalBucketMetadataSys.GetResidentCorsConfig(bucket)
+				if err == nil && cfg != nil {
+					if applyBucketCors(w, r, cfg) {
+						return
+					}
+					handler.ServeHTTP(w, r)
+					return
+				}
+				if err != nil && !errors.Is(err, errConfigNotFound) {
+					internalLogOnceIf(r.Context(), err, "bucket-cors-metadata")
+					handler.ServeHTTP(w, r)
+					return
+				}
+			}
+		}
+		globalCors.ServeHTTP(w, r)
+	})
 }

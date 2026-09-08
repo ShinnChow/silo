@@ -23,6 +23,8 @@ on:
       - "buildscripts/minio-upgrade.sh"
       - "buildscripts/sign-release-rpms.sh"
       - "buildscripts/verify-build-provenance.sh"
+      - "buildscripts/check-release-state.sh"
+      - "buildscripts/check-release-state_test.sh"
       - "buildscripts/verify-rebrand.sh"
       - "buildscripts/verify-helm-migration.sh"
       - "buildscripts/helm-migration-guard/**"
@@ -479,6 +481,8 @@ jobs:
           bash -n buildscripts/minio-upgrade.sh
           bash -n buildscripts/sign-release-rpms.sh
           bash -n buildscripts/verify-build-provenance.sh
+          bash -n buildscripts/check-release-state.sh
+          bash -n buildscripts/check-release-state_test.sh
           bash -n buildscripts/verify-rebrand.sh
           bash -n buildscripts/verify-helm-migration.sh
           sh -n buildscripts/package/postinstall.sh
@@ -493,9 +497,12 @@ jobs:
           test -x buildscripts/package-release.sh
           test -x buildscripts/sign-release-rpms.sh
           test -x buildscripts/verify-build-provenance.sh
+          test -x buildscripts/check-release-state.sh
+          test -x buildscripts/check-release-state_test.sh
           test -x buildscripts/verify-rebrand.sh
           test -x buildscripts/verify-helm-migration.sh
           test -x buildscripts/package/postinstall.sh
           test -x buildscripts/package/preremove.sh
           test -x buildscripts/package/lifecycle_test.sh
           test -x dockerscripts/docker-entrypoint_test.sh
+          buildscripts/check-release-state_test.sh

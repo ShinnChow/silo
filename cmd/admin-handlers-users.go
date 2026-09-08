@@ -40,8 +40,8 @@ import (
 	"github.com/minio/minio/internal/config/dns"
 	"github.com/minio/minio/internal/logger"
 	"github.com/minio/mux"
-	xldap "github.com/minio/pkg/v3/ldap"
-	"github.com/minio/pkg/v3/policy"
+	xldap "github.com/pgsty/silo-pkg/v3/ldap"
+	"github.com/pgsty/silo-pkg/v3/policy"
 	"github.com/puzpuzpuz/xsync/v3"
 )
 
@@ -355,17 +355,24 @@ func (a adminAPIHandlers) ListGroups(w http.ResponseWriter, r *http.Request) {
 }
 
 // SetGroupStatus - PUT /minio/admin/v3/set-group-status?group=mygroup1&status=enabled
+func setGroupStatusAdminAction(status string) policy.AdminAction {
+	if madmin.GroupStatus(status) == madmin.GroupDisabled {
+		return policy.DisableGroupAdminAction
+	}
+	return policy.EnableGroupAdminAction
+}
+
 func (a adminAPIHandlers) SetGroupStatus(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
-	objectAPI, _ := validateAdminReq(ctx, w, r, policy.EnableGroupAdminAction)
-	if objectAPI == nil {
-		return
-	}
 
 	vars := mux.Vars(r)
 	group := vars["group"]
 	status := vars["status"]
+
+	objectAPI, _ := validateAdminReq(ctx, w, r, setGroupStatusAdminAction(status))
+	if objectAPI == nil {
+		return
+	}
 
 	var (
 		err       error
@@ -398,17 +405,24 @@ func (a adminAPIHandlers) SetGroupStatus(w http.ResponseWriter, r *http.Request)
 }
 
 // SetUserStatus - PUT /minio/admin/v3/set-user-status?accessKey=<access_key>&status=[enabled|disabled]
+func setUserStatusAdminAction(status string) policy.AdminAction {
+	if madmin.AccountStatus(status) == madmin.AccountDisabled {
+		return policy.DisableUserAdminAction
+	}
+	return policy.EnableUserAdminAction
+}
+
 func (a adminAPIHandlers) SetUserStatus(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
-	objectAPI, creds := validateAdminReq(ctx, w, r, policy.EnableUserAdminAction)
-	if objectAPI == nil {
-		return
-	}
 
 	vars := mux.Vars(r)
 	accessKey := vars["accessKey"]
 	status := vars["status"]
+
+	objectAPI, creds := validateAdminReq(ctx, w, r, setUserStatusAdminAction(status))
+	if objectAPI == nil {
+		return
+	}
 
 	// you cannot enable or disable yourself.
 	if accessKey == creds.AccessKey {
@@ -859,7 +873,7 @@ func (a adminAPIHandlers) UpdateServiceAccount(w http.ResponseWriter, r *http.Re
 
 	var sp *policy.Policy
 	if len(updateReq.NewPolicy) > 0 {
-		sp, err = policy.ParseConfig(bytes.NewReader(updateReq.NewPolicy))
+		sp, err = policy.ParseConfigStrict(bytes.NewReader(updateReq.NewPolicy))
 		if err != nil {
 			writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 			return
@@ -1729,7 +1743,7 @@ func (a adminAPIHandlers) AddCannedPolicy(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	iamPolicy, err := policy.ParseConfig(bytes.NewReader(iamPolicyBytes))
+	iamPolicy, err := policy.ParseConfigStrict(bytes.NewReader(iamPolicyBytes))
 	if err != nil {
 		writeErrorResponseJSON(ctx, w, toAdminAPIErr(ctx, err), r.URL)
 		return
@@ -2981,7 +2995,7 @@ func commonAddServiceAccount(r *http.Request, ldap bool) (context.Context, auth.
 
 	var sp *policy.Policy
 	if len(createReq.Policy) > 0 {
-		sp, err = policy.ParseConfig(bytes.NewReader(createReq.Policy))
+		sp, err = policy.ParseConfigStrict(bytes.NewReader(createReq.Policy))
 		if err != nil {
 			return ctx, auth.Credentials{}, newServiceAccountOpts{}, madmin.AddServiceAccountReq{}, "", toAdminAPIErr(ctx, err)
 		}

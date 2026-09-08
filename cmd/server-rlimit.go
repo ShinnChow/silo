@@ -24,7 +24,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/minio/madmin-go/v3/kernel"
 	"github.com/minio/minio/internal/logger"
-	"github.com/minio/pkg/v3/sys"
+	"github.com/pgsty/silo-pkg/v3/sys"
 )
 
 func oldLinux() bool {
@@ -46,7 +46,9 @@ func oldLinux() bool {
 
 func setMaxResources(ctx serverCtxt) (err error) {
 	// Set the Go runtime max threads threshold to 90% of kernel setting.
+	//nolint:staticcheck // Linux implementations can fail; BSD stubs return a constant nil error.
 	sysMaxThreads, err := sys.GetMaxThreads()
+	//nolint:staticcheck // Keep the shared cross-platform error handling.
 	if err == nil {
 		minioMaxThreads := (sysMaxThreads * 90) / 100
 		// Only set max threads if it is greater than the default one

@@ -28,6 +28,7 @@ import (
 
 	"github.com/minio/minio/internal/amztime"
 	"github.com/minio/minio/internal/bucket/lifecycle"
+	"github.com/minio/minio/internal/crypto"
 	"github.com/minio/minio/internal/event"
 	"github.com/minio/minio/internal/hash"
 	xhttp "github.com/minio/minio/internal/http"
@@ -193,7 +194,15 @@ func checkPreconditionsPUT(ctx context.Context, w http.ResponseWriter, r *http.R
 
 	etagMatch := opts.PreserveETag != "" && isETagEqual(objInfo.ETag, opts.PreserveETag)
 	vidMatch := opts.VersionID != "" && opts.VersionID == objInfo.VersionID
-	if etagMatch && vidMatch {
+	// A matching version and ETag normally mean the destination already holds
+	// this version, so the write is skipped. They do not establish that for an
+	// authenticated SSE-C replica write: the destination cannot decrypt or
+	// re-encrypt the body without the customer key, so it cannot verify the
+	// replica, and this retransmission is how such a replica is repaired or
+	// updated. The predicate is the incoming request's restored SSE-C metadata,
+	// not what the destination happens to hold.
+	ssecReplica := isReplicaTrusted(r.Context()) && crypto.SSEC.IsEncrypted(opts.UserDefined)
+	if etagMatch && vidMatch && !ssecReplica {
 		writeHeaders()
 		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrPreconditionFailed), r.URL)
 		return true
@@ -340,6 +349,28 @@ func canonicalizeETag(etag string) string {
 	return etagRegex.ReplaceAllString(etag, "$1")
 }
 
+// deleteIfMatchPreconditionFailed reports whether the If-Match precondition on a
+// DeleteObject request fails, in which case the delete must be refused with 412.
+// It is pure and never writes to the ResponseWriter: DeleteObject may evaluate
+// the precondition off the request goroutine (e.g. during multi-pool cleanup).
+//
+//   - A delete marker (a non-live latest version) has no entity-tag to match, so
+//     any If-Match value, including "*", fails against it.
+//   - "*" matches any existing live object, so it only requires existence.
+//   - A concrete ETag is compared against the object's public ETag. For
+//     SSE-C/SSE-KMS objects the public ETag is derived from the stored suffix
+//     without the customer key (getDecryptedETag), so a satisfiable condition is
+//     never rejected merely because the caller did not supply the key.
+func deleteIfMatchPreconditionFailed(h http.Header, ifMatch string, oi ObjectInfo) bool {
+	if oi.DeleteMarker {
+		return true
+	}
+	if strings.TrimSpace(ifMatch) == "*" {
+		return false
+	}
+	return !isETagEqual(getDecryptedETag(h, oi, false), ifMatch)
+}
+
 // isETagEqual return true if the canonical representations of two ETag strings
 // are equal, false otherwise
 func isETagEqual(left, right string) bool {
@@ -353,6 +384,11 @@ func isETagEqual(left, right string) bool {
 // upon a success Put/Copy/CompleteMultipart/Delete requests
 // to activate delete only headers set delete as true
 func setPutObjHeaders(w http.ResponseWriter, objInfo ObjectInfo, del bool, h http.Header) {
+	cs, _ := objInfo.decryptChecksums(0, h)
+	setPutObjHeadersWithChecksum(w, objInfo, del, cs)
+}
+
+func setPutObjHeadersWithChecksum(w http.ResponseWriter, objInfo ObjectInfo, del bool, cs map[string]string) {
 	// We must not use the http.Header().Set method here because some (broken)
 	// clients expect the ETag header key to be literally "ETag" - not "Etag" (case-sensitive).
 	// Therefore, we have to set the ETag directly as map entry.
@@ -374,7 +410,6 @@ func setPutObjHeaders(w http.ResponseWriter, objInfo ObjectInfo, del bool, h htt
 			lc.SetPredictionHeaders(w, objInfo.ToLifecycleOpts())
 		}
 	}
-	cs, _ := objInfo.decryptChecksums(0, h)
 	hash.AddChecksumHeader(w, cs)
 }
 

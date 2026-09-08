@@ -27,7 +27,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/minio/minio/internal/amztime"
 	"github.com/minio/minio/internal/crypto"
@@ -35,8 +34,8 @@ import (
 	"github.com/minio/minio/internal/hash"
 	xhttp "github.com/minio/minio/internal/http"
 	"github.com/minio/minio/internal/logger"
-	"github.com/minio/pkg/v3/policy"
 	xxml "github.com/minio/xxml"
+	"github.com/pgsty/silo-pkg/v3/policy"
 )
 
 const (
@@ -380,6 +379,13 @@ type CopyObjectResponse struct {
 	XMLName      xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ CopyObjectResult" json:"-"`
 	LastModified string   // time string of format "2006-01-02T15:04:05.000Z"
 	ETag         string   // md5sum of the copied object.
+
+	ChecksumCRC32     string `xml:",omitempty"`
+	ChecksumCRC32C    string `xml:",omitempty"`
+	ChecksumSHA1      string `xml:",omitempty"`
+	ChecksumSHA256    string `xml:",omitempty"`
+	ChecksumCRC64NVME string `xml:",omitempty"`
+	ChecksumType      string `xml:",omitempty"`
 }
 
 // CopyObjectPartResponse container returns ETag and LastModified of the successfully copied object
@@ -387,6 +393,12 @@ type CopyObjectPartResponse struct {
 	XMLName      xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ CopyPartResult" json:"-"`
 	LastModified string   // time string of format "2006-01-02T15:04:05.000Z"
 	ETag         string   // md5sum of the copied object part.
+
+	ChecksumCRC32     string `xml:",omitempty"`
+	ChecksumCRC32C    string `xml:",omitempty"`
+	ChecksumSHA1      string `xml:",omitempty"`
+	ChecksumSHA256    string `xml:",omitempty"`
+	ChecksumCRC64NVME string `xml:",omitempty"`
 }
 
 // Initiator inherit from Owner struct, fields are same
@@ -416,6 +428,7 @@ type CompleteMultipartUploadResponse struct {
 	Key      string
 	ETag     string
 
+	ChecksumType      string `xml:"ChecksumType,omitempty"`
 	ChecksumCRC32     string `xml:"ChecksumCRC32,omitempty"`
 	ChecksumCRC32C    string `xml:"ChecksumCRC32C,omitempty"`
 	ChecksumSHA1      string `xml:"ChecksumSHA1,omitempty"`
@@ -763,19 +776,30 @@ func generateListObjectsV2Response(ctx context.Context, bucket, prefix, token, n
 
 type metaCheckFn = func(name string, action policy.Action) (s3Err APIErrorCode)
 
-// generates CopyObjectResponse from etag and lastModified time.
-func generateCopyObjectResponse(etag string, lastModified time.Time) CopyObjectResponse {
+// generates CopyObjectResponse from the committed object information.
+func generateCopyObjectResponse(oi ObjectInfo, cs map[string]string) CopyObjectResponse {
 	return CopyObjectResponse{
-		ETag:         "\"" + etag + "\"",
-		LastModified: amztime.ISO8601Format(lastModified.UTC()),
+		ETag:              "\"" + oi.ETag + "\"",
+		LastModified:      amztime.ISO8601Format(oi.ModTime.UTC()),
+		ChecksumCRC32:     cs[hash.ChecksumCRC32.String()],
+		ChecksumCRC32C:    cs[hash.ChecksumCRC32C.String()],
+		ChecksumSHA1:      cs[hash.ChecksumSHA1.String()],
+		ChecksumSHA256:    cs[hash.ChecksumSHA256.String()],
+		ChecksumCRC64NVME: cs[hash.ChecksumCRC64NVME.String()],
+		ChecksumType:      cs[xhttp.AmzChecksumType],
 	}
 }
 
-// generates CopyObjectPartResponse from etag and lastModified time.
-func generateCopyObjectPartResponse(etag string, lastModified time.Time) CopyObjectPartResponse {
+// generates CopyObjectPartResponse from the uploaded part information.
+func generateCopyObjectPartResponse(partInfo PartInfo) CopyObjectPartResponse {
 	return CopyObjectPartResponse{
-		ETag:         "\"" + etag + "\"",
-		LastModified: amztime.ISO8601Format(lastModified.UTC()),
+		ETag:              "\"" + partInfo.ETag + "\"",
+		LastModified:      amztime.ISO8601Format(partInfo.LastModified.UTC()),
+		ChecksumCRC32:     partInfo.ChecksumCRC32,
+		ChecksumCRC32C:    partInfo.ChecksumCRC32C,
+		ChecksumSHA1:      partInfo.ChecksumSHA1,
+		ChecksumSHA256:    partInfo.ChecksumSHA256,
+		ChecksumCRC64NVME: partInfo.ChecksumCRC64NVME,
 	}
 }
 
@@ -797,6 +821,7 @@ func generateCompleteMultipartUploadResponse(bucket, key, location string, oi Ob
 		Key:      key,
 		// AWS S3 quotes the ETag in XML, make sure we are compatible here.
 		ETag:              "\"" + oi.ETag + "\"",
+		ChecksumType:      cs[xhttp.AmzChecksumType],
 		ChecksumSHA1:      cs[hash.ChecksumSHA1.String()],
 		ChecksumSHA256:    cs[hash.ChecksumSHA256.String()],
 		ChecksumCRC32:     cs[hash.ChecksumCRC32.String()],

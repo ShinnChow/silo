@@ -41,7 +41,7 @@ import (
 	xioutil "github.com/minio/minio/internal/ioutil"
 	"github.com/minio/minio/internal/logger"
 	"github.com/minio/minio/internal/pubsub"
-	xnet "github.com/minio/pkg/v3/net"
+	xnet "github.com/pgsty/silo-pkg/v3/net"
 	"github.com/puzpuzpuz/xsync/v3"
 	"github.com/tinylib/msgp/msgp"
 	"github.com/zeebo/xxh3"
@@ -1806,8 +1806,8 @@ func (ww *wsWriter) writeFrame(w io.Writer, f ws.Frame) error {
 	const (
 		bit0  = 0x80
 		len7  = int64(125)
-		len16 = int64(^(uint16(0)))
-		len64 = int64(^(uint64(0)) >> 1)
+		len16 = int64(^uint16(0))
+		len64 = int64(^uint64(0) >> 1)
 	)
 
 	bts := ww.tmp[:]

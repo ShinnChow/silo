@@ -38,7 +38,7 @@ import (
 	"github.com/minio/minio/internal/logger"
 	"github.com/minio/minio/internal/once"
 	"github.com/minio/minio/internal/store"
-	xnet "github.com/minio/pkg/v3/net"
+	xnet "github.com/pgsty/silo-pkg/v3/net"
 )
 
 const (
@@ -69,11 +69,6 @@ const (
 	EnvPostgresFormat             = "MINIO_NOTIFY_POSTGRES_FORMAT"
 	EnvPostgresConnectionString   = "MINIO_NOTIFY_POSTGRES_CONNECTION_STRING"
 	EnvPostgresTable              = "MINIO_NOTIFY_POSTGRES_TABLE"
-	EnvPostgresHost               = "MINIO_NOTIFY_POSTGRES_HOST"
-	EnvPostgresPort               = "MINIO_NOTIFY_POSTGRES_PORT"
-	EnvPostgresUsername           = "MINIO_NOTIFY_POSTGRES_USERNAME"
-	EnvPostgresPassword           = "MINIO_NOTIFY_POSTGRES_PASSWORD"
-	EnvPostgresDatabase           = "MINIO_NOTIFY_POSTGRES_DATABASE"
 	EnvPostgresQueueDir           = "MINIO_NOTIFY_POSTGRES_QUEUE_DIR"
 	EnvPostgresQueueLimit         = "MINIO_NOTIFY_POSTGRES_QUEUE_LIMIT"
 	EnvPostgresMaxOpenConnections = "MINIO_NOTIFY_POSTGRES_MAX_OPEN_CONNECTIONS"

@@ -71,13 +71,13 @@ func (z *erasureServerPools) listPath(ctx context.Context, o *listPathOptions) (
 	if o.Marker != "" && o.Prefix != "" {
 		// Marker not common with prefix is not implemented. Send an empty response
 		if !HasPrefix(o.Marker, o.Prefix) {
-			return entries, io.EOF
+			return entries, z.listPathShortcutEOF(ctx, o.Bucket)
 		}
 	}
 
 	// With max keys of zero we have reached eof, return right here.
 	if o.Limit == 0 {
-		return entries, io.EOF
+		return entries, z.listPathShortcutEOF(ctx, o.Bucket)
 	}
 
 	// For delimiter and prefix as '/' we do not list anything at all
@@ -85,7 +85,7 @@ func (z *erasureServerPools) listPath(ctx context.Context, o *listPathOptions) (
 	// as '/' we don't have any entries, since all the keys are
 	// of form 'keyName/...'
 	if strings.HasPrefix(o.Prefix, SlashSeparator) {
-		return entries, io.EOF
+		return entries, z.listPathShortcutEOF(ctx, o.Bucket)
 	}
 
 	// If delimiter is slashSeparator we must return directories of
@@ -252,6 +252,16 @@ func (z *erasureServerPools) listPath(ctx context.Context, o *listPathOptions) (
 		return entries, io.EOF
 	}
 	return entries, nil
+}
+
+// listPathShortcutEOF verifies bucket existence for shortcuts that return
+// without consulting the storage layer. Keep this check out of the normal
+// listing path since GetBucketInfo fans out to peers and disks.
+func (z *erasureServerPools) listPathShortcutEOF(ctx context.Context, bucket string) error {
+	if _, err := z.GetBucketInfo(ctx, bucket, BucketOptions{}); err != nil {
+		return err
+	}
+	return io.EOF
 }
 
 // listMerged will list across all sets and return a merged results stream.

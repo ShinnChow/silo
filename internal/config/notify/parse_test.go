@@ -414,21 +414,9 @@ var configPkgConsts = map[string]string{
 	"Comment": config.Comment,
 }
 
-// knownUnregisteredWrites records pre-existing instances of the exact defect
-// this audit exists to catch: a legacy migration writing config keys that no
-// default KVS registers, so the migrated config is rejected on the next load.
-//
-// These are inherited from upstream and are the same class as issue #39, but
-// they are NOT part of the issue #39 fix and were left untouched deliberately.
-// The Postgres/MySQL keys below are the pre-connection-string DSN fields; the
-// migration still writes them and `password` carries a plaintext database
-// password.
-//
-// This list must only ever shrink. Do not add entries to silence a new gap.
-var knownUnregisteredWrites = map[string][]string{
-	"SetNotifyPostgres": {"host", "port", "username", "password", "database"},
-	"SetNotifyMySQL":    {"host", "port", "username", "password", "database"},
-}
+// knownUnregisteredWrites is a shrink-only ratchet for inherited migration
+// gaps. Do not add entries to silence a new mismatch.
+var knownUnregisteredWrites = map[string][]string{}
 
 func TestNotifyConfigKeysAreRegistered(t *testing.T) {
 	targetConsts, err := parseTargetPkgStringConsts("../../event/target")

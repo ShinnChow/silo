@@ -21,8 +21,8 @@ import (
 
 	"github.com/nats-io/nats-server/v2/server"
 
-	xnet "github.com/minio/pkg/v3/net"
 	natsserver "github.com/nats-io/nats-server/v2/test"
+	xnet "github.com/pgsty/silo-pkg/v3/net"
 )
 
 func TestNatsConnPlain(t *testing.T) {
@@ -35,7 +35,7 @@ func TestNatsConnPlain(t *testing.T) {
 		Enable: true,
 		Address: xnet.Host{
 			Name:      "localhost",
-			Port:      (xnet.Port(opts.Port)),
+			Port:      xnet.Port(opts.Port),
 			IsPortSet: true,
 		},
 		Subject: "test",
@@ -59,7 +59,7 @@ func TestNatsConnUserPass(t *testing.T) {
 		Enable: true,
 		Address: xnet.Host{
 			Name:      "localhost",
-			Port:      (xnet.Port(opts.Port)),
+			Port:      xnet.Port(opts.Port),
 			IsPortSet: true,
 		},
 		Subject:  "test",
@@ -85,7 +85,7 @@ func TestNatsConnToken(t *testing.T) {
 		Enable: true,
 		Address: xnet.Host{
 			Name:      "localhost",
-			Port:      (xnet.Port(opts.Port)),
+			Port:      xnet.Port(opts.Port),
 			IsPortSet: true,
 		},
 		Subject: "test",
@@ -116,7 +116,7 @@ func TestNatsConnNKeySeed(t *testing.T) {
 		Enable: true,
 		Address: xnet.Host{
 			Name:      "localhost",
-			Port:      (xnet.Port(opts.Port)),
+			Port:      xnet.Port(opts.Port),
 			IsPortSet: true,
 		},
 		Subject:  "test",

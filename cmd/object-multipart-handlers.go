@@ -34,7 +34,6 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/encrypt"
 	"github.com/minio/minio-go/v7/pkg/tags"
-	"github.com/minio/minio/internal/amztime"
 	sse "github.com/minio/minio/internal/bucket/encryption"
 	objectlock "github.com/minio/minio/internal/bucket/object/lock"
 	"github.com/minio/minio/internal/bucket/replication"
@@ -49,11 +48,93 @@ import (
 	xhttp "github.com/minio/minio/internal/http"
 	"github.com/minio/minio/internal/logger"
 	"github.com/minio/mux"
-	"github.com/minio/pkg/v3/policy"
 	"github.com/minio/sio"
+	"github.com/pgsty/silo-pkg/v3/policy"
 )
 
 // Multipart objectAPIHandlers
+
+// isFederatedInternalRequest reports whether User-Agent carries the minio-go
+// application token attached by getRemoteInstanceClient.
+//
+// This is only a response-shape hint. User-Agent is not authenticated and must
+// never gate authorization, object visibility, or request validation. It is
+// safe here because the only effect is returning the checksum of the body the
+// caller was already authorized to upload.
+func isFederatedInternalRequest(userAgent string) bool {
+	for _, product := range strings.Fields(userAgent) {
+		name, version, ok := strings.Cut(product, "/")
+		if ok && name == federatedInternalAppName && version != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// partChecksumMap returns the non-empty part checksums in the form expected by
+// hash.AddChecksumHeader. x-amz-checksum-type is deliberately excluded because
+// UploadPart does not return it and minio-go cannot carry it in ObjectPart.
+func partChecksumMap(partInfo PartInfo) map[string]string {
+	checksums := make(map[string]string, 1)
+	if partInfo.ChecksumCRC32 != "" {
+		checksums[hash.ChecksumCRC32.String()] = partInfo.ChecksumCRC32
+	}
+	if partInfo.ChecksumCRC32C != "" {
+		checksums[hash.ChecksumCRC32C.String()] = partInfo.ChecksumCRC32C
+	}
+	if partInfo.ChecksumSHA1 != "" {
+		checksums[hash.ChecksumSHA1.String()] = partInfo.ChecksumSHA1
+	}
+	if partInfo.ChecksumSHA256 != "" {
+		checksums[hash.ChecksumSHA256.String()] = partInfo.ChecksumSHA256
+	}
+	if partInfo.ChecksumCRC64NVME != "" {
+		checksums[hash.ChecksumCRC64NVME.String()] = partInfo.ChecksumCRC64NVME
+	}
+	return checksums
+}
+
+// multipartChecksumType returns the base checksum type recorded when a
+// multipart upload was created. The boolean reports whether an algorithm was
+// recorded at all.
+func multipartChecksumType(metadata map[string]string) (hash.ChecksumType, bool) {
+	algorithm := metadata[hash.MinIOMultipartChecksum]
+	if algorithm == "" {
+		return hash.ChecksumNone, false
+	}
+	t := hash.NewChecksumType(algorithm, metadata[hash.MinIOMultipartChecksumType])
+	if !t.IsSet() {
+		return t, true
+	}
+	return t.Base(), true
+}
+
+// prepareMultipartChecksumReader validates a supplied part checksum algorithm,
+// or installs a server-side hasher when the client omitted the optional
+// checksum. It must run before compression or encryption can consume reader.
+func prepareMultipartChecksumReader(reader *hash.Reader, metadata map[string]string, bucket, object string) error {
+	want, ok := multipartChecksumType(metadata)
+	if !ok {
+		return nil
+	}
+
+	got := reader.ContentCRCType()
+	if !got.IsSet() && reader.ServerSideChecksumType.IsSet() {
+		got = reader.ServerSideChecksumType
+	}
+	if !want.IsSet() || (got.IsSet() && got.Base() != want) {
+		return InvalidArgument{
+			Bucket: bucket,
+			Object: object,
+			Err: fmt.Errorf("checksum missing, want %q, got %q",
+				metadata[hash.MinIOMultipartChecksum], got.String()),
+		}
+	}
+	if !got.IsSet() {
+		reader.AddServerSideChecksumHasher(want)
+	}
+	return nil
+}
 
 // NewMultipartUploadHandler - New multipart upload.
 // Notice: The S3 client can send secret keys in headers for encryption related jobs,
@@ -89,12 +170,26 @@ func (api objectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(s3Error), r.URL)
 		return
 	}
+	trustedReplication, replicaTrusted, trustErr := evaluateReplicationTrust(ctx, r, bucket, object, policy.ReplicateObjectAction)
+	if trustErr != ErrNone {
+		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(trustErr), r.URL)
+		return
+	}
+	if hasReplicationRequestHeaders(r.Header) {
+		ctx, r = applyReplicationTrust(ctx, r, trustedReplication, replicaTrusted)
+	}
 
-	// Check if bucket encryption is enabled
-	sseConfig, _ := globalBucketSSEConfigSys.Get(bucket)
-	sseConfig.Apply(r.Header, sse.ApplyOptions{
-		AutoEncrypt: globalAutoEncryption,
-	})
+	// A validated raw SSE-C replica upload carries source ciphertext in every
+	// part; the destination must not add its own encryption or compression.
+	rawSSECReplica := isRawSSECReplica(r.Header, replicaTrusted)
+
+	if !rawSSECReplica {
+		// Check if bucket encryption is enabled
+		sseConfig, _ := globalBucketSSEConfigSys.Get(bucket)
+		sseConfig.Apply(r.Header, sse.ApplyOptions{
+			AutoEncrypt: globalAutoEncryption,
+		})
+	}
 
 	// Validate the storage class header if present. Query values retain the
 	// existing compatibility path, including its historical validation behavior.
@@ -123,20 +218,7 @@ func (api objectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 			return
 		}
 
-		_, sourceReplReq := r.Header[xhttp.MinIOSourceReplicationRequest]
-		ssecRepHeaders := []string{
-			"X-Minio-Replication-Server-Side-Encryption-Seal-Algorithm",
-			"X-Minio-Replication-Server-Side-Encryption-Sealed-Key",
-			"X-Minio-Replication-Server-Side-Encryption-Iv",
-		}
-		ssecRep := false
-		for _, header := range ssecRepHeaders {
-			if val := r.Header.Get(header); val != "" {
-				ssecRep = true
-				break
-			}
-		}
-		if !ssecRep || !sourceReplReq {
+		if !rawSSECReplica {
 			if err = setEncryptionMetadata(r, bucket, object, encMetadata); err != nil {
 				writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
 				return
@@ -160,30 +242,49 @@ func (api objectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 			return
 		}
 	}
-	if r.Header.Get(xhttp.AmzBucketReplicationStatus) == replication.Replica.String() {
-		if s3Err := isPutActionAllowed(ctx, getRequestAuthType(r), bucket, object, r, policy.ReplicateObjectAction); s3Err != ErrNone {
-			writeErrorResponse(ctx, w, errorCodes.ToAPIErr(s3Err), r.URL)
-			return
-		}
+	if replicaTrusted {
 		if err = extractReplicationMetadataFromMime(ctx, textproto.MIMEHeader(r.Header), metadata); err != nil {
 			writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
 			return
 		}
+		metadata[xhttp.AmzBucketReplicationStatus] = replication.Replica.String()
 		metadata[ReservedMetadataPrefixLower+ReplicaStatus] = replication.Replica.String()
 		metadata[ReservedMetadataPrefixLower+ReplicaTimestamp] = UTCNow().Format(time.RFC3339Nano)
+	} else {
+		delete(metadata, xhttp.AmzBucketReplicationStatus)
 	}
 	retPerms := isPutActionAllowed(ctx, getRequestAuthType(r), bucket, object, r, policy.PutObjectRetentionAction)
 	holdPerms := isPutActionAllowed(ctx, getRequestAuthType(r), bucket, object, r, policy.PutObjectLegalHoldAction)
 
 	getObjectInfo := objectAPI.GetObjectInfo
 
-	retentionMode, retentionDate, legalHold, s3Err := checkPutObjectLockAllowed(ctx, r, bucket, object, getObjectInfo, retPerms, holdPerms)
-	if s3Err == ErrNone && retentionMode.Valid() {
-		metadata[strings.ToLower(xhttp.AmzObjectLockMode)] = string(retentionMode)
-		metadata[strings.ToLower(xhttp.AmzObjectLockRetainUntilDate)] = amztime.ISO8601Format(retentionDate.UTC())
-	}
-	if s3Err == ErrNone && legalHold.Status.Valid() {
-		metadata[strings.ToLower(xhttp.AmzObjectLockLegalHold)] = string(legalHold.Status)
+	retentionMode, retentionDate, legalHold, s3Err := checkPutObjectLockAllowed(ctx, r, bucket, object, getObjectInfo, retPerms, holdPerms, replicaTrusted)
+	if s3Err == ErrNone {
+		// A trusted replica NewMultipartUpload addressing a specific version can
+		// be a full retransmit over an existing version whose lock state is newer
+		// than the source snapshot (issue #120). Order the incoming update against
+		// what is stored so a stale value cannot overwrite it. opts is built below
+		// (its ServerSideEncryption depends on the encMetadata merge that has not
+		// happened yet), so read the replica ordering inputs the way
+		// putOptsFromHeaders will; a malformed timestamp fails the request when
+		// opts is built, so a parse error here is left as a zero time.
+		var (
+			storedLock                     objectLockState
+			srcRetentionTS, srcLegalholdTS time.Time
+		)
+		if replicaTrusted {
+			srcRetentionTS, _ = time.Parse(time.RFC3339, strings.TrimSpace(r.Header.Get(xhttp.MinIOSourceObjectRetentionTimestamp)))
+			srcLegalholdTS, _ = time.Parse(time.RFC3339, strings.TrimSpace(r.Header.Get(xhttp.MinIOSourceObjectLegalHoldTimestamp)))
+			if versionID := strings.TrimSpace(r.Form.Get(xhttp.VersionID)); versionID != "" {
+				var lerr error
+				if storedLock, lerr = replicaStoredLock(ctx, getObjectInfo, bucket, object, versionID); lerr != nil {
+					writeErrorResponse(ctx, w, toAPIError(ctx, lerr), r.URL)
+					return
+				}
+			}
+		}
+		applyReplicatedObjectLock(metadata, storedLock, replicaTrusted,
+			retentionMode, retentionDate, legalHold, srcRetentionTS, srcLegalholdTS)
 	}
 	if s3Err != ErrNone {
 		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(s3Err), r.URL)
@@ -201,7 +302,7 @@ func (api objectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 	// Ensure that metadata does not contain sensitive information
 	crypto.RemoveSensitiveEntries(metadata)
 
-	if isCompressible(r.Header, object) {
+	if !rawSSECReplica && isCompressible(r.Header, object) {
 		// Storing the compression metadata.
 		metadata[ReservedMetadataPrefix+"compression"] = compressionAlgorithmV2
 	}
@@ -227,6 +328,10 @@ func (api objectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		}
 	}
 
+	if _, err := hash.GetContentChecksum(r.Header); err != nil {
+		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrInvalidChecksum), r.URL)
+		return
+	}
 	checksumType := hash.NewChecksumHeader(r.Header)
 	if checksumType.Is(hash.ChecksumInvalid) {
 		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrInvalidChecksum), r.URL)
@@ -321,6 +426,14 @@ func (api objectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	if s3Error := checkRequestAuthType(ctx, r, policy.GetObjectAction, srcBucket, srcObject); s3Error != ErrNone {
 		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(s3Error), r.URL)
 		return
+	}
+	if hasReplicaStatus(r.Header) &&
+		!replicationPermissionAllowed(ctx, r, dstBucket, dstObject, policy.ReplicateObjectAction) {
+		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrAccessDenied), r.URL)
+		return
+	}
+	if hasReplicationRequestHeaders(r.Header) {
+		ctx, r = applyReplicationTrust(ctx, r, false, false)
 	}
 
 	uploadID := r.Form.Get(xhttp.UploadID)
@@ -465,7 +578,15 @@ func (api objectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 			return
 		}
 
-		response := generateCopyObjectPartResponse(partInfo.ETag, partInfo.LastModified)
+		response := generateCopyObjectPartResponse(PartInfo{
+			ETag:              partInfo.ETag,
+			LastModified:      partInfo.LastModified,
+			ChecksumCRC32:     partInfo.ChecksumCRC32,
+			ChecksumCRC32C:    partInfo.ChecksumCRC32C,
+			ChecksumSHA1:      partInfo.ChecksumSHA1,
+			ChecksumSHA256:    partInfo.ChecksumSHA256,
+			ChecksumCRC64NVME: partInfo.ChecksumCRC64NVME,
+		})
 		encodedSuccessResponse := encodeResponse(response)
 
 		// Write success response.
@@ -475,11 +596,24 @@ func (api objectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 
 	actualPartSize = length
 	var reader io.Reader = etag.NewReader(ctx, gr, nil, nil)
+	var checksumReader *hash.Reader
 
 	mi, err := objectAPI.GetMultipartInfo(ctx, dstBucket, dstObject, uploadID, dstOpts)
 	if err != nil {
 		writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
 		return
+	}
+	if _, ok := multipartChecksumType(mi.UserDefined); ok {
+		checksumReader, err = hash.NewReader(ctx, reader, length, "", "", actualPartSize)
+		if err != nil {
+			writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
+			return
+		}
+		if err = prepareMultipartChecksumReader(checksumReader, mi.UserDefined, dstBucket, dstObject); err != nil {
+			writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
+			return
+		}
+		reader = checksumReader
 	}
 
 	_, isEncrypted := crypto.IsEncrypted(mi.UserDefined)
@@ -512,6 +646,7 @@ func (api objectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 
 	rawReader := srcInfo.Reader
 	pReader := NewPutObjReader(rawReader)
+	pReader.setChecksumReader(checksumReader)
 
 	var objectEncryptionKey crypto.ObjectKey
 	if isEncrypted {
@@ -591,7 +726,7 @@ func (api objectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		partInfo.ETag = tryDecryptETag(objectEncryptionKey[:], partInfo.ETag, sseS3)
 	}
 
-	response := generateCopyObjectPartResponse(partInfo.ETag, partInfo.LastModified)
+	response := generateCopyObjectPartResponse(partInfo)
 	encodedSuccessResponse := encodeResponse(response)
 
 	// Write success response.
@@ -741,10 +876,21 @@ func (api objectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 		writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
 		return
 	}
+	trustedReplication, _, trustErr := evaluateReplicationTrust(ctx, r, bucket, object, policy.ReplicateObjectAction)
+	if trustErr != ErrNone {
+		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(trustErr), r.URL)
+		return
+	}
+	storedReplica := mi.UserDefined[xhttp.AmzBucketReplicationStatus] == replication.Replica.String()
+	replicaTrusted := trustedReplication && storedReplica
+	if hasReplicationRequestHeaders(r.Header) {
+		ctx, r = applyReplicationTrust(ctx, r, trustedReplication, replicaTrusted)
+	}
 
 	// Read compression metadata preserved in the init multipart for the decision.
 	_, isCompressed := mi.UserDefined[ReservedMetadataPrefix+"compression"]
 	var idxCb func() []byte
+	var checksumReader *hash.Reader
 	if isCompressed {
 		actualReader, err := hash.NewReader(ctx, reader, size, md5hex, sha256hex, actualSize)
 		if err != nil {
@@ -755,6 +901,11 @@ func (api objectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 			writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrInvalidChecksum), r.URL)
 			return
 		}
+		if err = prepareMultipartChecksumReader(actualReader, mi.UserDefined, bucket, object); err != nil {
+			writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
+			return
+		}
+		checksumReader = actualReader
 
 		// Set compression metrics.
 		wantEncryption := crypto.Requested(r.Header)
@@ -791,15 +942,21 @@ func (api objectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrInvalidChecksum), r.URL)
 		return
 	}
+	if checksumReader == nil {
+		if err = prepareMultipartChecksumReader(hashReader, mi.UserDefined, bucket, object); err != nil {
+			writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
+			return
+		}
+		checksumReader = hashReader
+	}
 
 	pReader := NewPutObjReader(hashReader)
+	pReader.setChecksumReader(checksumReader)
 
 	_, isEncrypted := crypto.IsEncrypted(mi.UserDefined)
-	_, replicationStatus := mi.UserDefined[xhttp.AmzBucketReplicationStatus]
-	_, sourceReplReq := r.Header[xhttp.MinIOSourceReplicationRequest]
 	var objectEncryptionKey crypto.ObjectKey
 	if isEncrypted {
-		if !crypto.SSEC.IsRequested(r.Header) && crypto.SSEC.IsEncrypted(mi.UserDefined) && !replicationStatus {
+		if !crypto.SSEC.IsRequested(r.Header) && crypto.SSEC.IsEncrypted(mi.UserDefined) && !replicaTrusted {
 			writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrSSEMultipartEncrypted), r.URL)
 			return
 		}
@@ -819,7 +976,7 @@ func (api objectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 			}
 		}
 
-		if !sourceReplReq || !crypto.SSEC.IsEncrypted(mi.UserDefined) {
+		if !replicaTrusted || !crypto.SSEC.IsEncrypted(mi.UserDefined) {
 			// Calculating object encryption key
 			key, err = decryptObjectMeta(key, bucket, object, mi.UserDefined)
 			if err != nil {
@@ -878,7 +1035,7 @@ func (api objectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	}
 	opts.IndexCB = idxCb
 
-	opts.ReplicationRequest = sourceReplReq
+	opts.ReplicationRequest = trustedReplication
 	putObjectPart := objectAPI.PutObjectPart
 
 	partInfo, err := putObjectPart(ctx, bucket, object, uploadID, partID, pReader, opts)
@@ -918,6 +1075,13 @@ func (api objectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	// Therefore, we have to set the ETag directly as map entry.
 	w.Header()[xhttp.ETag] = []string{"\"" + etag + "\""}
 	hash.TransferChecksumHeader(w, r)
+	if isFederatedInternalRequest(r.UserAgent()) {
+		// Legacy federation proxies UploadPartCopy through minio-go
+		// Core.PutObjectPart, which can only recover checksums from response
+		// headers. Use the PartInfo returned by this exact write so the ETag and
+		// checksum cannot be mixed with a concurrent overwrite.
+		hash.AddChecksumHeader(w, partChecksumMap(partInfo))
+	}
 
 	writeSuccessResponseHeadersOnly(w)
 }
@@ -945,6 +1109,14 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	if s3Error := checkRequestAuthType(ctx, r, policy.PutObjectAction, bucket, object); s3Error != ErrNone {
 		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(s3Error), r.URL)
 		return
+	}
+	trustedReplication, replicaTrusted, trustErr := evaluateReplicationTrust(ctx, r, bucket, object, policy.ReplicateObjectAction)
+	if trustErr != ErrNone {
+		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(trustErr), r.URL)
+		return
+	}
+	if hasReplicationRequestHeaders(r.Header) {
+		ctx, r = applyReplicationTrust(ctx, r, trustedReplication, replicaTrusted)
 	}
 
 	// Get upload id.
@@ -988,7 +1160,7 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		return
 	}
 
-	if _, _, _, s3Err := checkPutObjectLockAllowed(ctx, r, bucket, object, objectAPI.GetObjectInfo, ErrNone, ErrNone); s3Err != ErrNone {
+	if _, _, _, s3Err := checkPutObjectLockAllowed(ctx, r, bucket, object, objectAPI.GetObjectInfo, ErrNone, ErrNone, false); s3Err != ErrNone {
 		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(s3Err), r.URL)
 		return
 	}
@@ -1013,6 +1185,14 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	}
 	opts.Versioned = versioned
 	opts.VersionSuspended = suspended
+	// A replicated multipart completion carries the internal replication marker
+	// (the sender does not re-assert REPLICA status on Complete, so this is keyed
+	// on trusted replication, matching completeMultipartOpts). The object layer
+	// re-orders the Object Lock it carries against the destination version read
+	// under the write lock, but only for an SSE-C upload -- the scope this issue
+	// enables -- so a marker-only non-SSE-C completion keeps ordinary write
+	// semantics (issue #120).
+	opts.ReplicaLockReconcile = trustedReplication
 
 	// First, we compute the ETag of the multipart object.
 	// The ETag of a multi-part object is always:
@@ -1071,7 +1251,7 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	if dsc := mustReplicate(ctx, bucket, object, objInfo.getMustReplicateOptions(replication.ObjectReplicationType, opts)); dsc.ReplicateAny() {
 		scheduleReplication(ctx, objInfo, objectAPI, dsc, replication.ObjectReplicationType)
 	}
-	if _, ok := r.Header[xhttp.MinIOSourceReplicationRequest]; ok {
+	if isTrustedReplication(ctx) {
 		actualSize, _ := objInfo.GetActualSize()
 		defer globalReplicationStats.Load().UpdateReplicaStat(bucket, actualSize)
 	}

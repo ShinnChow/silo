@@ -840,12 +840,11 @@ Received a message: {"EventType":"s3:ObjectCreated:Put","Key":"images/myphoto.jp
 > database            (string)             database name (used only if `connection_string` is empty)
 > ```
 >
-> These are now deprecated, if you plan to upgrade to any releases after _RELEASE.2020-04-10T03-34-42Z_ make sure
-> to migrate to only using _connection_string_ option. To migrate, once you have upgraded all the servers use the
-> following command to update the existing notification targets.
+> These are now deprecated. SILO does not migrate an enabled target that only has these fields, so convert it to
+> _connection_string_ before starting SILO. On the old server, use the following command to update the target.
 >
 > ```
-> mc admin config set mysilo/ notify_postgres[:name] connection_string="host=hostname port=2832 username=psqluser password=psqlpass database=bucketevents"
+> mc admin config set mysilo/ notify_postgres[:name] connection_string="host=hostname port=2832 user=psqluser password=psqlpass dbname=bucketevents"
 > ```
 >
 > Please make sure this step is carried out, without this step PostgreSQL notification targets will not work,
@@ -973,9 +972,8 @@ key                 |                      value
 > database     (string)             database name (used only if `dsn_string` is empty)
 > ```
 >
-> These are now deprecated, if you plan to upgrade to any releases after _RELEASE.2020-04-10T03-34-42Z_ make sure
-> to migrate to only using _dsn_string_ option. To migrate, once you have upgraded all the servers use the
-> following command to update the existing notification targets.
+> These are now deprecated. SILO does not migrate an enabled target that only has these fields, so convert it to
+> _dsn_string_ before starting SILO. On the old server, use the following command to update the target.
 >
 > ```
 > mc admin config set mysilo/ notify_mysql[:name] dsn_string="mysqluser:mysqlpass@tcp(localhost:2832)/bucketevents"
@@ -1045,7 +1043,7 @@ Before updating the configuration, let's start with `mc admin config get` comman
 
 ```sh
 $ mc admin config get mysilo/ notify_mysql
-notify_mysql:myinstance enable=off format=namespace host= port= username= password= database= dsn_string= table= queue_dir= queue_limit=0
+notify_mysql:myinstance enable=off format=namespace dsn_string= table= queue_dir= queue_limit=0
 ```
 
 Use `mc admin config set` command to update MySQL notification configuration for the deployment with `dsn_string` parameter:
