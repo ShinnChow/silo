@@ -2195,7 +2195,15 @@ func (z *erasureServerPools) DeleteBucket(ctx context.Context, bucket string, op
 		opts.Force = true
 	}
 
-	err := z.s3Peer.DeleteBucket(ctx, bucket, opts)
+	// Take the metadata writer lock before deleting anything. Failure or
+	// cancellation must leave both the bucket and its metadata intact.
+	ctx, unlock, err := lockBucketMetadata(ctx, z, bucket)
+	if err != nil {
+		return toObjectErr(err, bucket)
+	}
+	defer unlock()
+
+	err = z.s3Peer.DeleteBucket(ctx, bucket, opts)
 	if err == nil || isErrBucketNotFound(err) {
 		// If site replication is configured, hold on to deleted bucket state until sites sync
 		if opts.SRDeleteOp == MarkDelete {
@@ -2204,18 +2212,9 @@ func (z *erasureServerPools) DeleteBucket(ctx context.Context, bucket string, op
 	}
 
 	if err == nil {
-		// Purge the entire bucket metadata entirely. Hold metadata.lock across
-		// the purge so a bucket metadata writer that is mid-save cannot
-		// resurrect a ghost .metadata.bin after the prefix has been removed
-		// (issue #105). Lock order stays <bucket>.lck -> metadata.lock; a lock
-		// acquisition failure falls back to a best-effort unlocked purge so a
-		// delete is never blocked from completing.
-		if lctx, unlock, lerr := lockBucketMetadata(context.Background(), z, bucket); lerr == nil {
-			z.deleteAll(lctx, minioMetaBucket, pathJoin(bucketMetaPrefix, bucket))
-			unlock()
-		} else {
-			z.deleteAll(context.Background(), minioMetaBucket, pathJoin(bucketMetaPrefix, bucket))
-		}
+		// Finish cleanup after a committed delete even if the client disconnects.
+		// Both the bucket-name and metadata locks remain held until return.
+		z.deleteAll(context.WithoutCancel(ctx), minioMetaBucket, pathJoin(bucketMetaPrefix, bucket))
 	}
 
 	return toObjectErr(err, bucket)

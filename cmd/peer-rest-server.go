@@ -544,17 +544,8 @@ func (s *peerRESTServer) LoadBucketMetadataHandler(mss *grid.MSS) (np grid.NoPay
 		return np, grid.NewRemoteErr(err)
 	}
 
-	// Publish monotonically: an overlapping reload that read an older revision
-	// must not overwrite a newer resident record (issue #105).
+	// Publish the metadata and derived registries from the same current revision.
 	globalBucketMetadataSys.setReloaded(bucketName, meta)
-
-	if meta.notificationConfig != nil {
-		globalEventNotifier.AddRulesMap(bucketName, meta.notificationConfig.ToRulesMap())
-	}
-
-	if meta.bucketTargetConfig != nil {
-		globalBucketTargetSys.UpdateAllTargets(bucketName, meta.bucketTargetConfig)
-	}
 
 	return np, nerr
 }

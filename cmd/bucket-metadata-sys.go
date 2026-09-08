@@ -125,13 +125,10 @@ func (sys *BucketMetadataSys) Set(bucket string, meta BucketMetadata) {
 	}
 }
 
-// setReloaded publishes a record freshly loaded from disk into the resident
-// cache without letting an older on-disk revision overwrite a newer resident
-// one. Overlapping peer reloads (LoadBucketMetadataHandler) and cache-miss
-// loads can finish out of order, so an unconditional Set can leave the resident
-// cache a revision behind until the next refresh (issue #105). The authoritative
-// read-modify-write save path uses Set directly and always wins because it
-// stamps a fresh updatedAt. Only a shallow copy is stored, exactly like Set.
+// setReloaded publishes the newest known revision and its derived registries
+// together. An old reload may finish after a local save or another reload;
+// applying its notification/replication targets would regress live behavior
+// even if the metadata cache itself rejected that old revision.
 func (sys *BucketMetadataSys) setReloaded(bucket string, meta BucketMetadata) {
 	if isMinioMetaBucketName(bucket) {
 		return
@@ -139,12 +136,21 @@ func (sys *BucketMetadataSys) setReloaded(bucket string, meta BucketMetadata) {
 	sys.Lock()
 	defer sys.Unlock()
 	if cur, ok := sys.metadataMap[bucket]; ok && !cur.lastUpdate().Before(meta.lastUpdate()) {
-		// A resident revision that is at least as new is already published; do
-		// not regress it to the older reload.
-		return
+		meta = cur
+	} else {
+		sys.metadataMap[bucket] = meta
 	}
-	sys.metadataMap[bucket] = meta
 	sys.clearLoadFailure(bucket)
+	// These registry updates only change local state; no peer/network I/O runs
+	// under the metadata mutex. Keep publication ordered against Set/Remove.
+	if globalEventNotifier != nil {
+		if meta.notificationConfig != nil {
+			globalEventNotifier.AddRulesMap(bucket, meta.notificationConfig.ToRulesMap())
+		} else {
+			globalEventNotifier.RemoveNotification(bucket)
+		}
+	}
+	globalBucketTargetSys.UpdateAllTargets(bucket, meta.bucketTargetConfig)
 }
 
 func (sys *BucketMetadataSys) updateAndParse(ctx context.Context, bucket string, configFile string, configData []byte, parse, lifecycleDelete bool) (updatedAt time.Time, err error) {
@@ -251,6 +257,11 @@ func (sys *BucketMetadataSys) save(ctx context.Context, meta BucketMetadata) err
 // saveMetadata persists and publishes metadata locally. Callers performing a
 // read-modify-write must hold metadata.lock and release it before peer fan-out.
 func (sys *BucketMetadataSys) saveMetadata(ctx context.Context, objAPI ObjectLayer, meta BucketMetadata) error {
+	// A writer may have queued for metadata.lock before DeleteBucket completed.
+	// Recheck the physical bucket under that lock, before recreating metadata.
+	if _, err := objAPI.GetBucketInfo(ctx, meta.Name, BucketOptions{NoMetadata: true}); err != nil {
+		return err
+	}
 	if err := meta.Save(ctx, objAPI); err != nil {
 		return err
 	}
@@ -782,8 +793,6 @@ func (sys *BucketMetadataSys) refreshBucketsMetadataLoop(ctx context.Context) {
 				wait := sleeper.Timer(ctx)
 
 				bucket := buckets[i].Name
-				updated := false
-
 				meta, err := loadBucketMetadata(ctx, sys.objAPI, bucket)
 				if err != nil {
 					internalLogIf(ctx, err, logger.WarningKind)
@@ -794,19 +803,7 @@ func (sys *BucketMetadataSys) refreshBucketsMetadataLoop(ctx context.Context) {
 					continue
 				}
 
-				sys.Lock()
-				// Update if the bucket metadata in the memory is older than on-disk one
-				if lu := sys.metadataMap[bucket].lastUpdate(); lu.Before(meta.lastUpdate()) {
-					updated = true
-					sys.metadataMap[bucket] = meta
-				}
-				sys.clearLoadFailure(bucket)
-				sys.Unlock()
-
-				if updated {
-					globalEventNotifier.set(bucket, meta)
-					globalBucketTargetSys.set(bucket, meta)
-				}
+				sys.setReloaded(bucket, meta)
 
 				wait() // wait to proceed to next entry.
 			}
