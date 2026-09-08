@@ -283,7 +283,11 @@ func TestAPIFederatedCopyObjectRejectsInvalidRemoteChecksum(t *testing.T) {
 		objAPITest: func(obj ObjectLayer, instanceType, bucket string, router http.Handler, credentials auth.Credentials, t *testing.T) {
 			data := []byte("remote checksum response fixture")
 			putCopyChecksumSource(t, router, credentials, bucket, "source", data, nil)
-			for _, value := range []string{"", "invalid-base64", "YQ=="} {
+			// "" missing, "invalid-base64" unparseable, "YQ==" wrong digest
+			// length, and "<valid>-0" a multipart-marked value that a single
+			// forwarded PutObject must never yield (it would mislabel the
+			// destination as composite).
+			for _, value := range []string{"", "invalid-base64", "YQ==", mustChecksum(t, hash.ChecksumCRC32, data) + "-0"} {
 				t.Run("checksum="+value, func(t *testing.T) {
 					remoteBucket, _, cleanup := setupCopyObjectFederation(t, obj, router, instanceType, bucket, func(header http.Header) {
 						header.Set(xhttp.AmzChecksumCRC32, value)
@@ -343,4 +347,93 @@ func testAPIFederatedCopyObjectChecksumIsBoundToWrite(objectAPI ObjectLayer, ins
 		response.ChecksumSHA256 != "" || response.ChecksumCRC64NVME != "" {
 		t.Fatalf("%s: response carried checksums beyond the requested CRC32: %s", instanceType, rec.Body.String())
 	}
+}
+
+// TestAPIFederatedCopyObjectEmptySource guards the empty-body regression: a
+// checksum-less object gains the S3 default CRC-64NVME, but minio-go streams no
+// trailing checksum for a 0-byte body, so the remote returned none, the bind
+// found nothing, and every empty-object federated copy 500'd. An empty source
+// must now copy with 200 and carry the empty-content checksum, both when a
+// checksum is requested explicitly and via the default.
+func TestAPIFederatedCopyObjectEmptySource(t *testing.T) {
+	defer DetectTestLeak(t)()
+	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{
+		t:          t,
+		objAPITest: testAPIFederatedCopyObjectEmptySource,
+		endpoints:  []string{"CopyObject", "PutObject", "HeadObject", "GetObject"},
+	})
+}
+
+func testAPIFederatedCopyObjectEmptySource(objectAPI ObjectLayer, instanceType, bucketName string,
+	apiRouter http.Handler, credentials auth.Credentials, t *testing.T,
+) {
+	srcObject := "federation/empty-source"
+	putCopyChecksumSource(t, apiRouter, credentials, bucketName, srcObject, nil, nil)
+
+	remoteBucket, _, cleanup := setupCopyObjectFederation(t, objectAPI, apiRouter, instanceType, bucketName)
+	defer cleanup()
+
+	cases := []struct {
+		name     string
+		typ      hash.ChecksumType
+		explicit bool
+	}{
+		{name: "explicit-CRC32", typ: hash.ChecksumCRC32, explicit: true},
+		{name: "explicit-SHA256", typ: hash.ChecksumSHA256, explicit: true},
+		// No requested algorithm: the S3 default CRC-64NVME still applies.
+		{name: "default-CRC64NVME", typ: hash.ChecksumCRC64NVME},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var headers map[string]string
+			if tc.explicit {
+				headers = map[string]string{xhttp.AmzChecksumAlgo: tc.typ.String()}
+			}
+			dstObject := "federation/empty-destination-" + tc.name
+			rec := federatedCopyRequest(t, apiRouter, credentials, bucketName, srcObject, remoteBucket, dstObject, headers)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("%s: federated CopyObject of an empty source failed: %d %s",
+					instanceType, rec.Code, rec.Body.String())
+			}
+			// The empty-content digest must be returned and persisted.
+			assertCopyChecksumResponse(t, rec, tc.typ, nil)
+			assertCopyChecksum(t, objectAPI, remoteBucket, dstObject, tc.typ, nil, false, nil)
+		})
+	}
+}
+
+// TestAPIFederatedCopyObjectInheritedChecksum guards that a full-object checksum
+// already stored on the source is preserved across a federated copy that
+// requests no algorithm. That checksum sets dstOpts.WantChecksum (not
+// WantServerSideChecksumType), which the federated branch previously ignored,
+// silently dropping the checksum the local path keeps.
+func TestAPIFederatedCopyObjectInheritedChecksum(t *testing.T) {
+	defer DetectTestLeak(t)()
+	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{
+		t:          t,
+		objAPITest: testAPIFederatedCopyObjectInheritedChecksum,
+		endpoints:  []string{"CopyObject", "PutObject", "HeadObject", "GetObject"},
+	})
+}
+
+func testAPIFederatedCopyObjectInheritedChecksum(objectAPI ObjectLayer, instanceType, bucketName string,
+	apiRouter http.Handler, credentials auth.Credentials, t *testing.T,
+) {
+	data := []byte("abc")
+	want := mustChecksum(t, hash.ChecksumCRC32, data) // "NSRBwg=="
+	srcObject := "federation/inherited-checksum-source"
+	putCopyChecksumSource(t, apiRouter, credentials, bucketName, srcObject, data,
+		map[string]string{xhttp.AmzChecksumCRC32: want})
+
+	remoteBucket, _, cleanup := setupCopyObjectFederation(t, objectAPI, apiRouter, instanceType, bucketName)
+	defer cleanup()
+
+	// No algorithm header: the source's stored CRC32 must survive the copy.
+	dstObject := "federation/inherited-checksum-destination"
+	rec := federatedCopyRequest(t, apiRouter, credentials, bucketName, srcObject, remoteBucket, dstObject, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("%s: federated CopyObject failed: %d %s", instanceType, rec.Code, rec.Body.String())
+	}
+	assertCopyChecksumResponse(t, rec, hash.ChecksumCRC32, data)
+	assertCopyChecksum(t, objectAPI, remoteBucket, dstObject, hash.ChecksumCRC32, data, false, nil)
 }

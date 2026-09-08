@@ -1940,16 +1940,42 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 			ServerSideEncryption: dstOpts.ServerSideEncryption,
 			UserTags:             tag.ToMap(),
 		}
-		// When a server-side checksum was requested (explicitly, inherited from
-		// the source, or the S3 default for a checksum-less object), the local
-		// path computes, persists and returns it; the federated path must do the
-		// same. Ask the remote to compute and persist that checksum by streaming
-		// it as a trailing checksum, so the forwarded write's response carries
-		// the value back to us. Without this the federated copy silently returns
-		// an empty checksum (#99).
+		// The destination must carry the same checksum the local path would
+		// produce; the federated path has the remote compute, validate, persist
+		// and return it. Without this the federated copy silently returns an
+		// empty checksum (#99).
 		wantChecksumType := dstOpts.WantServerSideChecksumType
-		if wantChecksumType.IsSet() {
-			opts.Checksum = federatedChecksumType(wantChecksumType)
+		var checksumHeaderValue string
+		switch {
+		case wantChecksumType.IsSet():
+			if srcInfo.Size == 0 {
+				// minio-go streams no trailing checksum for an empty body, so the
+				// remote would compute none, the bind below would fail, and every
+				// empty-object federated copy would 500. Forward the empty-content
+				// digest as an ordinary checksum header instead, so the remote
+				// validates, persists and returns it (parity with the local path,
+				// e.g. CRC32 "AAAAAA==").
+				if empty := hash.NewChecksumFromData(wantChecksumType, nil); empty != nil {
+					checksumHeaderValue = empty.Encoded
+				}
+			} else {
+				// Stream a trailing checksum of the requested type so the remote
+				// computes and persists it over the copied bytes.
+				opts.Checksum = federatedChecksumType(wantChecksumType)
+			}
+		case dstOpts.WantChecksum != nil && dstOpts.WantChecksum.Type.IsSet():
+			// A full-object checksum inherited from a checksum-bearing source: the
+			// local path persists it without recomputation (only multipart
+			// composite sources are promoted to WantServerSideChecksumType above,
+			// so this is never composite). Forward the value as an ordinary
+			// checksum header so the remote validates and persists it, and bind
+			// the returned value below. WantChecksum.Encoded is always a plain
+			// digest, never a "-N" multipart form.
+			wantChecksumType = dstOpts.WantChecksum.Type.Base()
+			checksumHeaderValue = dstOpts.WantChecksum.Encoded
+		}
+		if checksumHeaderValue != "" {
+			opts.UserMetadata[wantChecksumType.Key()] = checksumHeaderValue
 		}
 		remoteObjInfo, rerr := core.PutObject(ctx, dstBucket, dstObject, srcInfo.Reader,
 			srcInfo.Size, "", "", opts)
@@ -1958,12 +1984,19 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 			return
 		}
 		objInfo.UserDefined = cloneMSS(opts.UserMetadata)
+		// A forwarded checksum header is a request detail, not object metadata.
+		if checksumHeaderValue != "" {
+			delete(objInfo.UserDefined, wantChecksumType.Key())
+		}
 		objInfo.ETag = remoteObjInfo.ETag
 		objInfo.ModTime = remoteObjInfo.LastModified
-		// Do not acknowledge a requested checksum the remote did not return.
+		// Bind the checksum the remote computed for this exact write. A single
+		// forwarded PutObject must yield a full-object digest, so reject a
+		// missing, malformed, or multipart-marked ("-N") value rather than
+		// mislabel the destination as composite.
 		if wantChecksumType.IsSet() {
 			cs := hash.NewChecksumWithType(wantChecksumType, federatedChecksumValue(wantChecksumType, remoteObjInfo))
-			if cs == nil {
+			if cs == nil || cs.Type.Is(hash.ChecksumMultipart) {
 				writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrInternalError), r.URL)
 				return
 			}
