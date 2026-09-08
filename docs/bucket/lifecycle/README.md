@@ -327,6 +327,15 @@ Demotion is not blocked by these caps and is processed before promotion.
 Access moves pause during rebalance or decommission, never target a suspended
 pool, skip remotely transitioned objects and objects with excessive version
 counts, and recheck eligibility while holding the object namespace lock.
+Moves also lock the source and destination write locations. All lock servers
+for those locations must be reachable; otherwise the background move is
+deferred. Ordinary S3 requests keep their existing quorum requirements.
+
+Each move preserves version IDs, delete markers, ETags, checksums, encryption
+and user metadata. A retry copies only missing versions and retains versions
+already at the destination. If the same version ID has conflicting metadata
+in the two pools, the move is skipped and both copies are left intact. Source
+data is removed only after the complete version stack exists at the destination.
 
 The hit counter is intentionally best effort. Only successfully served GET
 requests count; HEAD requests do not. Counters are merged across nodes and
@@ -347,6 +356,17 @@ AWS_ACCESS_KEY_ID=minioadmin AWS_SECRET_ACCESS_KEY=minioadmin \
 Access-tier activity is exposed under /minio/metrics/v3/ilm, including move
 counts, moved bytes, queue depth, hot bytes per bucket, failed moves, dropped
 GET samples, and separate skip counters for each capacity limit.
+
+To stop scheduling moves, set `access_tiering=off` (and remove any environment
+override). Objects already moved remain in their current pools and stay
+accessible; disabling the feature does not move them back. Before downgrading
+to a release without access tiering, disable it and let active moves finish.
+The object storage format is unchanged. The data-usage cache advances from
+v8 to v9: this release reads both, but an older binary discards v9 caches and
+rebuilds usage statistics through the scanner. Usage and quota statistics can
+therefore take time to repopulate after a downgrade. Keep a copy of lifecycle
+XML containing Silo extensions, since an older binary may omit those fields
+when rewriting a lifecycle rule.
 
 ## Explore Further
 

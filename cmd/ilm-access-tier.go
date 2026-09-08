@@ -18,12 +18,14 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"maps"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,6 +34,7 @@ import (
 
 	"github.com/minio/minio/internal/bucket/lifecycle"
 	"github.com/minio/minio/internal/config/ilm"
+	"github.com/minio/minio/internal/dsync"
 	"github.com/minio/minio/internal/hash"
 )
 
@@ -851,9 +854,6 @@ func accessObjectVersions(ctx context.Context, z *erasureServerPools, src int, b
 			return nil, errAccessTierRemoteVersion
 		}
 	}
-	if len(versions) == 1 && versions[0].Deleted {
-		return nil, errAccessTierNotEligible
-	}
 	versionsSorter(versions).reverse()
 	return versions, nil
 }
@@ -872,24 +872,24 @@ func accessObjectBytes(ctx context.Context, z *erasureServerPools, src int, buck
 	return total, nil
 }
 
-func deleteAccessTierPoolObject(ctx context.Context, z *erasureServerPools, pool int, bucket, object string) error {
+func deleteAccessTierPoolVersion(ctx context.Context, z *erasureServerPools, pool int, bucket, object, versionID string) error {
+	if versionID == "" {
+		versionID = nullVersionID
+	}
 	_, err := z.serverPools[pool].DeleteObject(ctx, bucket, encodeDirObject(object), ObjectOptions{
-		DeletePrefix: true, DeletePrefixObject: true, NoLock: true, NoAuditLog: true,
+		Versioned: true, VersionID: versionID, NoLock: true, NoAuditLog: true,
 	})
+	if isErrObjectNotFound(err) || isErrVersionNotFound(err) {
+		return nil
+	}
 	return err
 }
 
 // rollbackAccessTierDestination removes only what this move wrote.
 //
-// A blanket prefix delete would be wrong: the top-level namespace lock is
-// taken on pool 0 / set 0 (see erasureServerPools.NewNSLock), while a client
-// PutObject locks the hashed set of whichever pool it lands in, and lockers
-// are per set. A concurrent client write can therefore land on the
-// destination while a move is in flight, and it must survive our rollback.
-//
-// Versioned writes are removed by exact version ID, which can never touch a
-// client's version. An unversioned write has no ID to target, so it is only
-// removed while it still carries this move's own marker stamp.
+// Existing destination versions are never included in written. Both commit
+// locks remain held during rollback; the marker check also refuses cleanup of
+// an unversioned copy that no longer belongs to this attempt.
 func rollbackAccessTierDestination(ctx context.Context, z *erasureServerPools, dst int, bucket, object string, written []string, movedAt int64) {
 	stamp := accessTierStamp(dst, movedAt)
 	for _, versionID := range written {
@@ -907,27 +907,94 @@ func rollbackAccessTierDestination(ctx context.Context, z *erasureServerPools, d
 				ilmLogIf(ctx, fmt.Errorf("access tier rollback skipped for %s/%s in pool %d: destination was overwritten concurrently", bucket, object, dst))
 				continue
 			}
-			if err := deleteAccessTierPoolObject(ctx, z, dst, bucket, object); err != nil {
-				ilmLogIf(ctx, fmt.Errorf("access tier rollback failed for %s/%s in pool %d: %w", bucket, object, dst, err))
-			}
-			continue
 		}
-		_, err := z.serverPools[dst].DeleteObject(ctx, bucket, encodeDirObject(object), ObjectOptions{
-			Versioned: true, VersionID: versionID, NoLock: true, NoAuditLog: true,
-		})
-		if err != nil && !isErrObjectNotFound(err) && !isErrVersionNotFound(err) {
+		if err := deleteAccessTierPoolVersion(ctx, z, dst, bucket, object, versionID); err != nil {
 			ilmLogIf(ctx, fmt.Errorf("access tier rollback failed for %s/%s version %s in pool %d: %w", bucket, object, versionID, dst, err))
 		}
 	}
 }
 
-// moveObjectPool copies the complete version stack oldest-first and removes
-// the source only after every destination write succeeded.
-//
-// The namespace lock excludes concurrent deletes, which take the same
-// top-level lock. It does not exclude a concurrent PutObject, which locks the
-// hashed set of its target pool; see rollbackAccessTierDestination for how
-// that is contained.
+// lockAccessTierObject excludes reads/deletes using the top-level namespace
+// and writes committing in either hashed set. Distributed sets can share lock
+// servers, so lock each distinct server once, in a stable order. Background
+// moves require all involved lock servers; ordinary S3 quorum rules stay intact.
+func lockAccessTierObject(ctx context.Context, z *erasureServerPools, bucket, object string, src, dst int) (context.Context, func(), error) {
+	sets := []*erasureObjects{z.serverPools[0].sets[0], z.serverPools[src].getHashedSet(object), z.serverPools[dst].getHashedSet(object)}
+	var locks []RWLocker
+	local := make(map[*nsLockMap]bool)
+	remote := make(map[string]dsync.NetLocker)
+	var owner string
+	for _, set := range sets {
+		if !set.nsMutex.isDistErasure {
+			if !local[set.nsMutex] {
+				locks = append(locks, set.NewNSLock(bucket, object))
+				local[set.nsMutex] = true
+			}
+			continue
+		}
+		peers, lockOwner := set.getLockers()
+		if len(peers) == 0 {
+			return nil, nil, errAccessTierNotEligible
+		}
+		owner = lockOwner
+		for _, peer := range peers {
+			if peer == nil {
+				return nil, nil, errAccessTierNotEligible
+			}
+			remote[peer.String()] = peer
+		}
+	}
+	for _, address := range slices.Sorted(maps.Keys(remote)) {
+		peer := remote[address]
+		locks = append(locks, (&nsLockMap{isDistErasure: true}).NewNSLock(func() ([]dsync.NetLocker, string) {
+			return []dsync.NetLocker{peer}, owner
+		}, bucket, object))
+	}
+	var unlockers []func()
+	unlock := func() {
+		for i := len(unlockers) - 1; i >= 0; i-- {
+			unlockers[i]()
+		}
+	}
+	for _, lk := range locks {
+		lkctx, err := lk.GetLock(ctx, globalDeleteOperationTimeout)
+		if err != nil {
+			unlock()
+			return nil, nil, err
+		}
+		ctx = lkctx.Context()
+		unlockers = append(unlockers, func() { lk.Unlock(lkctx) })
+	}
+	return ctx, unlock, nil
+}
+
+// A retry may reuse an identical destination version. Conflicting versions
+// are left intact, including null versions and independently changed tags or
+// retention settings. Physical layout and move bookkeeping may differ by pool.
+func sameAccessTierVersion(a, b FileInfo) bool {
+	if a.VersionID != b.VersionID || a.Deleted != b.Deleted || a.Size != b.Size || !a.ModTime.Equal(b.ModTime) || !bytes.Equal(a.Checksum, b.Checksum) || len(a.Parts) != len(b.Parts) {
+		return false
+	}
+	for i, part := range a.Parts {
+		other := b.Parts[i]
+		if part.Number != other.Number || part.Size != other.Size || part.ActualSize != other.ActualSize || part.ETag != other.ETag || !bytes.Equal(part.Index, other.Index) || !maps.Equal(part.Checksums, other.Checksums) {
+			return false
+		}
+	}
+	metadata := func(fi FileInfo) map[string]string {
+		m := maps.Clone(fi.Metadata)
+		delete(m, accessTierMetadataKey)
+		delete(m, xMinIODataMov)
+		delete(m, ReservedMetadataPrefixLower+"inline-data")
+		delete(m, minIOErasureUpgraded)
+		return m
+	}
+	return maps.Equal(metadata(a), metadata(b))
+}
+
+// moveObjectPool copies missing versions oldest-first, preserving versions
+// already at the destination. The source is removed only after every source
+// version is present there. This also resumes after an uncertain source delete.
 func moveObjectPool(ctx context.Context, z *erasureServerPools, bucket, object string, src, dst int, beforeCopy func(ObjectInfo, uint64) error) (uint64, error) {
 	if bucket == minioMetaBucket || src == dst || src < 0 || dst < 0 || src >= len(z.serverPools) || dst >= len(z.serverPools) {
 		return 0, errAccessTierNotEligible
@@ -936,17 +1003,18 @@ func moveObjectPool(ctx context.Context, z *erasureServerPools, bucket, object s
 		return 0, errAccessTierNotEligible
 	}
 
-	lk := z.NewNSLock(bucket, object)
-	lkctx, err := lk.GetLock(ctx, globalDeleteOperationTimeout)
+	ctx, unlock, err := lockAccessTierObject(ctx, z, bucket, encodeDirObject(object), src, dst)
 	if err != nil {
 		return 0, err
 	}
-	ctx = lkctx.Context()
-	defer lk.Unlock(lkctx)
+	defer unlock()
 
 	versions, err := accessObjectVersions(ctx, z, src, bucket, object)
 	if err != nil {
 		return 0, err
+	}
+	if len(versions) == 1 && versions[0].Deleted {
+		return 0, errAccessTierNotEligible
 	}
 	versioned := globalBucketVersioningSys.PrefixEnabled(bucket, object)
 	latest := versions[len(versions)-1].ToObjectInfo(bucket, object, versioned)
@@ -962,20 +1030,20 @@ func moveObjectPool(ctx context.Context, z *erasureServerPools, bucket, object s
 		}
 	}
 
-	// A failed earlier attempt may have copied the full stack but failed to
-	// remove the source. It is safe to discard only a destination carrying
-	// our internal marker; an unrelated split-brain copy is left untouched.
-	dstOI, dstErr := z.serverPools[dst].GetObjectInfo(ctx, bucket, encodeDirObject(object), ObjectOptions{NoLock: true})
-	if dstErr == nil {
-		markedPool, _, marked := parseAccessTierStamp(dstOI.UserDefined)
-		if !marked || markedPool != dst {
+	// Never clear a pre-existing destination: it may hold the only surviving
+	// copy of a version after a partially committed source deletion.
+	dstVersions, dstErr := accessObjectVersions(ctx, z, dst, bucket, object)
+	if dstErr != nil && !isErrObjectNotFound(dstErr) && !isErrVersionNotFound(dstErr) {
+		return 0, dstErr
+	}
+	existing := make(map[string]FileInfo, len(dstVersions))
+	for _, version := range dstVersions {
+		existing[version.VersionID] = version
+	}
+	for _, version := range versions {
+		if prior, ok := existing[version.VersionID]; ok && !sameAccessTierVersion(version, prior) {
 			return 0, errAccessTierNotEligible
 		}
-		if err := deleteAccessTierPoolObject(ctx, z, dst, bucket, object); err != nil {
-			return 0, err
-		}
-	} else if !isErrObjectNotFound(dstErr) && !isErrVersionNotFound(dstErr) {
-		return 0, dstErr
 	}
 
 	movedAt := time.Now().UnixNano()
@@ -994,6 +1062,9 @@ func moveObjectPool(ctx context.Context, z *erasureServerPools, bucket, object s
 
 	set := z.serverPools[src].getHashedSet(encodeDirObject(object))
 	for _, version := range versions {
+		if _, ok := existing[version.VersionID]; ok {
+			continue
+		}
 		if err := ctx.Err(); err != nil {
 			return 0, err
 		}
@@ -1029,7 +1100,7 @@ func moveObjectPool(ctx context.Context, z *erasureServerPools, bucket, object s
 
 	// Re-read while still holding the namespace lock and refuse the source
 	// delete if the latest version changed despite the lock contract.
-	current, err := z.serverPools[src].GetObjectInfo(ctx, bucket, encodeDirObject(object), ObjectOptions{NoLock: true})
+	current, err := z.serverPools[src].GetObjectInfo(ctx, bucket, encodeDirObject(object), ObjectOptions{NoLock: true, Versioned: versioned})
 	if err != nil {
 		return 0, err
 	}
@@ -1040,9 +1111,12 @@ func moveObjectPool(ctx context.Context, z *erasureServerPools, bucket, object s
 	// the complete destination in that case: preserving two copies is safer
 	// than risking zero.
 	rollbackDestination = false
-	err = deleteAccessTierPoolObject(ctx, z, src, bucket, object)
-	if err != nil {
-		return 0, err
+	// A recursive prefix delete could also remove another key such as
+	// "object/child" on this set. Delete only the versions we actually copied.
+	for _, version := range versions {
+		if err := deleteAccessTierPoolVersion(ctx, z, src, bucket, object, version.VersionID); err != nil {
+			return 0, err
+		}
 	}
 	return total, nil
 }
@@ -1060,6 +1134,9 @@ func moveAccessTierVersion(ctx context.Context, z *erasureServerPools, src, dst 
 		metadata = make(map[string]string, 1)
 	}
 	metadata[accessTierMetadataKey] = accessTierStamp(dst, movedAt)
+	// Multipart ETags are derived from plaintext part hashes at upload time.
+	// A raw encrypted copy must retain that ETag instead of hashing ciphertext.
+	metadata["etag"] = oi.ETag
 
 	if oi.isMultipart() {
 		res, err := z.NewMultipartUpload(ctx, bucket, oi.Name, ObjectOptions{
@@ -1092,7 +1169,8 @@ func moveAccessTierVersion(ctx context.Context, z *erasureServerPools, src, dst 
 			parts[i] = CompletePart{
 				ETag: pi.ETag, PartNumber: pi.PartNumber,
 				ChecksumCRC32: pi.ChecksumCRC32, ChecksumCRC32C: pi.ChecksumCRC32C,
-				ChecksumSHA1: pi.ChecksumSHA1, ChecksumSHA256: pi.ChecksumSHA256,
+				ChecksumCRC64NVME: pi.ChecksumCRC64NVME,
+				ChecksumSHA1:      pi.ChecksumSHA1, ChecksumSHA256: pi.ChecksumSHA256,
 			}
 		}
 		_, err = z.CompleteMultipartUpload(ctx, bucket, oi.Name, res.UploadID, parts, ObjectOptions{
