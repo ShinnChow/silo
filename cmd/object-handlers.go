@@ -1219,6 +1219,43 @@ var getRemoteInstanceClient = func(r *http.Request, host string) (*miniogo.Core,
 	return core, nil
 }
 
+// federatedChecksumType maps a requested server-side checksum type to the
+// minio-go checksum the federation proxy asks the remote deployment to compute
+// on the forwarded PutObject. Returns ChecksumNone for an unset/unknown type.
+func federatedChecksumType(t hash.ChecksumType) miniogo.ChecksumType {
+	switch t.Base() {
+	case hash.ChecksumCRC32:
+		return miniogo.ChecksumCRC32
+	case hash.ChecksumCRC32C:
+		return miniogo.ChecksumCRC32C
+	case hash.ChecksumSHA1:
+		return miniogo.ChecksumSHA1
+	case hash.ChecksumSHA256:
+		return miniogo.ChecksumSHA256
+	case hash.ChecksumCRC64NVME:
+		return miniogo.ChecksumCRC64NVME
+	}
+	return miniogo.ChecksumNone
+}
+
+// federatedChecksumValue returns the base64 checksum the remote deployment
+// reported for the requested type on the forwarded PutObject.
+func federatedChecksumValue(t hash.ChecksumType, info miniogo.UploadInfo) string {
+	switch t.Base() {
+	case hash.ChecksumCRC32:
+		return info.ChecksumCRC32
+	case hash.ChecksumCRC32C:
+		return info.ChecksumCRC32C
+	case hash.ChecksumSHA1:
+		return info.ChecksumSHA1
+	case hash.ChecksumSHA256:
+		return info.ChecksumSHA256
+	case hash.ChecksumCRC64NVME:
+		return info.ChecksumCRC64NVME
+	}
+	return ""
+}
+
 // Check if the destination bucket is on a remote site, this code only gets executed
 // when federation is enabled, ie when globalDNSConfig is non 'nil'.
 //
@@ -1886,13 +1923,33 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 			writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
 			return
 		}
-		// Remove the metadata for remote calls.
-		delete(srcInfo.UserDefined, ReservedMetadataPrefix+"compression")
-		delete(srcInfo.UserDefined, ReservedMetadataPrefix+"actual-size")
+		// A plain federated PutObject must not carry any internal storage
+		// metadata. The remote rejects every reserved-prefix header as a class
+		// (containsReservedMetadata), so strip the whole class here rather than
+		// an enumerated subset: an inline source object also carries
+		// inline-data, and replication bookkeeping adds still more, so removing
+		// only compression/actual-size just defers the next rejected key. Match
+		// the remote's case-insensitive detection.
+		for k := range srcInfo.UserDefined {
+			if stringsHasPrefixFold(k, ReservedMetadataPrefix) {
+				delete(srcInfo.UserDefined, k)
+			}
+		}
 		opts := miniogo.PutObjectOptions{
 			UserMetadata:         srcInfo.UserDefined,
 			ServerSideEncryption: dstOpts.ServerSideEncryption,
 			UserTags:             tag.ToMap(),
+		}
+		// When a server-side checksum was requested (explicitly, inherited from
+		// the source, or the S3 default for a checksum-less object), the local
+		// path computes, persists and returns it; the federated path must do the
+		// same. Ask the remote to compute and persist that checksum by streaming
+		// it as a trailing checksum, so the forwarded write's response carries
+		// the value back to us. Without this the federated copy silently returns
+		// an empty checksum (#99).
+		wantChecksumType := dstOpts.WantServerSideChecksumType
+		if wantChecksumType.IsSet() {
+			opts.Checksum = federatedChecksumType(wantChecksumType)
 		}
 		remoteObjInfo, rerr := core.PutObject(ctx, dstBucket, dstObject, srcInfo.Reader,
 			srcInfo.Size, "", "", opts)
@@ -1903,6 +1960,15 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		objInfo.UserDefined = cloneMSS(opts.UserMetadata)
 		objInfo.ETag = remoteObjInfo.ETag
 		objInfo.ModTime = remoteObjInfo.LastModified
+		// Do not acknowledge a requested checksum the remote did not return.
+		if wantChecksumType.IsSet() {
+			cs := hash.NewChecksumWithType(wantChecksumType, federatedChecksumValue(wantChecksumType, remoteObjInfo))
+			if cs == nil {
+				writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrInternalError), r.URL)
+				return
+			}
+			objInfo.Checksum = cs.AppendTo(nil, nil)
+		}
 	} else {
 		os = newObjSweeper(dstBucket, dstObject).WithVersioning(dstOpts.Versioned, dstOpts.VersionSuspended)
 		// Get appropriate object info to identify the remote object to delete
