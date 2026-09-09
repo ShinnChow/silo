@@ -3170,7 +3170,7 @@ func (api objectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	if objInfo.ReplicationStatus == replication.Pending || objInfo.VersionPurgeStatus == replication.VersionPurgePending {
 		dmVersionID := ""
 		versionID := ""
-		if objInfo.DeleteMarker {
+		if objInfo.DeleteMarker && objInfo.VersionPurgeStatus.Empty() {
 			dmVersionID = objInfo.VersionID
 		} else {
 			versionID = objInfo.VersionID
