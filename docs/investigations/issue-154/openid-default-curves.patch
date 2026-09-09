@@ -1,0 +1,40 @@
+# Historical OIDC-only candidate; superseded by ../go127-stack.md. Do not apply on top of the stack fix.
+--- a/cmd/utils.go
++++ b/cmd/utils.go
+@@ -654,6 +654,14 @@
+ 	return NewHTTPTransportWithTimeout(1 * time.Minute)
+ }
+ 
++// NewOpenIDHTTPTransport uses Go defaults for external identity-provider key exchange.
++// This lets tlsmlkem/tlssecpmlkem configure their documented default sets.
++func NewOpenIDHTTPTransport() *http.Transport {
++	tr := NewHTTPTransport()
++	tr.TLSClientConfig.CurvePreferences = nil
++	return tr
++}
++
+ // Default values for dial timeout
+ const defaultDialTimeout = 5 * time.Second
+ 
+--- a/cmd/iam.go
++++ b/cmd/iam.go
+@@ -277,7 +277,7 @@
+ 	for {
+ 		if !openidInit {
+ 			openidConfig, err := openid.LookupConfig(s,
+-				xhttp.WithUserAgent(NewHTTPTransport(), func() string {
++				xhttp.WithUserAgent(NewOpenIDHTTPTransport(), func() string {
+ 					return getUserAgent(getMinioMode())
+ 				}), xhttp.DrainBody, globalSite.Region())
+ 			if err != nil {
+--- a/cmd/config-current.go
++++ b/cmd/config-current.go
+@@ -352,7 +352,7 @@
+ 		}
+ 	case config.IdentityOpenIDSubSys:
+ 		if _, err := openid.LookupConfig(s,
+-			xhttp.WithUserAgent(NewHTTPTransport(), func() string {
++			xhttp.WithUserAgent(NewOpenIDHTTPTransport(), func() string {
+ 				return getUserAgent(getMinioMode())
+ 			}), xhttp.DrainBody, globalSite.Region()); err != nil {
+ 			return err

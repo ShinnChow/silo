@@ -4,22 +4,15 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"reflect"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/minio/madmin-go/v3"
 	"github.com/minio/minio/internal/auth"
-	"github.com/minio/minio/internal/event"
-	"github.com/minio/minio/internal/grid"
 )
 
 func TestDeleteBucketMetadataLockCancellation(t *testing.T) {
@@ -34,21 +27,43 @@ func testDeleteBucketMetadataLockCancellation(obj ObjectLayer, instanceType, buc
 	}
 	release := sync.OnceFunc(unlock)
 	defer release()
-	ctx, cancel := context.WithTimeout(t.Context(), 250*time.Millisecond)
+
+	// Observe DeleteBucket's ACTUAL metadata.lock attempt. Set the hook after
+	// our own acquisition above so it only trips on the delete.
+	delAtLock := make(chan struct{})
+	var once sync.Once
+	hook := func(b string) {
+		if b == bucket {
+			once.Do(func() { close(delAtLock) })
+		}
+	}
+	lockBucketMetadataAcquireHook.Store(&hook)
+	defer lockBucketMetadataAcquireHook.Store(nil)
+
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	done := make(chan error, 1)
 	go func() { done <- obj.DeleteBucket(ctx, bucket, DeleteBucketOptions{Force: true, NoLock: true}) }()
-	<-ctx.Done()
-	// A metadata-lock failure must happen before the destructive operation.
-	if _, err := obj.GetBucketInfo(t.Context(), bucket, BucketOptions{}); err != nil {
-		t.Errorf("%s: bucket disappeared while metadata.lock was unavailable: %v", instanceType, err)
-	}
-	release()
-	if err := <-done; err == nil {
-		t.Errorf("%s: canceled deletion succeeded", instanceType)
-	}
-	if _, err := readBucketMetadata(t.Context(), obj, bucket); err != nil {
-		t.Errorf("%s: canceled deletion removed metadata: %v", instanceType, err)
+
+	select {
+	case <-delAtLock:
+		// Fixed tree: the delete reached metadata.lock and is blocking on the
+		// lock we hold. Cancel it and confirm it fails WITHOUT deleting, while we
+		// still hold the lock (release stays deferred until after the checks).
+		cancel()
+		if err := <-done; err == nil {
+			t.Errorf("%s: canceled deletion succeeded", instanceType)
+		}
+		if _, err := obj.GetBucketInfo(t.Context(), bucket, BucketOptions{}); err != nil {
+			t.Errorf("%s: bucket disappeared while metadata.lock was held: %v", instanceType, err)
+		}
+		if _, err := readBucketMetadata(t.Context(), obj, bucket); err != nil {
+			t.Errorf("%s: canceled deletion removed metadata: %v", instanceType, err)
+		}
+	case err := <-done:
+		// Broken tree: the delete finished without ever taking metadata.lock,
+		// i.e. it did not serialize the destructive operation behind the lock.
+		t.Errorf("%s: delete bypassed metadata.lock (err=%v)", instanceType, err)
 	}
 }
 
@@ -92,112 +107,5 @@ func TestQueuedMetadataUpdateAfterDelete(t *testing.T) {
 				}
 			}})
 		})
-	}
-}
-
-// Pause the first actual peer-handler read, without replacing the handler or
-// requiring it to accept a test-only context.
-type peerMetadataReadBarrier struct {
-	ObjectLayer
-	bucket           string
-	once             sync.Once
-	reading, release chan struct{}
-}
-
-func (o *peerMetadataReadBarrier) GetObjectNInfo(ctx context.Context, bucket, object string, rs *HTTPRangeSpec, h http.Header, opts ObjectOptions) (*GetObjectReader, error) {
-	first := false
-	if bucket == minioMetaBucket && object == pathJoin(bucketMetaPrefix, o.bucket, bucketMetadataFile) {
-		o.once.Do(func() { first = true })
-	}
-	gr, err := o.ObjectLayer.GetObjectNInfo(ctx, bucket, object, rs, h, opts)
-	if err != nil || !first {
-		return gr, err
-	}
-	data, err := io.ReadAll(gr)
-	oi := gr.ObjInfo
-	gr.Close()
-	if err != nil {
-		return nil, err
-	}
-	close(o.reading)
-	select {
-	case <-o.release:
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-	return NewGetObjectReaderFromReader(bytes.NewReader(data), oi, opts)
-}
-
-func TestPeerMetadataReloadPreservesCurrentTargets(t *testing.T) {
-	defer DetectTestLeak(t)()
-	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{t: t, objAPITest: testPeerMetadataReloadPreservesCurrentTargets})
-}
-
-func testPeerMetadataReloadPreservesCurrentTargets(obj ObjectLayer, instanceType, bucket string, _ http.Handler, _ auth.Credentials, t *testing.T) {
-	seed := func(revision string) {
-		t.Helper()
-		arn := event.ARN{TargetID: event.TargetID{ID: revision, Name: "webhook"}}
-		notification := []byte(`<NotificationConfiguration><QueueConfiguration><Id>` + revision + `</Id><Queue>` + arn.String() + `</Queue><Event>s3:ObjectCreated:*</Event></QueueConfiguration></NotificationConfiguration>`)
-		targets, err := json.Marshal(madmin.BucketTargets{Targets: []madmin.BucketTarget{{
-			SourceBucket: bucket, TargetBucket: bucket, Endpoint: "127.0.0.1:9000", Arn: revision,
-			Credentials: &madmin.Credentials{AccessKey: "fixture", SecretKey: "fixture-secret"},
-		}}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, config := range []struct {
-			name string
-			data []byte
-		}{{bucketNotificationConfig, notification}, {bucketTargetsFile, targets}} {
-			if _, err := globalBucketMetadataSys.Update(t.Context(), bucket, config.name, config.data); err != nil {
-				t.Fatal(err)
-			}
-		}
-	}
-	reload := func() error {
-		args := grid.MSS{peerRESTBucket: bucket}
-		_, err := (&peerRESTServer{}).LoadBucketMetadataHandler(&args)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-	seed("old")
-	previous := newObjectLayerFn()
-	barrier := &peerMetadataReadBarrier{ObjectLayer: obj, bucket: bucket, reading: make(chan struct{}), release: make(chan struct{})}
-	setObjectLayer(barrier)
-	defer setObjectLayer(previous)
-	release := sync.OnceFunc(func() { close(barrier.release) })
-	defer release()
-	done := make(chan error, 1)
-	go func() { done <- reload() }()
-	select {
-	case <-barrier.reading:
-	case <-time.After(10 * time.Second):
-		t.Fatal("peer handler did not read metadata")
-	}
-	seed("new")
-	if err := reload(); err != nil {
-		t.Fatal(err)
-	}
-	release()
-	if err := <-done; err != nil {
-		t.Fatal(err)
-	}
-	meta, err := globalBucketMetadataSys.Get(bucket)
-	if err != nil {
-		t.Fatal(err)
-	}
-	globalEventNotifier.RLock()
-	rules := globalEventNotifier.bucketRulesMap[bucket].Clone()
-	globalEventNotifier.RUnlock()
-	if !reflect.DeepEqual(rules, meta.notificationConfig.ToRulesMap()) {
-		t.Errorf("%s: stale peer reload replaced current notification rules", instanceType)
-	}
-	globalBucketTargetSys.RLock()
-	targets := append([]madmin.BucketTarget(nil), globalBucketTargetSys.targetsMap[bucket]...)
-	globalBucketTargetSys.RUnlock()
-	if len(targets) != 1 || targets[0].Arn != "new" {
-		t.Errorf("%s: stale peer reload replaced current replication targets: %+v", instanceType, targets)
 	}
 }

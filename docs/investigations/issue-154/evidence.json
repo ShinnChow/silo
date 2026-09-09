@@ -1,0 +1,2499 @@
+{
+  "environment": "darwin/arm64; Server and transport probes locally built with CGO_ENABLED=0 and GOWORK=off; auxiliary fixture/Admin programs locally built; no Server/Console images",
+  "versions": {
+    "old": {
+      "sha": "d88f46ccee345a9c2fabe2d221d9a9e56bc11aec",
+      "toolchain": "go1.26.5"
+    },
+    "reported": {
+      "sha": "9b11dc9469e650815b775cb47b039610644f5da4",
+      "toolchain": "go1.27.1"
+    },
+    "current": {
+      "sha": "d1105bbb3d4a0afa33b3a4ac11b821235038ed0e",
+      "toolchain": "go1.27.1"
+    }
+  },
+  "probe_matrix": [
+    {
+      "mode": "normal",
+      "version": "old",
+      "options": [],
+      "godebug": null,
+      "exit": 0,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1497,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "issue-154-probe"
+        }
+      ],
+      "trace": "go=go1.26.5 os=darwin arch=arm64 h2=false classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x303 cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 alpn=\"\" resumed=false verified_chains=1 err=none\ngot_conn=127.0.0.1:54794 reused=false\nwrote_request err=none\nfirst_response_byte\nstatus=200 protocol=HTTP/1.1\n"
+    },
+    {
+      "mode": "normal",
+      "version": "reported",
+      "options": [],
+      "godebug": null,
+      "exit": 0,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "issue-154-probe"
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x303 cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 alpn=\"\" resumed=false verified_chains=1 err=none\ngot_conn=127.0.0.1:54794 reused=false\nwrote_request err=none\nfirst_response_byte\nstatus=200 protocol=HTTP/1.1\n"
+    },
+    {
+      "mode": "normal",
+      "version": "current",
+      "options": [],
+      "godebug": null,
+      "exit": 0,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "issue-154-probe"
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x303 cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 alpn=\"\" resumed=false verified_chains=1 err=none\ngot_conn=127.0.0.1:54794 reused=false\nwrote_request err=none\nfirst_response_byte\nstatus=200 protocol=HTTP/1.1\n"
+    },
+    {
+      "mode": "normal",
+      "version": "old",
+      "options": [],
+      "godebug": "tlsmlkem=0",
+      "exit": 0,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 275,
+          "curves": [
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "issue-154-probe"
+        }
+      ],
+      "trace": "go=go1.26.5 os=darwin arch=arm64 h2=false classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x303 cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 alpn=\"\" resumed=false verified_chains=1 err=none\ngot_conn=127.0.0.1:54794 reused=false\nwrote_request err=none\nfirst_response_byte\nstatus=200 protocol=HTTP/1.1\n"
+    },
+    {
+      "mode": "normal",
+      "version": "reported",
+      "options": [],
+      "godebug": "tlsmlkem=0",
+      "exit": 0,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "issue-154-probe"
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x303 cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 alpn=\"\" resumed=false verified_chains=1 err=none\ngot_conn=127.0.0.1:54794 reused=false\nwrote_request err=none\nfirst_response_byte\nstatus=200 protocol=HTTP/1.1\n"
+    },
+    {
+      "mode": "normal",
+      "version": "current",
+      "options": [],
+      "godebug": "tlsmlkem=0",
+      "exit": 0,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "issue-154-probe"
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x303 cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 alpn=\"\" resumed=false verified_chains=1 err=none\ngot_conn=127.0.0.1:54794 reused=false\nwrote_request err=none\nfirst_response_byte\nstatus=200 protocol=HTTP/1.1\n"
+    },
+    {
+      "mode": "reject-mlkem",
+      "version": "old",
+      "options": [],
+      "godebug": null,
+      "exit": 1,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1497,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mlkem",
+          "signatures": [
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        }
+      ],
+      "trace": "go=go1.26.5 os=darwin arch=arm64 h2=false classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x0 cipher=0x0000 alpn=\"\" resumed=false verified_chains=0 err=connection reset by peer (*net.OpError)\nget_error=connection reset by peer (*url.Error)\n"
+    },
+    {
+      "mode": "reject-mlkem",
+      "version": "old",
+      "options": [],
+      "godebug": "tlsmlkem=0",
+      "exit": 0,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 275,
+          "curves": [
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mlkem",
+          "signatures": [
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "issue-154-probe"
+        }
+      ],
+      "trace": "go=go1.26.5 os=darwin arch=arm64 h2=false classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x303 cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 alpn=\"\" resumed=false verified_chains=1 err=none\ngot_conn=127.0.0.1:54794 reused=false\nwrote_request err=none\nfirst_response_byte\nstatus=200 protocol=HTTP/1.1\n"
+    },
+    {
+      "mode": "reject-mlkem",
+      "version": "reported",
+      "options": [],
+      "godebug": "tlsmlkem=0",
+      "exit": 1,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mlkem",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x0 cipher=0x0000 alpn=\"\" resumed=false verified_chains=0 err=connection reset by peer (*net.OpError)\nget_error=connection reset by peer (*url.Error)\n"
+    },
+    {
+      "mode": "reject-mlkem",
+      "version": "reported",
+      "options": [
+        "-classical"
+      ],
+      "godebug": null,
+      "exit": 0,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 287,
+          "curves": [
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mlkem",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "issue-154-probe"
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=true tls12=false\nroute=direct curves=[CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x303 cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 alpn=\"\" resumed=false verified_chains=1 err=none\ngot_conn=127.0.0.1:54794 reused=false\nwrote_request err=none\nfirst_response_byte\nstatus=200 protocol=HTTP/1.1\n"
+    },
+    {
+      "mode": "reject-mldsa",
+      "version": "old",
+      "options": [],
+      "godebug": null,
+      "exit": 0,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1497,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mldsa",
+          "signatures": [
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "issue-154-probe"
+        }
+      ],
+      "trace": "go=go1.26.5 os=darwin arch=arm64 h2=false classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x303 cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 alpn=\"\" resumed=false verified_chains=1 err=none\ngot_conn=127.0.0.1:54794 reused=false\nwrote_request err=none\nfirst_response_byte\nstatus=200 protocol=HTTP/1.1\n"
+    },
+    {
+      "mode": "reject-mldsa",
+      "version": "reported",
+      "options": [],
+      "godebug": null,
+      "exit": 1,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mldsa",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x0 cipher=0x0000 alpn=\"\" resumed=false verified_chains=0 err=connection reset by peer (*net.OpError)\nget_error=connection reset by peer (*url.Error)\n"
+    },
+    {
+      "mode": "reject-mldsa",
+      "version": "reported",
+      "options": [
+        "-classical"
+      ],
+      "godebug": null,
+      "exit": 1,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 287,
+          "curves": [
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mldsa",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=true tls12=false\nroute=direct curves=[CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x0 cipher=0x0000 alpn=\"\" resumed=false verified_chains=0 err=connection reset by peer (*net.OpError)\nget_error=connection reset by peer (*url.Error)\n"
+    },
+    {
+      "mode": "reject-mldsa",
+      "version": "reported",
+      "options": [
+        "-tls12"
+      ],
+      "godebug": null,
+      "exit": 0,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 219,
+          "curves": [
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mldsa",
+          "signatures": [
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "issue-154-probe"
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=false tls12=true\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x303 cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 alpn=\"\" resumed=false verified_chains=1 err=none\ngot_conn=127.0.0.1:54794 reused=false\nwrote_request err=none\nfirst_response_byte\nstatus=200 protocol=HTTP/1.1\n"
+    },
+    {
+      "mode": "require-h2",
+      "version": "old",
+      "options": [],
+      "godebug": null,
+      "exit": 1,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1497,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "require-h2",
+          "signatures": [
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        }
+      ],
+      "trace": "go=go1.26.5 os=darwin arch=arm64 h2=false classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x0 cipher=0x0000 alpn=\"\" resumed=false verified_chains=0 err=connection reset by peer (*net.OpError)\nget_error=connection reset by peer (*url.Error)\n"
+    },
+    {
+      "mode": "require-h2",
+      "version": "reported",
+      "options": [],
+      "godebug": null,
+      "exit": 1,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "require-h2",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x0 cipher=0x0000 alpn=\"\" resumed=false verified_chains=0 err=connection reset by peer (*net.OpError)\nget_error=connection reset by peer (*url.Error)\n"
+    },
+    {
+      "mode": "require-h2",
+      "version": "reported",
+      "options": [
+        "-h2"
+      ],
+      "godebug": null,
+      "exit": 0,
+      "events": [
+        {
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ],
+          "bytes_read": 1527,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "require-h2",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/2.0",
+          "resumed": false,
+          "tls": 771,
+          "ua": "issue-154-probe"
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=true classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x303 cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 alpn=\"h2\" resumed=false verified_chains=1 err=none\ngot_conn=127.0.0.1:54794 reused=false\nwrote_request err=none\nfirst_response_byte\nstatus=200 protocol=HTTP/2.0\n"
+    },
+    {
+      "mode": "reject-silo-ua",
+      "version": "reported",
+      "options": [
+        "-ua",
+        "MinIO (local probe)"
+      ],
+      "godebug": null,
+      "exit": 0,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-silo-ua",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "MinIO (local probe)"
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x303 cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 alpn=\"\" resumed=false verified_chains=1 err=none\ngot_conn=127.0.0.1:54794 reused=false\nwrote_request err=none\nfirst_response_byte\nstatus=200 protocol=HTTP/1.1\n"
+    },
+    {
+      "mode": "reject-silo-ua",
+      "version": "reported",
+      "options": [
+        "-ua",
+        "Silo (local probe)"
+      ],
+      "godebug": null,
+      "exit": 1,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-silo-ua",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (local probe)"
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x303 cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 alpn=\"\" resumed=false verified_chains=1 err=none\ngot_conn=127.0.0.1:54794 reused=false\nwrote_request err=none\nget_error=connection reset by peer (*url.Error)\n"
+    }
+  ],
+  "same_source_toolchains": [
+    {
+      "mode": "normal",
+      "godebug": null,
+      "source": "old",
+      "go": "1.27.1",
+      "exit": 0,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "issue-154-probe"
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x303 cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 alpn=\"\" resumed=false verified_chains=1 err=none\ngot_conn=127.0.0.1:54794 reused=false\nwrote_request err=none\nfirst_response_byte\nstatus=200 protocol=HTTP/1.1\n"
+    },
+    {
+      "mode": "normal",
+      "godebug": "tlsmlkem=0",
+      "source": "old",
+      "go": "1.27.1",
+      "exit": 0,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "issue-154-probe"
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x303 cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 alpn=\"\" resumed=false verified_chains=1 err=none\ngot_conn=127.0.0.1:54794 reused=false\nwrote_request err=none\nfirst_response_byte\nstatus=200 protocol=HTTP/1.1\n"
+    },
+    {
+      "mode": "reject-mlkem",
+      "godebug": "tlsmlkem=0",
+      "source": "old",
+      "go": "1.27.1",
+      "exit": 1,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mlkem",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x0 cipher=0x0000 alpn=\"\" resumed=false verified_chains=0 err=connection reset by peer (*net.OpError)\nget_error=connection reset by peer (*url.Error)\n"
+    },
+    {
+      "mode": "reject-mldsa",
+      "godebug": null,
+      "source": "old",
+      "go": "1.27.1",
+      "exit": 1,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mldsa",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=false tls12=false\nroute=direct curves=[X25519MLKEM768 CurveP256 X25519 CurveP384 CurveP521]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x0 cipher=0x0000 alpn=\"\" resumed=false verified_chains=0 err=connection reset by peer (*net.OpError)\nget_error=connection reset by peer (*url.Error)\n"
+    }
+  ],
+  "candidate_probe": [
+    {
+      "mode": "normal",
+      "godebug": null,
+      "exit": 0,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1513,
+          "curves": [
+            4588,
+            4587,
+            4589,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "issue-154-probe"
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=false default_curves=true tls12=false\nroute=direct curves=[]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x303 cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 alpn=\"\" resumed=false verified_chains=1 err=none\ngot_conn=127.0.0.1:54794 reused=false\nwrote_request err=none\nfirst_response_byte\nstatus=200 protocol=HTTP/1.1\n"
+    },
+    {
+      "mode": "normal",
+      "godebug": "tlsmlkem=0",
+      "exit": 0,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 287,
+          "curves": [
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "issue-154-probe"
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=false default_curves=true tls12=false\nroute=direct curves=[]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x303 cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 alpn=\"\" resumed=false verified_chains=1 err=none\ngot_conn=127.0.0.1:54794 reused=false\nwrote_request err=none\nfirst_response_byte\nstatus=200 protocol=HTTP/1.1\n"
+    },
+    {
+      "mode": "reject-mlkem",
+      "godebug": "tlsmlkem=0",
+      "exit": 0,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 287,
+          "curves": [
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mlkem",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "issue-154-probe"
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=false default_curves=true tls12=false\nroute=direct curves=[]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x303 cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 alpn=\"\" resumed=false verified_chains=1 err=none\ngot_conn=127.0.0.1:54794 reused=false\nwrote_request err=none\nfirst_response_byte\nstatus=200 protocol=HTTP/1.1\n"
+    },
+    {
+      "mode": "reject-mldsa",
+      "godebug": "tlsmlkem=0",
+      "exit": 1,
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 287,
+          "curves": [
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mldsa",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        }
+      ],
+      "trace": "go=go1.27.1 os=darwin arch=arm64 h2=false classical=false default_curves=true tls12=false\nroute=direct curves=[]\nrequest=1\nconnect=tcp 127.0.0.1:54794\nconnected=127.0.0.1:54794 err=none\ntls_start\ntls_done=0x0 cipher=0x0000 alpn=\"\" resumed=false verified_chains=0 err=connection reset by peer (*net.OpError)\nget_error=connection reset by peer (*url.Error)\n"
+    }
+  ],
+  "server_cases": [
+    {
+      "case": "startup-old",
+      "version": "old",
+      "mode": "normal",
+      "godebug": null,
+      "before": {
+        "live": {
+          "status": 200,
+          "server_status": null
+        },
+        "ready": {
+          "status": 200,
+          "server_status": null
+        },
+        "cluster": {
+          "status": 200,
+          "server_status": null
+        },
+        "console": {
+          "status": 200,
+          "server_status": null
+        }
+      },
+      "before_admin": "list_users count=0 err=<nil>",
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1497,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "MinIO (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/jwks",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "MinIO (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        }
+      ]
+    },
+    {
+      "case": "startup-reported",
+      "version": "reported",
+      "mode": "normal",
+      "godebug": null,
+      "before": {
+        "live": {
+          "status": 200,
+          "server_status": null
+        },
+        "ready": {
+          "status": 200,
+          "server_status": null
+        },
+        "cluster": {
+          "status": 200,
+          "server_status": null
+        },
+        "console": {
+          "status": 200,
+          "server_status": null
+        }
+      },
+      "before_admin": "list_users count=0 err=<nil>",
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/jwks",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        }
+      ]
+    },
+    {
+      "case": "startup-current-reset-recovery",
+      "version": "current",
+      "mode": "reset",
+      "godebug": null,
+      "before": {
+        "live": {
+          "status": 200,
+          "server_status": null
+        },
+        "ready": {
+          "status": 200,
+          "server_status": null
+        },
+        "cluster": {
+          "status": 503,
+          "server_status": "iam-offline"
+        },
+        "console": {
+          "error": "URLError"
+        }
+      },
+      "before_admin": "list_users count=0 err=context deadline exceeded",
+      "recovery_seconds": 0.433,
+      "after": {
+        "live": {
+          "status": 200,
+          "server_status": null
+        },
+        "ready": {
+          "status": 200,
+          "server_status": null
+        },
+        "cluster": {
+          "status": 200,
+          "server_status": null
+        },
+        "console": {
+          "status": 200,
+          "server_status": null
+        }
+      },
+      "after_admin": "list_users count=0 err=<nil>",
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reset",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reset",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reset",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/jwks",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        }
+      ]
+    },
+    {
+      "case": "startup-old-debug",
+      "version": "old",
+      "mode": "reject-mlkem",
+      "godebug": "tlsmlkem=0",
+      "before": {
+        "live": {
+          "status": 200,
+          "server_status": null
+        },
+        "ready": {
+          "status": 200,
+          "server_status": null
+        },
+        "cluster": {
+          "status": 200,
+          "server_status": null
+        },
+        "console": {
+          "status": 200,
+          "server_status": null
+        }
+      },
+      "before_admin": "list_users count=0 err=<nil>",
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 275,
+          "curves": [
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mlkem",
+          "signatures": [
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "MinIO (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/jwks",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "MinIO (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        }
+      ]
+    },
+    {
+      "case": "startup-reported-debug",
+      "version": "reported",
+      "mode": "reject-mlkem",
+      "godebug": "tlsmlkem=0",
+      "before": {
+        "live": {
+          "status": 200,
+          "server_status": null
+        },
+        "ready": {
+          "status": 200,
+          "server_status": null
+        },
+        "cluster": {
+          "status": 503,
+          "server_status": "iam-offline"
+        },
+        "console": {
+          "error": "URLError"
+        }
+      },
+      "before_admin": "list_users count=0 err=context deadline exceeded",
+      "recovery_seconds": 1.38,
+      "after": {
+        "live": {
+          "status": 200,
+          "server_status": null
+        },
+        "ready": {
+          "status": 200,
+          "server_status": null
+        },
+        "cluster": {
+          "status": 200,
+          "server_status": null
+        },
+        "console": {
+          "status": 200,
+          "server_status": null
+        }
+      },
+      "after_admin": "list_users count=0 err=<nil>",
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mlkem",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mlkem",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mlkem",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mlkem",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/jwks",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        }
+      ]
+    },
+    {
+      "case": "startup-current-jwks-recovery",
+      "version": "current",
+      "mode": "bad-jwks",
+      "godebug": null,
+      "before": {
+        "live": {
+          "status": 200,
+          "server_status": null
+        },
+        "ready": {
+          "status": 200,
+          "server_status": null
+        },
+        "cluster": {
+          "status": 503,
+          "server_status": "iam-offline"
+        },
+        "console": {
+          "error": "URLError"
+        }
+      },
+      "before_admin": "list_users count=0 err=context deadline exceeded",
+      "recovery_seconds": 0.328,
+      "after": {
+        "live": {
+          "status": 200,
+          "server_status": null
+        },
+        "ready": {
+          "status": 200,
+          "server_status": null
+        },
+        "cluster": {
+          "status": 200,
+          "server_status": null
+        },
+        "console": {
+          "status": 200,
+          "server_status": null
+        }
+      },
+      "after_admin": "list_users count=0 err=<nil>",
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "bad-jwks",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/jwks",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        },
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "bad-jwks",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/jwks",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        },
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "bad-jwks",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/jwks",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        },
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "bad-jwks",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/jwks",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        },
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "bad-jwks",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/jwks",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        },
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "bad-jwks",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/jwks",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        },
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/jwks",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        }
+      ]
+    },
+    {
+      "case": "admin-add-valid",
+      "version": "current",
+      "mode": "reset",
+      "godebug": null,
+      "before": {
+        "live": {
+          "status": 200,
+          "server_status": null
+        },
+        "ready": {
+          "status": 200,
+          "server_status": null
+        },
+        "cluster": {
+          "status": 200,
+          "server_status": null
+        },
+        "console": {
+          "status": 200,
+          "server_status": null
+        }
+      },
+      "before_admin": "list_users count=0 err=<nil>",
+      "add_failed": {
+        "exit": 1,
+        "output": "add restart=false err=Get \"https://127.0.0.1:54794/.well-known/openid-configuration\": read tcp 127.0.0.1:56173->127.0.0.1:54794: read: connection reset by peer"
+      },
+      "add_recovered": {
+        "exit": 0,
+        "output": "add restart=true err=<nil>"
+      },
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reset",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "alpn": null,
+          "bytes_read": 1509,
+          "curves": [
+            4588,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/jwks",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "ua": "Silo (darwin; arm64; mode-server-xl-single; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:1; vendor:; family:0; model:0; stepping:0; model_name:Apple M5 Max))"
+        }
+      ]
+    }
+  ],
+  "binary_build_info": {
+    "old": [
+      "go1.26.5",
+      "\tdep\tgithub.com/coreos/go-oidc/v3\tv3.17.0\th1:hWBGaQfbi0iVviX4ibC7bk8OKT5qNr4klBaCHVNvehc=",
+      "\t=>\tgithub.com/pgsty/silo-console\tv0.0.0-20260804042150-b952a1202869\th1:HLfc2ZdAycnI/bLl+TdsuckyzSWrwQarK38pS14yH/Q=",
+      "\t=>\tgithub.com/pgsty/mc\tv0.0.0-20260801042411-ad10a2a10b76\th1:UIlUuz0LQKw4QlAljhv7nPDDFC1+n+e0iED7rWZrgZ8=",
+      "\t=>\tgithub.com/pgsty/silo-pkg/v3\tv3.11.0\th1:wjN5d+tWD8Twq+e7k/KBBVhnWXC8xTIlfTcnGIKkmjc=",
+      "\tdep\tgolang.org/x/crypto\tv0.54.0\th1:YLIA59K4fiNzHzjnZt2tUJQjQtUWfWbeHBqKtk3eScw=",
+      "\tdep\tgolang.org/x/net\tv0.57.0\th1:K5+3DljvIuDG9/Jv9rvyMywYNFCQ9RSUY6OOTTkT+tE=",
+      "\tdep\tgolang.org/x/oauth2\tv0.36.0\th1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=",
+      "\tbuild\t-tags=kqueue",
+      "\tbuild\tCGO_ENABLED=0",
+      "\tbuild\tGOARCH=arm64",
+      "\tbuild\tGOOS=darwin"
+    ],
+    "reported": [
+      "go1.27.1",
+      "\tdep\tgithub.com/coreos/go-oidc/v3\tv3.21.0\th1:wZo4Q9Pum8dYEj0eMUPrqR+kvuGkeUplbLpNCkBqoWM=",
+      "\t=>\tgithub.com/pgsty/silo-console\tv0.0.0-20260903111932-464a59d73ada\th1:vJkxm7GTLL0AvIGIt+JxMfhjMO5+msmj4rLeFueTaG8=",
+      "\t=>\tgithub.com/pgsty/mc\tv0.0.0-20260903063637-a2ef95c035d9\th1:kJkqK0hJrmvdTOPiI98HoPmET0SHYI9+ytaTRzQdGAs=",
+      "\tdep\tgithub.com/pgsty/silo-pkg/v3\tv3.13.2\th1:Clw11c/J54Tx6pijNCWtXiC7e0fwP/f5Tgeb6fsXg2w=",
+      "\tdep\tgolang.org/x/crypto\tv0.56.0\th1:GUh5Ii4J5jtcseSMiRqr1jXCNHoxjeV9Fmekc2oLy6Y=",
+      "\tdep\tgolang.org/x/net\tv0.58.0\th1:ynWG7rqYi4ccpTEuPZ2QGWHktVEM9DMCj9yzDE0Q7To=",
+      "\tdep\tgolang.org/x/oauth2\tv0.36.0\th1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=",
+      "\tbuild\t-tags=kqueue",
+      "\tbuild\tCGO_ENABLED=0",
+      "\tbuild\tGOARCH=arm64",
+      "\tbuild\tGOOS=darwin"
+    ],
+    "current": [
+      "go1.27.1",
+      "\tdep\tgithub.com/coreos/go-oidc/v3\tv3.21.0\th1:wZo4Q9Pum8dYEj0eMUPrqR+kvuGkeUplbLpNCkBqoWM=",
+      "\t=>\tgithub.com/pgsty/silo-console\tv0.0.0-20260908142700-c103d08ec36a\th1:aHLqQ7INozqGLEOB1tr+n/eKgrBhlQ20fHyLmeNu+ao=",
+      "\t=>\tgithub.com/pgsty/mc\tv0.0.0-20260909015522-fcd5cad8247f\th1:JiL/FcsGMsAhA+Iv+0Jzk9VnEAVVv4HUNbR0cGf+/CE=",
+      "\tdep\tgithub.com/pgsty/silo-pkg/v3\tv3.13.3\th1:d2xYTn4LXoWIAIjBlW/17wtA/Ut1ap29t+1ww4TFa8o=",
+      "\tdep\tgolang.org/x/crypto\tv0.56.0\th1:GUh5Ii4J5jtcseSMiRqr1jXCNHoxjeV9Fmekc2oLy6Y=",
+      "\tdep\tgolang.org/x/net\tv0.58.0\th1:ynWG7rqYi4ccpTEuPZ2QGWHktVEM9DMCj9yzDE0Q7To=",
+      "\tdep\tgolang.org/x/oauth2\tv0.36.0\th1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=",
+      "\tbuild\t-tags=kqueue",
+      "\tbuild\tCGO_ENABLED=0",
+      "\tbuild\tGOARCH=arm64",
+      "\tbuild\tGOOS=darwin"
+    ]
+  }
+}

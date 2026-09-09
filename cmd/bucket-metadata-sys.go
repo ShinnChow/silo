@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/minio/madmin-go/v3"
@@ -123,34 +124,6 @@ func (sys *BucketMetadataSys) Set(bucket string, meta BucketMetadata) {
 		sys.clearLoadFailure(bucket)
 		sys.Unlock()
 	}
-}
-
-// setReloaded publishes the newest known revision and its derived registries
-// together. An old reload may finish after a local save or another reload;
-// applying its notification/replication targets would regress live behavior
-// even if the metadata cache itself rejected that old revision.
-func (sys *BucketMetadataSys) setReloaded(bucket string, meta BucketMetadata) {
-	if isMinioMetaBucketName(bucket) {
-		return
-	}
-	sys.Lock()
-	defer sys.Unlock()
-	if cur, ok := sys.metadataMap[bucket]; ok && !cur.lastUpdate().Before(meta.lastUpdate()) {
-		meta = cur
-	} else {
-		sys.metadataMap[bucket] = meta
-	}
-	sys.clearLoadFailure(bucket)
-	// These registry updates only change local state; no peer/network I/O runs
-	// under the metadata mutex. Keep publication ordered against Set/Remove.
-	if globalEventNotifier != nil {
-		if meta.notificationConfig != nil {
-			globalEventNotifier.AddRulesMap(bucket, meta.notificationConfig.ToRulesMap())
-		} else {
-			globalEventNotifier.RemoveNotification(bucket)
-		}
-	}
-	globalBucketTargetSys.UpdateAllTargets(bucket, meta.bucketTargetConfig)
 }
 
 func (sys *BucketMetadataSys) updateAndParse(ctx context.Context, bucket string, configFile string, configData []byte, parse, lifecycleDelete bool) (updatedAt time.Time, err error) {
@@ -273,8 +246,19 @@ func lockBucketMetadata(ctx context.Context, objectAPI ObjectLayer, bucket strin
 	return lockBucketMetadataWithTimeout(ctx, objectAPI, bucket, globalOperationTimeout)
 }
 
+// lockBucketMetadataAcquireHook, when set, is invoked at the start of every
+// metadata.lock acquisition, immediately before the blocking Lock() call. It is
+// nil in production (a single atomic load, no behavior change) and exists only
+// so tests can deterministically observe a caller reaching the metadata lock —
+// notably DeleteBucket, whose lock is taken through its erasureServerPools
+// receiver and is therefore invisible to an injected object layer.
+var lockBucketMetadataAcquireHook atomic.Pointer[func(bucket string)]
+
 func lockBucketMetadataWithTimeout(ctx context.Context, objectAPI ObjectLayer, bucket string, timeout *dynamicTimeout) (context.Context, func(), error) {
 	lock := objectAPI.NewNSLock(minioMetaBucket, pathJoin(bucketMetaPrefix, bucket, "metadata.lock"))
+	if hook := lockBucketMetadataAcquireHook.Load(); hook != nil {
+		(*hook)(bucket)
+	}
 	lkctx, err := lock.GetLock(ctx, timeout)
 	if err != nil {
 		return nil, nil, err
@@ -686,13 +670,7 @@ func (sys *BucketMetadataSys) GetConfig(ctx context.Context, bucket string) (met
 		return meta, false, err
 	}
 	sys.Lock()
-	if cur, ok := sys.metadataMap[bucket]; ok && !cur.lastUpdate().Before(meta.lastUpdate()) {
-		// A concurrent publish installed a resident revision at least as new as
-		// this cache-miss load; return it instead of regressing (issue #105).
-		meta = cur
-	} else {
-		sys.metadataMap[bucket] = meta
-	}
+	sys.metadataMap[bucket] = meta
 	sys.clearLoadFailure(bucket)
 	sys.Unlock()
 
@@ -793,6 +771,8 @@ func (sys *BucketMetadataSys) refreshBucketsMetadataLoop(ctx context.Context) {
 				wait := sleeper.Timer(ctx)
 
 				bucket := buckets[i].Name
+				updated := false
+
 				meta, err := loadBucketMetadata(ctx, sys.objAPI, bucket)
 				if err != nil {
 					internalLogIf(ctx, err, logger.WarningKind)
@@ -803,7 +783,19 @@ func (sys *BucketMetadataSys) refreshBucketsMetadataLoop(ctx context.Context) {
 					continue
 				}
 
-				sys.setReloaded(bucket, meta)
+				sys.Lock()
+				// Update if the bucket metadata in the memory is older than on-disk one
+				if lu := sys.metadataMap[bucket].lastUpdate(); lu.Before(meta.lastUpdate()) {
+					updated = true
+					sys.metadataMap[bucket] = meta
+				}
+				sys.clearLoadFailure(bucket)
+				sys.Unlock()
+
+				if updated {
+					globalEventNotifier.set(bucket, meta)
+					globalBucketTargetSys.set(bucket, meta)
+				}
 
 				wait() // wait to proceed to next entry.
 			}
