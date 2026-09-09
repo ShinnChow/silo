@@ -1518,12 +1518,22 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		}
 	}
 
+	// Federation only: the destination bucket lives on another deployment and
+	// the copy is forwarded to it as a PutObject. That remote write owns the
+	// destination's storage transformations, so this handler hands it the
+	// logical (decompressed, decrypted) bytes at their logical size and lets
+	// the remote compress and encrypt once. Encrypting here as well would
+	// forward ciphertext under the destination's own SSE option, which either
+	// fails the length check or, for SSE to SSE, has the remote encrypt the
+	// ciphertext a second time and store an unreadable object (#158).
+	remoteCallRequired := isRemoteCopyRequired(ctx, srcBucket, dstBucket, objectAPI)
+
 	var compressMetadata map[string]string
 	// No need to compress for remote etcd calls
 	// Pass the decompressed stream to such calls.
 	isDstCompressed := isCompressible(r.Header, dstObject) &&
 		length > minCompressibleSize &&
-		!isRemoteCopyRequired(ctx, srcBucket, dstBucket, objectAPI)
+		!remoteCallRequired
 	if isDstCompressed {
 		compressMetadata = make(map[string]string, 2)
 		// Preserving the compression metadata.
@@ -1652,6 +1662,9 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		var targetSize int64
 
 		switch {
+		case remoteCallRequired:
+			// The remote receives the logical bytes, see above.
+			targetSize = actualSize
 		case isDstCompressed:
 			targetSize = -1
 		case !isSourceEncrypted && !isTargetEncrypted:
@@ -1722,7 +1735,7 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 			pReader.setChecksumReader(checksumReader)
 		}
 
-		if isTargetEncrypted {
+		if isTargetEncrypted && !remoteCallRequired {
 			var encReader io.Reader
 			kind, _ := crypto.IsRequested(r.Header)
 			encReader, objEncKey, err = newEncryptReader(ctx, srcInfo.Reader, kind, newKeyID, newKey, dstBucket, dstObject, encMetadata, kmsCtx)
@@ -1746,7 +1759,7 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 			return
 		}
 
-		if isTargetEncrypted {
+		if isTargetEncrypted && !remoteCallRequired {
 			pReader, err = pReader.WithEncryption(srcInfo.Reader, &objEncKey)
 			if err != nil {
 				writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
@@ -1899,9 +1912,6 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		srcInfo.metadataOnly = false
 	}
 
-	// Federation only.
-	remoteCallRequired := isRemoteCopyRequired(ctx, srcBucket, dstBucket, objectAPI)
-
 	var objInfo ObjectInfo
 	var os *objSweeper
 	if remoteCallRequired {
@@ -1948,7 +1958,7 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		var checksumHeaderValue string
 		switch {
 		case wantChecksumType.IsSet():
-			if srcInfo.Size == 0 {
+			if actualSize == 0 {
 				// minio-go streams no trailing checksum for an empty body, so the
 				// remote would compute none, the bind below would fail, and every
 				// empty-object federated copy would 500. Forward the empty-content
@@ -1977,8 +1987,11 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		if checksumHeaderValue != "" {
 			opts.UserMetadata[wantChecksumType.Key()] = checksumHeaderValue
 		}
+		// srcInfo.Reader yields the logical bytes, so declare the logical size:
+		// srcInfo.Size is the stored size, which differs for an encrypted or
+		// compressed source.
 		remoteObjInfo, rerr := core.PutObject(ctx, dstBucket, dstObject, srcInfo.Reader,
-			srcInfo.Size, "", "", opts)
+			actualSize, "", "", opts)
 		if rerr != nil {
 			writeErrorResponse(ctx, w, toAPIError(ctx, rerr), r.URL)
 			return
