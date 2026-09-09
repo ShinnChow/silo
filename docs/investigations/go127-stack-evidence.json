@@ -1,0 +1,2754 @@
+{
+  "recorded_utc": "2026-09-09T10:06:09.493712+00:00",
+  "scope": "Local PGSTY stack Go 1.27 audit and fixes; no external deployment or publication",
+  "repositories": {
+    "silo": {
+      "path": "/Users/vonng/.codex/worktrees/4224/silo",
+      "base_commit": "d1105bbb3d4a0afa33b3a4ac11b821235038ed0e",
+      "branch": "codex/investigate-oidc-154",
+      "tracked_changes": [
+        "README.md",
+        "cmd/grid.go",
+        "cmd/utils.go",
+        "internal/config/etcd/etcd.go",
+        "internal/crypto/crypto.go"
+      ],
+      "untracked": [
+        "cmd/tls_defaults_test.go",
+        "docs/investigations/go127-stack-evidence.json",
+        "docs/investigations/go127-stack.md",
+        "docs/investigations/issue-154.md",
+        "docs/investigations/issue-154/admin-check.go",
+        "docs/investigations/issue-154/cert-roots.go",
+        "docs/investigations/issue-154/evidence.json",
+        "docs/investigations/issue-154/fixture.go",
+        "docs/investigations/issue-154/linux-evidence.json",
+        "docs/investigations/issue-154/openid-default-curves.patch",
+        "docs/investigations/issue-154/probe.go",
+        "docs/investigations/issue-154/run-linux.py"
+      ],
+      "go_mod_sha256": "f8182f00d130b89bd794041cb804ac3255ce7b035c0b73f8e6ca7094d6ea4035",
+      "go_sum_sha256": "6913c1a5d63af9f1cc4b21205bf45a98bd3f53855e4aa49dd3eccac06cd6ef19",
+      "dependencies_changed": false,
+      "modified_go_files": {
+        "cmd/grid.go": "570c10a301e4ed3c842c1811711df99021cbeafa7142a97e287df0f78175aae9",
+        "cmd/utils.go": "c84727b88ac0b7e1442bce1c81c719518dabdbd8fca5002144329070ea98e34e",
+        "internal/config/etcd/etcd.go": "0c29792e070d09f05b83effb639b324148ea56cc709077dcb6892a3a37c16d42",
+        "internal/crypto/crypto.go": "c3bf12d2fe9d998697a9a3aa6084b83d50d84d8af06c2af0e8598326e7ddbaf9",
+        "cmd/tls_defaults_test.go": "1a1ae148abd218881e841b62f9cc38ff637618e3df172b107ac9e59e0912b5bd"
+      }
+    },
+    "silo-pkg": {
+      "path": "/Users/vonng/.codex/worktrees/4224/silo-pkg",
+      "base_commit": "a92c54d7ad910060dd6053c2fc38d41f3229bcfe",
+      "branch": "codex/go127-compat-20260909",
+      "tracked_changes": [
+        "README.md"
+      ],
+      "untracked": [
+        "env/web_env_tls_test.go"
+      ],
+      "go_mod_sha256": "0371c50986702312701ab3850dabcd2442b53e7e073d42168dfea5b38a5baff3",
+      "go_sum_sha256": "a73d65b976a5b5ac99d0f13bcba694662fee735fdad8a15107ef3a1be9ab7870",
+      "dependencies_changed": false,
+      "modified_go_files": {
+        "env/web_env_tls_test.go": "98d30a93d3ca50cf8fb30a6eb72cb6bd95ad6db90e398643af093cf0be134693"
+      }
+    },
+    "mc": {
+      "path": "/Users/vonng/.codex/worktrees/4224/mc",
+      "base_commit": "fcd5cad8247ffac68c075adec43f02a5f15c16c6",
+      "branch": "codex/go127-compat-20260909",
+      "tracked_changes": [
+        "README.md"
+      ],
+      "untracked": [
+        "cmd/tls_defaults_test.go"
+      ],
+      "go_mod_sha256": "288ebd823a98033d5c63445e77d274f7407afede82ad240368ba3f06bfbada58",
+      "go_sum_sha256": "3dee1265485779625830593b17af6fa954eba7394f874db664d3938f5b66971f",
+      "dependencies_changed": false,
+      "modified_go_files": {
+        "cmd/tls_defaults_test.go": "8caedb0be3ac94b900ccaf94c2039569fb6d6d859a4c79a7ad272c8e446927f0"
+      }
+    },
+    "silo-console": {
+      "path": "/Users/vonng/.codex/worktrees/4224/silo-console",
+      "base_commit": "c103d08ec36aab8e08ba091d77b639158ce9f18f",
+      "branch": "codex/go127-compat-20260909",
+      "tracked_changes": [
+        "README.md"
+      ],
+      "untracked": [
+        "api/tls_defaults_test.go"
+      ],
+      "go_mod_sha256": "1665c8c4ab2c63ce8c36e1391f254952ba460de46e79195e5c5b7acbcdfe02e4",
+      "go_sum_sha256": "7211f69c6c5d25ed923649dfa19eb571b2a16a71ab3d0935be50b2e57f9028e9",
+      "dependencies_changed": false,
+      "modified_go_files": {
+        "api/tls_defaults_test.go": "1f270ebe7cce540ec56348d4c5dbcf93be73beea60861907ca4425dc35986b27"
+      }
+    }
+  },
+  "linux_server_build": {
+    "go": "go1.27.1",
+    "sha256": "7892ce222c61a6e362291a303c0d9e9a361f866cc398f7ded382d2e61bd21d49",
+    "settings": [
+      "build\t-buildmode=exe",
+      "build\t-compiler=gc",
+      "build\t-tags=kqueue",
+      "build\tCGO_ENABLED=0",
+      "build\tGOARCH=arm64",
+      "build\tGOOS=linux",
+      "build\tGOARM64=v8.0",
+      "build\tvcs=git",
+      "build\tvcs.revision=d1105bbb3d4a0afa33b3a4ac11b821235038ed0e",
+      "build\tvcs.time=2026-09-09T06:55:35Z",
+      "build\tvcs.modified=true"
+    ],
+    "dependencies": [
+      "dep\taead.dev/mem\tv0.2.0\th1:ufgkESS9+lHV/GUjxgc2ObF43FLZGSemh+W+y27QFMI=",
+      "dep\taead.dev/minisign\tv0.3.0\th1:8Xafzy5PEVZqYDNP60yJHARlW1eOQtsKNp/Ph2c0vRA=",
+      "dep\taead.dev/mtls\tv0.3.0\th1:a+C0t15Y9SRX6qP1EqmQFZ4ZSMm88TPvNDymasu4ahQ=",
+      "dep\tcel.dev/expr\tv0.25.2\th1:K6j46C81hXtZQfuX60cVWQFBJahKSE2gfRbNuvr5bFs=",
+      "dep\tcloud.google.com/go\tv0.123.0\th1:2NAUJwPR47q+E35uaJeYoNhuNEM9kM8SjgRgdeOJUSE=",
+      "dep\tcloud.google.com/go/auth\tv0.20.0\th1:kXTssoVb4azsVDoUiF8KvxAqrsQcQtB53DcSgta74CA=",
+      "dep\tcloud.google.com/go/auth/oauth2adapt\tv0.2.8\th1:keo8NaayQZ6wimpNSmW5OPc283g65QNIiLpZnkHRbnc=",
+      "dep\tcloud.google.com/go/compute/metadata\tv0.9.0\th1:pDUj4QMoPejqq20dK0Pg2N4yG9zIkYGdBtwLoEkH9Zs=",
+      "dep\tcloud.google.com/go/iam\tv1.5.3\th1:+vMINPiDF2ognBJ97ABAYYwRgsaqxPbQDlMnbHMjolc=",
+      "dep\tcloud.google.com/go/monitoring\tv1.24.3\th1:dde+gMNc0UhPZD1Azu6at2e79bfdztVDS5lvhOdsgaE=",
+      "dep\tcloud.google.com/go/storage\tv1.61.3\th1:VS//ZfBuPGDvakfD9xyPW1RGF1Vy3BWUoVZXgW1KMOg=",
+      "dep\tfilippo.io/edwards25519\tv1.2.0\th1:crnVqOiS4jqYleHd9vaKZ+HKtHfllngJIiOpNpoJsjo=",
+      "dep\tgithub.com/Azure/azure-sdk-for-go/sdk/azcore\tv1.22.0\th1:aokoqcHvaGjiM3VpjKDfMMnF/8epJ+Q1HLJ7CudztqE=",
+      "dep\tgithub.com/Azure/azure-sdk-for-go/sdk/azidentity\tv1.14.0\th1:CU4+EJeJi3TKYWEcYuSdWsjzw0nVsK/H0MSQOiPcymU=",
+      "dep\tgithub.com/Azure/azure-sdk-for-go/sdk/internal\tv1.12.0\th1:fhqpLE3UEXi9lPaBRpQ6XuRW0nU7hgg4zlmZZa+a9q4=",
+      "dep\tgithub.com/Azure/azure-sdk-for-go/sdk/storage/azblob\tv1.6.4\th1:jWQK1GI+LeGGUKBADtcH2rRqPxYB1Ljwms5gFA2LqrM=",
+      "dep\tgithub.com/Azure/go-ntlmssp\tv0.1.1\th1:l+FM/EEMb0U9QZE7mKNEDw5Mu3mFiaa2GKOoTSsNDPw=",
+      "dep\tgithub.com/AzureAD/microsoft-authentication-library-for-go\tv1.7.2\th1:RHK7bS+HQMslb1sZpAokUt+zTVmue0hKSs2C791hhzU=",
+      "dep\tgithub.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp\tv1.33.0\th1:l7+6kwRMJNwdCvYdDl7Eax+wzEYHSnNY7zrrfbhDdTA=",
+      "dep\tgithub.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric\tv0.55.0\th1:UnDZ/zFfG1JhH/DqxIZYU/1CUAlTUScoXD/LcM2Ykk8=",
+      "dep\tgithub.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping\tv0.55.0\th1:0s6TxfCu2KHkkZPnBfsQ2y5qia0jl3MMrmBhu3nCOYk=",
+      "dep\tgithub.com/IBM/sarama\tv1.45.1\th1:nY30XqYpqyXOXSNoe2XCgjj9jklGM1Ye94ierUb1jQ0=",
+      "dep\tgithub.com/VividCortex/ewma\tv1.2.0\th1:f58SaIzcDXrSy3kWaHNvuJgJ3Nmz59Zji6XoJR/q1ow=",
+      "dep\tgithub.com/acarl005/stripansi\tv0.0.0-20180116102854-5a71ef0e047d\th1:licZJFw2RwpHMqeKTCYkitsPqHNxTmd4SNR5r94FGM8=",
+      "dep\tgithub.com/alecthomas/participle\tv0.7.1\th1:2bN7reTw//5f0cugJcTOnY/NYZcWQOaajW+BwZB5xWs=",
+      "dep\tgithub.com/apache/thrift\tv0.24.0\th1:zy31L1a49QTNB2bG1BBfMXol3yJrTH975G3pPubQVLQ=",
+      "dep\tgithub.com/aymanbagabas/go-osc52/v2\tv2.0.1\th1:HwpRHbFMcZLEVr42D4p7XBqjyuxQH5SMiErDT4WkJ2k=",
+      "dep\tgithub.com/beevik/ntp\tv1.5.0\th1:y+uj/JjNwlY2JahivxYvtmv4ehfi3h74fAuABB9ZSM4=",
+      "dep\tgithub.com/beorn7/perks\tv1.0.1\th1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=",
+      "dep\tgithub.com/buger/jsonparser\tv1.1.2\th1:frqHqw7otoVbk5M8LlE/L7HTnIq2v9RX6EJ48i9AxJk=",
+      "dep\tgithub.com/cespare/xxhash/v2\tv2.3.0\th1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=",
+      "dep\tgithub.com/charmbracelet/bubbles\tv1.0.0\th1:12J8/ak/uCZEMQ6KU7pcfwceyjLlWsDLAxB5fXonfvc=",
+      "dep\tgithub.com/charmbracelet/bubbletea\tv1.3.10\th1:otUDHWMMzQSB0Pkc87rm691KZ3SWa4KUlvF9nRvCICw=",
+      "dep\tgithub.com/charmbracelet/colorprofile\tv0.4.3\th1:QPa1IWkYI+AOB+fE+mg/5/4HRMZcaXex9t5KX76i20Q=",
+      "dep\tgithub.com/charmbracelet/harmonica\tv0.2.0\th1:8NxJWRWg/bzKqqEaaeFNipOu77YR5t8aSwG4pgaUBiQ=",
+      "dep\tgithub.com/charmbracelet/lipgloss\tv1.1.0\th1:vYXsiLHVkK7fp74RkV7b2kq9+zDLoEU4MZoFqR/noCY=",
+      "dep\tgithub.com/charmbracelet/x/ansi\tv0.11.8\th1:JMFwp0CgDC2+jcOB162HH5k7I3FVbgFSMMYg7dSPBQQ=",
+      "dep\tgithub.com/charmbracelet/x/cellbuf\tv0.0.15\th1:ur3pZy0o6z/R7EylET877CBxaiE1Sp1GMxoFPAIztPI=",
+      "dep\tgithub.com/charmbracelet/x/term\tv0.2.2\th1:xVRT/S2ZcKdhhOuSP4t5cLi5o+JxklsoEObBSgfgZRk=",
+      "dep\tgithub.com/cheggaaa/pb\tv1.0.30\th1:NylhgqJfXx3JVBGx6ywsXuhpz8caSMPmLArXyAv1bwU=",
+      "dep\tgithub.com/clipperhouse/displaywidth\tv0.11.0\th1:lBc6kY44VFw+TDx4I8opi/EtL9m20WSEFgwIwO+UVM8=",
+      "dep\tgithub.com/clipperhouse/uax29/v2\tv2.7.0\th1:+gs4oBZ2gPfVrKPthwbMzWZDaAFPGYK72F0NJv2v7Vk=",
+      "dep\tgithub.com/cncf/xds/go\tv0.0.0-20260202195803-dba9d589def2\th1:aBangftG7EVZoUb69Os8IaYg++6uMOdKK83QtkkvJik=",
+      "dep\tgithub.com/coreos/go-oidc/v3\tv3.21.0\th1:wZo4Q9Pum8dYEj0eMUPrqR+kvuGkeUplbLpNCkBqoWM=",
+      "dep\tgithub.com/coreos/go-semver\tv0.3.1\th1:yi21YpKnrx1gt5R+la8n5WgS0kCrsPp33dmEyHReZr4=",
+      "dep\tgithub.com/coreos/go-systemd/v22\tv22.7.0",
+      "=>\tgithub.com/coreos/go-systemd/v22\tv22.6.0\th1:aGVa/v8B7hpb0TKl0MWoAavPDmHvobFe5R5zn0bCJWo=",
+      "dep\tgithub.com/cosnicolaou/pbzip2\tv1.0.6\th1:FYF6b2j4X4q3hZezd2AoUN/emLCtH/MbDGwJjiOacak=",
+      "dep\tgithub.com/davecgh/go-spew\tv1.1.2-0.20180830191138-d8f796af33cc\th1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=",
+      "dep\tgithub.com/dchest/siphash\tv1.2.3\th1:QXwFc8cFOR2dSa/gE6o/HokBMWtLUaNDVd+22aKHeEA=",
+      "dep\tgithub.com/docker/go-units\tv0.5.0\th1:69rxXcBk27SvSaaxTtLh/8llcHD8vYHT7WSdRZ/jvr4=",
+      "dep\tgithub.com/dustin/go-humanize\tv1.0.1\th1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=",
+      "dep\tgithub.com/eapache/go-resiliency\tv1.7.0\th1:n3NRTnBn5N0Cbi/IeOHuQn9s2UwVUH7Ga0ZWcP+9JTA=",
+      "dep\tgithub.com/eapache/go-xerial-snappy\tv0.0.0-20230731223053-c322873962e3\th1:Oy0F4ALJ04o5Qqpdz8XLIpNA3WM/iSIXqxtqo7UGVws=",
+      "dep\tgithub.com/eapache/queue\tv1.1.0\th1:YOEu7KNc61ntiQlcEeUIoDTJ2o8mQznoNvUhiigpIqc=",
+      "dep\tgithub.com/eclipse/paho.mqtt.golang\tv1.5.1\th1:/VSOv3oDLlpqR2Epjn1Q7b2bSTplJIeV2ISgCl2W7nE=",
+      "dep\tgithub.com/elastic/go-elasticsearch/v7\tv7.17.10\th1:TCQ8i4PmIJuBunvBS6bwT2ybzVFxxUhhltAs3Gyu1yo=",
+      "dep\tgithub.com/envoyproxy/go-control-plane/envoy\tv1.37.0\th1:u3riX6BoYRfF4Dr7dwSOroNfdSbEPe9Yyl09/B6wBrQ=",
+      "dep\tgithub.com/envoyproxy/protoc-gen-validate\tv1.3.3\th1:MVQghNeW+LZcmXe7SY1V36Z+WFMDjpqGAGacLe2T0ds=",
+      "dep\tgithub.com/fatih/color\tv1.19.0\th1:Zp3PiM21/9Ld6FzSKyL5c/BULoe/ONr9KlbYVOfG8+w=",
+      "dep\tgithub.com/fatih/structs\tv1.1.0\th1:Q7juDM0QtcnhCpeyLGQKyg4TOIghuNXrkL32pHAUMxo=",
+      "dep\tgithub.com/felixge/fgprof\tv0.9.5\th1:8+vR6yu2vvSKn08urWyEuxx75NWPEvybbkBirEpsbVY=",
+      "dep\tgithub.com/felixge/httpsnoop\tv1.1.0\th1:3YtUj32ZZkqZtt3sZZsClsymw/QDuVfpNhoA31zeORc=",
+      "dep\tgithub.com/fraugster/parquet-go\tv0.12.0\th1:1slnC5y2VWEOUSlzbeXatM0BvSWcLUDsR/EcZsXXCZc=",
+      "dep\tgithub.com/go-asn1-ber/asn1-ber\tv1.5.8\th1:H9AZkK22UOmfX8J84ubyaZxKJZ3FMHVwn8swoMML7iQ=",
+      "dep\tgithub.com/go-jose/go-jose/v4\tv4.1.4\th1:moDMcTHmvE6Groj34emNPLs/qtYXRVcd6S7NHbHz3kA=",
+      "dep\tgithub.com/go-ldap/ldap/v3\tv3.4.14\th1:D6PYdEgsaVzsXyr6w/yDC06Ria4uUhWm+Rb+er8lfAs=",
+      "dep\tgithub.com/go-logr/logr\tv1.4.4\th1:tG4xh9yMsRCAiodLVTxyrkzSZ9+o0L1Kg/+cPVcbP/8=",
+      "dep\tgithub.com/go-logr/stdr\tv1.2.2\th1:hSWxHoqTgW2S2qGc0LTAI563KZ5YKYRhT3MFKZMbjag=",
+      "dep\tgithub.com/go-openapi/analysis\tv0.26.2\th1:Q6wOwXW8mcVAkpDFMshj/F4PlK2Fx86tmLJjZW4vyEs=",
+      "dep\tgithub.com/go-openapi/errors\tv0.22.8\th1:oP7sW7TWc3wFFjrzzj0nI83H2qMBkNjNfSd+XRejk/I=",
+      "dep\tgithub.com/go-openapi/jsonpointer\tv1.0.0\th1:kR9tHqY0CtZaOPVFm622dPVNhrvYpwr4uCxgL3h1H8s=",
+      "dep\tgithub.com/go-openapi/jsonreference\tv1.0.1\th1:4zJ7AmYDKNmD3aSpfPnFNCFA5E80/xMHUNKgydaLh38=",
+      "dep\tgithub.com/go-openapi/loads\tv0.25.2\th1:+uNsDlRQfYtZTrh+3pdwampcAqZVPuBJW0IA82aZHII=",
+      "dep\tgithub.com/go-openapi/runtime\tv0.33.1\th1:jCvhI+wAdsn29byy+RgcPcg+j39YT6E304QOE/WqIVk=",
+      "dep\tgithub.com/go-openapi/runtime/server-middleware\tv0.33.1\th1:IAeKbwWnBnpsYTpuPVS8t73ZrPpKvRZnK2iJ2KJGUV0=",
+      "dep\tgithub.com/go-openapi/spec\tv1.0.0\th1:JtB/GHOj+eetjse6YvxqLze88oEekl/4uPBethvzRrA=",
+      "dep\tgithub.com/go-openapi/strfmt\tv0.27.0\th1:kbcTeaD9TXuXD0hhMXzuYa1sdTo6+dWGvwjW93E80IM=",
+      "dep\tgithub.com/go-openapi/swag\tv0.29.1\th1:C6EeWzUwQtcWEhE9eqBdUubGXxhWY4PlzHMLD7kLaiQ=",
+      "dep\tgithub.com/go-openapi/swag/cmdutils\tv0.29.1\th1:3DorPGfUdE80BogKY22EzoHBcHMrkVomZMoV7kS4ANY=",
+      "dep\tgithub.com/go-openapi/swag/conv\tv0.29.1\th1:AC4Eh/5c/eUDOUCzzsRC9ghmFgOSBHeRMGIngY0ZUGA=",
+      "dep\tgithub.com/go-openapi/swag/fileutils\tv0.29.1\th1:ZcPzMceVhU1WPbK6N1G6sNQKdd1CWJlf3cA08UHuoM0=",
+      "dep\tgithub.com/go-openapi/swag/jsonutils\tv0.29.1\th1:AFCxs0eQZ24/QyfhVHM2t49rMz7Vv3XCsZQI6yrNy+c=",
+      "dep\tgithub.com/go-openapi/swag/loading\tv0.29.1\th1:FCv5fG8UhTdDJa2R7w+5O9Ekpcbw7tt0nFWvmDKGBjc=",
+      "dep\tgithub.com/go-openapi/swag/mangling\tv0.29.1\th1:lHALtvYCdxVnRl4GrHmFPwfBTZYIObqdGNSKyu/8D6I=",
+      "dep\tgithub.com/go-openapi/swag/netutils\tv0.29.1\th1:IjIvdEP5duKcghFqJEPSUraRnkKYHoM65kTluTu+Jb4=",
+      "dep\tgithub.com/go-openapi/swag/pools\tv0.29.1\th1:NRogYxdEW9SjRM4mkAOji9iefO4MRXq3p/ZJcoQbUKg=",
+      "dep\tgithub.com/go-openapi/swag/stringutils\tv0.29.1\th1:1ykunK7iJQk1uOO7+oUH1ukbsK85fFCOiCFMOVSY+F0=",
+      "dep\tgithub.com/go-openapi/swag/typeutils\tv0.29.1\th1:Nzv9nhnlLCRBPQqfOX+7lB6Guju370or8StT+lIOf6M=",
+      "dep\tgithub.com/go-openapi/swag/yamlutils\tv0.29.1\th1:69w3tsBajm7MR/fejLy7HD/3J68Ys1SeeZMEzZ3w2sk=",
+      "dep\tgithub.com/go-openapi/validate\tv0.26.5\th1:Vm02dSmhevDx/4v4m8KAtMwffHGfq9wRLqICeebE/D4=",
+      "dep\tgithub.com/go-sql-driver/mysql\tv1.9.3\th1:U/N249h2WzJ3Ukj8SowVFjdtZKfu9vlLZxjPXV1aweo=",
+      "dep\tgithub.com/go-viper/mapstructure/v2\tv2.5.0\th1:vM5IJoUAy3d7zRSVtIwQgBj7BiWtMPfmPEgAXnvj1Ro=",
+      "dep\tgithub.com/gobwas/httphead\tv0.1.0\th1:exrUm0f4YX0L7EBwZHuCF4GDp8aJfVeBrlLQrs6NqWU=",
+      "dep\tgithub.com/gobwas/pool\tv0.2.1\th1:xfeeEhW7pwmX8nuLVlqbzVc7udMDrwetjEv+TZIz1og=",
+      "dep\tgithub.com/gobwas/ws\tv1.4.0\th1:CTaoG1tojrh4ucGPcoJFiAQUAsEWekEWvLy7GsVNqGs=",
+      "dep\tgithub.com/gogo/protobuf\tv1.3.2\th1:Ov1cvc58UF3b5XjBnZv7+opcTcQFZebYjWzi34vdm4Q=",
+      "dep\tgithub.com/golang-jwt/jwt/v4\tv4.5.2\th1:YtQM7lnr8iZ+j5q71MGKkNw9Mn7AjHM68uc9g5fXeUI=",
+      "dep\tgithub.com/golang-jwt/jwt/v5\tv5.3.1\th1:kYf81DTWFe7t+1VvL7eS+jKFVWaUnK9cB1qbwn63YCY=",
+      "dep\tgithub.com/golang/protobuf\tv1.5.4\th1:i7eJL8qZTpSEXOPTxNKhASYpMn+8e5Q6AdndVa1dWek=",
+      "dep\tgithub.com/golang/snappy\tv1.0.0\th1:Oy607GVXHs7RtbggtPBnr2RmDArIsAefDwvrdWvRhGs=",
+      "dep\tgithub.com/gomodule/redigo\tv1.9.3\th1:dNPSXeXv6HCq2jdyWfjgmhBdqnR6PRO3m/G05nvpPC8=",
+      "dep\tgithub.com/google/pprof\tv0.0.0-20260709232956-b9395ee17fa0\th1:du0WGc8xSKq/++e0cglxhS/mXVqsR7+c7jLEi5Vqduw=",
+      "dep\tgithub.com/google/s2a-go\tv0.1.9\th1:LGD7gtMgezd8a/Xak7mEWL0PjoTQFvpRudN895yqKW0=",
+      "dep\tgithub.com/google/shlex\tv0.0.0-20191202100458-e7afc7fbc510\th1:El6M4kTTCOh6aBiKaUGG7oYTSPP8MxqL4YI3kZKwcP4=",
+      "dep\tgithub.com/google/uuid\tv1.6.0\th1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=",
+      "dep\tgithub.com/googleapis/enterprise-certificate-proxy\tv0.3.18\th1:hvVi34VucdrV1IIsiWuqYM8kutw/92MxNEFxCJZEh0k=",
+      "dep\tgithub.com/googleapis/gax-go/v2\tv2.23.0\th1:Tchl7qkvE7Ip3y+ztvNufYFvkfqTe7NfLTYGIdJRLuE=",
+      "dep\tgithub.com/gorilla/websocket\tv1.5.4-0.20250319132907-e064f32e3674\th1:JeSE6pjso5THxAzdVpqr6/geYxZytqFMBCOtn/ujyeo=",
+      "dep\tgithub.com/grafana/regexp\tv0.0.0-20250905093917-f7b3be9d1853\th1:cLN4IBkmkYZNnk7EAJ0BHIethd+J6LqxFNw5mSiI2bM=",
+      "dep\tgithub.com/grpc-ecosystem/grpc-gateway/v2\tv2.30.0\th1:/Tnpcb2E0Pz/tN9s3bfEY2Q8ePCEX9iuS+cneUwncnw=",
+      "dep\tgithub.com/hashicorp/errwrap\tv1.1.0\th1:OxrOeh75EUXMY8TBjag2fzXGZ40LB6IKw45YeGUDY2I=",
+      "dep\tgithub.com/hashicorp/go-multierror\tv1.1.1\th1:H5DkEtf6CXdFp0N0Em5UCwQpXMWke8IA0+lD48awMYo=",
+      "dep\tgithub.com/hashicorp/go-uuid\tv1.0.3\th1:2gKiV6YVmrJ1i2CKKa9obLvRieoRGviZFL26PcT/Co8=",
+      "dep\tgithub.com/inconshreveable/mousetrap\tv1.1.0\th1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=",
+      "dep\tgithub.com/jcmturner/aescts/v2\tv2.0.0\th1:9YKLH6ey7H4eDBXW8khjYslgyqG2xZikXP0EQFKrle8=",
+      "dep\tgithub.com/jcmturner/dnsutils/v2\tv2.0.0\th1:lltnkeZGL0wILNvrNiVCR6Ro5PGU/SeBvVO/8c/iPbo=",
+      "dep\tgithub.com/jcmturner/gofork\tv1.7.6\th1:QH0l3hzAU1tfT3rZCnW5zXl+orbkNMMRGJfdJjHVETg=",
+      "dep\tgithub.com/jcmturner/gokrb5/v8\tv8.4.4\th1:x1Sv4HaTpepFkXbt2IkL29DXRf8sOfZXo8eRKh687T8=",
+      "dep\tgithub.com/jcmturner/rpc/v2\tv2.0.3\th1:7FXXj8Ti1IaVFpSAziCZWNzbNuZmnvw/i6CqLNdWfZY=",
+      "dep\tgithub.com/jedib0t/go-pretty/v6\tv6.8.3\th1:yVSk5aemoYHCvcrtqyXklwqcgHQIQzmy/oUzFlmffSQ=",
+      "dep\tgithub.com/jessevdk/go-flags\tv1.6.1\th1:Cvu5U8UGrLay1rZfv/zP7iLpSHGUZ/Ou68T0iX1bBK4=",
+      "dep\tgithub.com/json-iterator/go\tv1.1.12\th1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=",
+      "dep\tgithub.com/juju/ratelimit\tv1.0.2\th1:sRxmtRiajbvrcLQT7S+JbqU0ntsb9W2yhSdNN8tWfaI=",
+      "dep\tgithub.com/klauspost/compress\tv1.20.0\th1:a3C1ke2ohxFymNlb2HWAHjDeKCI90scRskErZkR0ezA=",
+      "dep\tgithub.com/klauspost/cpuid/v2\tv2.4.0\th1:S6Hrbc7+ywsr0r+RLapfGBHfyefhCTwEh3A0tV913Dw=",
+      "dep\tgithub.com/klauspost/crc32\tv1.3.0\th1:sSmTt3gUt81RP655XGZPElI0PelVTZ6YwCRnPSupoFM=",
+      "dep\tgithub.com/klauspost/filepathx\tv1.1.1\th1:201zvAsL1PhZvmXTP+QLer3AavWrO3U1NILWpniHK4w=",
+      "dep\tgithub.com/klauspost/pgzip\tv1.2.6\th1:8RXeL5crjEUFnR2/Sn6GJNWtSQ3Dk8pq4CL3jvdDyjU=",
+      "dep\tgithub.com/klauspost/readahead\tv1.4.0\th1:w4hQ3BpdLjBnRQkZyNi+nwdHU7eGP9buTexWK9lU7gY=",
+      "dep\tgithub.com/klauspost/reedsolomon\tv1.13.3\th1:01GwnO2xoCSaM0ShP4qwl+FsHg3csFShC6Tu/RS1ji0=",
+      "dep\tgithub.com/kr/fs\tv0.1.0\th1:Jskdu9ieNAYnjxsi0LbQp1ulIKZV1LAFgK1tWhpZgl8=",
+      "dep\tgithub.com/kylelemons/godebug\tv1.1.0\th1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0SNc=",
+      "dep\tgithub.com/lestrrat-go/blackmagic\tv1.0.4\th1:IwQibdnf8l2KoO+qC3uT4OaTWsW7tuRQXy9TRN9QanA=",
+      "dep\tgithub.com/lestrrat-go/dsig\tv1.4.0\th1:g7LUjK8cT74A5DzBXJI5HzsJuLhoYN0Wzj4nuOMIrH8=",
+      "dep\tgithub.com/lestrrat-go/httpcc\tv1.0.1\th1:ydWCStUeJLkpYyjLDHihupbn2tYmZ7m22BGkcvZZrIE=",
+      "dep\tgithub.com/lestrrat-go/httprc/v3\tv3.0.6\th1:4FpLQ18KK/ypPbVU3NLWJNRvH3kcYiqKqWfKGqNWxxI=",
+      "dep\tgithub.com/lestrrat-go/jwx/v3\tv3.2.0\th1:Jb3zBASTSZXz7gzzSAfYqxXF8KejvKC4xWoePLQqXCA=",
+      "dep\tgithub.com/lestrrat-go/option/v2\tv2.0.0\th1:XxrcaJESE1fokHy3FpaQ/cXW8ZsIdWcdFzzLOcID3Ss=",
+      "dep\tgithub.com/lib/pq\tv1.10.9\th1:YXG7RB+JIjhP29X+OtkiDnYaXQwpS4JEWq7dtCCRUEw=",
+      "dep\tgithub.com/lithammer/shortuuid/v4\tv4.2.0\th1:LMFOzVB3996a7b8aBuEXxqOBflbfPQAiVzkIcHO0h8c=",
+      "dep\tgithub.com/lucasb-eyer/go-colorful\tv1.4.1\th1:1EO+WB73+EH8EVbzlrG3KLAfEypQWVHIBqlTf+2hNss=",
+      "dep\tgithub.com/mattn/go-colorable\tv0.1.15\th1:+u9SLTRGnXv73cEsnsmoZBom+dMU88B2M0aDcWy0/jY=",
+      "dep\tgithub.com/mattn/go-ieproxy\tv0.0.12\th1:OZkUFJC3ESNZPQ+6LzC3VJIFSnreeFLQyqvBWtvfL2M=",
+      "dep\tgithub.com/mattn/go-isatty\tv0.0.24\th1:tGZZoVgT/KiqK1c8ocVLeDS8BSWMRd47J3Lbz7vsReI=",
+      "dep\tgithub.com/mattn/go-runewidth\tv0.0.29\th1:3oGF3R/S2N9DQ3ptftzVIvg2eicmojCzlwBEmqEPDfQ=",
+      "dep\tgithub.com/matttproud/golang_protobuf_extensions\tv1.0.4\th1:mmDVorXM7PCGKw94cs5zkfA9PSy5pEvNWRP0ET0TIVo=",
+      "dep\tgithub.com/miekg/dns\tv1.1.73\th1:uhT8nJxmTrPJYClxVxTCX+CVn6qnzSiybRk72Z6DgrE=",
+      "dep\tgithub.com/minio/cli\tv1.24.2\th1:J+fCUh9mhPLjN3Lj/YhklXvxj8mnyE/D6FpFduXJ2jg=",
+      "dep\tgithub.com/minio/colorjson\tv1.0.8\th1:AS6gEQ1dTRYHmC4xuoodPDRILHP/9Wz5wYUGDQfPLpg=",
+      "dep\tgithub.com/minio/console\tv1.7.6",
+      "=>\tgithub.com/pgsty/silo-console\tv0.0.0-20260908142700-c103d08ec36a\th1:aHLqQ7INozqGLEOB1tr+n/eKgrBhlQ20fHyLmeNu+ao=",
+      "dep\tgithub.com/minio/crc64nvme\tv1.1.1\th1:8dwx/Pz49suywbO+auHCBpCtlW1OfpcLN7wYgVR6wAI=",
+      "dep\tgithub.com/minio/csvparser\tv1.0.0\th1:xJEHcYK8ZAjeW4hNV9Zu30u+/2o4UyPnYgyjWp8b7ZU=",
+      "dep\tgithub.com/minio/dnscache\tv0.1.1\th1:AMYLqomzskpORiUA1ciN9k7bZT1oB3YZN4cEIi88W5o=",
+      "dep\tgithub.com/minio/dperf\tv0.7.1\th1:eBwtaBBjuANwgUy1waWoS+wP+0i5fkXJOdGU2RXuDxo=",
+      "dep\tgithub.com/minio/filepath\tv1.0.0\th1:fvkJu1+6X+ECRA6G3+JJETj4QeAYO9sV43I79H8ubDY=",
+      "dep\tgithub.com/minio/highwayhash\tv1.0.4\th1:asJizugGgchQod2ja9NJlGOWq4s7KsAWr5XUc9Clgl4=",
+      "dep\tgithub.com/minio/kms-go/kes\tv0.3.1\th1:K3sPFAvFbJx33XlCTUBnQo8JRmSZyDvT6T2/MQ2iC3A=",
+      "dep\tgithub.com/minio/kms-go/kms\tv0.6.0\th1:oGdGUyjfCZwRIi7em0aj4wk+oOm7+4a0lzSZny7ZIDU=",
+      "dep\tgithub.com/minio/madmin-go/v3\tv3.0.110\th1:FIYekj7YPc430ffpXFWiUtyut3qBt/unIAcDzJn9H5M=",
+      "dep\tgithub.com/minio/mc\tv0.0.0-20251106162529-77f82e18b540",
+      "=>\tgithub.com/pgsty/mc\tv0.0.0-20260909015522-fcd5cad8247f\th1:JiL/FcsGMsAhA+Iv+0Jzk9VnEAVVv4HUNbR0cGf+/CE=",
+      "dep\tgithub.com/minio/md5-simd\tv1.1.2\th1:Gdi1DZK69+ZVMoNHRXJyNcxrMA4dSxoYHZSQbirFg34=",
+      "dep\tgithub.com/minio/minio-go/v7\tv7.3.1-0.20260828014306-0e78d3f18efe\th1:By2FKNSOUGLOeb0x4D7xJMHr8x/X1ZW8PG780SpKUwQ=",
+      "dep\tgithub.com/minio/mux\tv1.10.1\th1:grrK8SwRKbkNFE6qG7WAvFGH09bB46d5teOOtKfQ14s=",
+      "dep\tgithub.com/minio/pkg/v3\tv3.6.1\th1:gaNT80BS/iuIany5ylTkVmfN4s6UYY30OtImFv4GQA8=",
+      "dep\tgithub.com/minio/selfupdate\tv0.6.0\th1:i76PgT0K5xO9+hjzKcacQtO7+MjJ4JKA8Ak8XQ9DDwU=",
+      "dep\tgithub.com/minio/simdjson-go\tv0.4.5\th1:r4IQwjRGmWCQ2VeMc7fGiilu1z5du0gJ/I/FsKwgo5A=",
+      "dep\tgithub.com/minio/sio\tv0.4.3\th1:JqyID1XM86KwBZox5RAdLD4MLPIDoCY2cke2CXCJCkg=",
+      "dep\tgithub.com/minio/websocket\tv1.6.0\th1:CPvnQvNvlVaQmvw5gtJNyYQhg4+xRmrPNhBbv8BdpAE=",
+      "dep\tgithub.com/minio/xxml\tv0.0.3\th1:ZIpPQpfyG5uZQnqqC0LZuWtPk/WT8G/qkxvO6jb7zMU=",
+      "dep\tgithub.com/minio/zipindex\tv0.5.0\th1:QydEWJW+uAFMd5xmQa580bm7JtC5krpuAtARXIQr72U=",
+      "dep\tgithub.com/mitchellh/go-homedir\tv1.1.0\th1:lukF9ziXFxDFPkA1vsr5zpc1XuPDn/wFntq5mG+4E0Y=",
+      "dep\tgithub.com/modern-go/concurrent\tv0.0.0-20180306012644-bacd9c7ef1dd\th1:TRLaZ9cD/w8PVh93nsPXa1VrQ6jlwL5oN8l14QlcNfg=",
+      "dep\tgithub.com/modern-go/reflect2\tv1.0.3-0.20250322232337-35a7c28c31ee\th1:W5t00kpgFdJifH4BDsTlE89Zl93FEloxaWZfGcifgq8=",
+      "dep\tgithub.com/muesli/ansi\tv0.0.0-20230316100256-276c6243b2f6\th1:ZK8zHtRHOkbHy6Mmr5D264iyp3TiX5OmNcI5cIARiQI=",
+      "dep\tgithub.com/muesli/cancelreader\tv0.2.2\th1:3I4Kt4BQjOR54NavqnDogx/MIoWBFa0StPA8ELUXHmA=",
+      "dep\tgithub.com/muesli/reflow\tv0.3.0\th1:IFsN6K9NfGtjeggFP+68I4chLZV2yIKsXJFNZ+eWh6s=",
+      "dep\tgithub.com/muesli/termenv\tv0.16.0\th1:S5AlUN9dENB57rsbnkPyfdGuWIlkmzJjbFf0Tf5FWUc=",
+      "dep\tgithub.com/munnerz/goautoneg\tv0.0.0-20191010083416-a7dc8b61c822\th1:C3w9PqII01/Oq1c1nUAm88MOHcQC9l5mIlSMApZMrHA=",
+      "dep\tgithub.com/nats-io/nats.go\tv1.49.0\th1:yh/WvY59gXqYpgl33ZI+XoVPKyut/IcEaqtsiuTJpoE=",
+      "dep\tgithub.com/nats-io/nkeys\tv0.4.15\th1:JACV5jRVO9V856KOapQ7x+EY8Jo3qw1vJt/9Jpwzkk4=",
+      "dep\tgithub.com/nats-io/nuid\tv1.0.1\th1:5iA8DT8V7q8WK2EScv2padNa/rTESc1KdnPw4TC2paw=",
+      "dep\tgithub.com/nats-io/stan.go\tv0.10.4\th1:19GS/eD1SeQJaVkeM9EkvEYattnvnWrZ3wkSWSw4uXw=",
+      "dep\tgithub.com/ncw/directio\tv1.0.5\th1:JSUBhdjEvVaJvOoyPAbcW0fnd0tvRXD76wEfZ1KcQz4=",
+      "dep\tgithub.com/nsqio/go-nsq\tv1.1.0\th1:PQg+xxiUjA7V+TLdXw7nVrJ5Jbl3sN86EhGCQj4+FYE=",
+      "dep\tgithub.com/oklog/ulid/v2\tv2.1.2\th1:IEclFb9JNvzYA6MW2SCxbLzcHTVsfqm3PrqGQJH5zec=",
+      "dep\tgithub.com/olekukonko/tablewriter\tv0.0.5\th1:P2Ga83D34wi1o9J6Wh1mRuqd4mF/x/lgBS7N7AbDhec=",
+      "dep\tgithub.com/pgsty/silo-pkg/v3\tv3.13.3\th1:d2xYTn4LXoWIAIjBlW/17wtA/Ut1ap29t+1ww4TFa8o=",
+      "dep\tgithub.com/philhofer/fwd\tv1.2.0\th1:e6DnBTl7vGY+Gz322/ASL4Gyp1FspeMvx1RNDoToZuM=",
+      "dep\tgithub.com/pierrec/lz4/v4\tv4.1.29\th1:CDQY6qZOLI4DW0Nx6R1vRrifrCeQHnNXkMb0hZWXFjg=",
+      "dep\tgithub.com/pkg/browser\tv0.0.0-20240102092130-5ac0b6a4141c\th1:+mdjkGKdHQG3305AYmdv1U2eRNDiU2ErMBj1gwrq8eQ=",
+      "dep\tgithub.com/pkg/errors\tv0.9.1\th1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=",
+      "dep\tgithub.com/pkg/sftp\tv1.13.11\th1:0N92SLTB8JqASJB14ZLHHzFnBV8mG9zw4K7jghEFWuE=",
+      "dep\tgithub.com/pkg/xattr\tv0.4.12\th1:rRTkSyFNTRElv6pkA3zpjHpQ90p/OdHQC1GmGh1aTjM=",
+      "dep\tgithub.com/posener/complete\tv1.2.3\th1:NP0eAhjcjImqslEwo/1hq7gpajME0fTLTezBKDqfXqo=",
+      "dep\tgithub.com/prometheus/client_golang\tv1.24.1\th1:JnJkREXzWxUdCuPFpIWZiPispT9xVV59uiuyR2bPlnU=",
+      "dep\tgithub.com/prometheus/client_model\tv0.6.3\th1:O0jaTVAYNxTHYInEPFJt5I3+sN8zqBtVMPTB1qyxiEo=",
+      "dep\tgithub.com/prometheus/common\tv0.71.0\th1:9KDAKb7Mj3HEVKyFCK6Dc/HIwlBzZIN2l7/lrHl3KK8=",
+      "dep\tgithub.com/prometheus/procfs\tv0.22.0\th1:6q9+/JL9IKAPbCmBrv9n5O5Ty3NKnciV5X7YGw0oics=",
+      "dep\tgithub.com/prometheus/prom2json\tv1.5.0\th1:WIcAOjLE1x476W3dUlmTL6E/e98CgVGuwwYusl6MPP8=",
+      "dep\tgithub.com/prometheus/prometheus\tv0.314.0\th1:YjsimqsIi6/mOtzZcrPEYUALO6zpfaht9O5sXqDz2vg=",
+      "dep\tgithub.com/puzpuzpuz/xsync/v3\tv3.5.1\th1:GJYJZwO6IdxN/IKbneznS6yPkVC+c3zyY/j19c++5Fg=",
+      "dep\tgithub.com/rabbitmq/amqp091-go\tv1.10.0\th1:STpn5XsHlHGcecLmMFCtg7mqq0RnD+zFr4uzukfVhBw=",
+      "dep\tgithub.com/rcrowley/go-metrics\tv0.0.0-20250401214520-65e299d6c5c9\th1:bsUq1dX0N8AOIL7EB/X911+m4EHsnWEHeJ0c+3TTBrg=",
+      "dep\tgithub.com/rivo/uniseg\tv0.4.7\th1:WUdvkW8uEhrYfLC4ZzdpI2ztxP1I582+49Oc5Mq64VQ=",
+      "dep\tgithub.com/rjeczalik/notify\tv0.9.3\th1:6rJAzHTGKXGj76sbRgDiDcYj/HniypXmSJo1SWakZeY=",
+      "dep\tgithub.com/rs/cors\tv1.11.1\th1:eU3gRzXLRK57F5rKMGMZURNdIG4EoAmX8k94r9wXWHA=",
+      "dep\tgithub.com/rs/xid\tv1.6.0\th1:fV591PaemRlL6JfRxGDEPl69wICngIQ3shQtzfy2gxU=",
+      "dep\tgithub.com/safchain/ethtool\tv0.7.0\th1:rlJzfDetsVvT61uz8x1YIcFn12akMfuPulHtZjtb7Is=",
+      "dep\tgithub.com/secure-io/sio-go\tv0.3.1\th1:dNvY9awjabXTYGsTF1PiCySl9Ltofk9GA3VdWlo7rRc=",
+      "dep\tgithub.com/shirou/gopsutil/v3\tv3.24.5\th1:i0t8kL+kQTvpAYToeuiVk3TgDeKOFioZO3Ztz/iZ9pI=",
+      "dep\tgithub.com/spiffe/go-spiffe/v2\tv2.7.0\th1:uXe1MflJoHw58wAUvxVlcM7WpKtijWG7I1UidcGh6g4=",
+      "dep\tgithub.com/tidwall/gjson\tv1.19.0\th1:xwxm7n691Uf3u5OFjzngavjGTh55KX5q/9w9xHW88JU=",
+      "dep\tgithub.com/tidwall/match\tv1.2.0\th1:0pt8FlkOwjN2fPt4bIl4BoNxb98gGHN2ObFEDkrfZnM=",
+      "dep\tgithub.com/tidwall/pretty\tv1.2.1\th1:qjsOFOWWQl+N3RsoF5/ssm1pHmJJwhjlSbZ51I6wMl4=",
+      "dep\tgithub.com/tinylib/msgp\tv1.6.4\th1:mOwYbyYDLPj35mkA2BjjYejgJk9BuHxDdvRnb6v2ZcQ=",
+      "dep\tgithub.com/tklauser/go-sysconf\tv0.4.0\th1:7H0uAN+7RkwWRaxhYXDLqa5V3LPrJeV8wmD9dRUgPQU=",
+      "dep\tgithub.com/tklauser/numcpus\tv0.12.0\th1:NR85qdvHA9pFse3x3weVZ0r0ST8R6l5RHbZrlRaqob4=",
+      "dep\tgithub.com/unrolled/secure\tv1.17.0\th1:Io7ifFgo99Bnh0J7+Q+qcMzWM6kaDPCA5FroFZEdbWU=",
+      "dep\tgithub.com/valyala/bytebufferpool\tv1.0.0\th1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=",
+      "dep\tgithub.com/valyala/fastjson\tv1.6.10\th1:/yjJg8jaVQdYR3arGxPE2X5z89xrlhS0eGXdv+ADTh4=",
+      "dep\tgithub.com/vbauerster/cupwriter\tv0.0.4\th1:9sBPe0uXWLZuWQU5lqVbhyFlxX6c09asST/YfatFAys=",
+      "dep\tgithub.com/vbauerster/mpb/v8\tv8.16.1\th1:gNYmwMip9xRWNGAiblZOgUNXWeU2P0NIGd5x0f8ffbc=",
+      "dep\tgithub.com/xdg/scram\tv1.0.5\th1:TuS0RFmt5Is5qm9Tm2SoD89OPqe4IRiFtyFY4iwWXsw=",
+      "dep\tgithub.com/xdg/stringprep\tv1.0.3\th1:cmL5Enob4W83ti/ZHuZLuKD/xqJfus4fVPwE+/BDm+4=",
+      "dep\tgithub.com/xo/terminfo\tv1.0.0\th1:2ZpYzqWzyyytjk3TP6aJVDhkMAkc99/1xKQdA3TDTBY=",
+      "dep\tgithub.com/zeebo/xxh3\tv1.1.0\th1:s7DLGDK45Dyfg7++yxI0khrfwq9661w9EN78eP/UZVs=",
+      "dep\tgo.etcd.io/etcd/api/v3\tv3.7.1\th1:KJG0/DcWGfe3Y1otDf/fsBf0TSSgpxZ5RO/L8SFt73E=",
+      "dep\tgo.etcd.io/etcd/client/pkg/v3\tv3.7.1\th1:rKYsj3pRkR0eK3yjT3XOgrhqfmIfj9pzNgxjh7mfFv4=",
+      "dep\tgo.etcd.io/etcd/client/v3\tv3.7.1\th1:0PEMMC0KuZmVIN+RAbdqfkZ45pYTgKVtmBEbRCvZFUg=",
+      "dep\tgo.opentelemetry.io/auto/sdk\tv1.2.1\th1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=",
+      "dep\tgo.opentelemetry.io/contrib/detectors/gcp\tv1.44.0\th1:NmLfL734pJhM0JKaYd2Y28+nY9dPRWYAAbxhRCrKXPw=",
+      "dep\tgo.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc\tv0.70.0\th1:oECp5f+hN7nkwjU/8BxQ/q23bGPb8FIrD839owX222E=",
+      "dep\tgo.opentelemetry.io/contrib/instrumentation/net/http/otelhttp\tv0.70.0\th1:LMuyCAyfalSjDyjdC65nK6N0zoTT63+E/u95X0JovZI=",
+      "dep\tgo.opentelemetry.io/otel\tv1.45.0\th1:pdrWmLHofpubmArBv1LgFSv1Z0Ie/ppdZzu+kUN5EeU=",
+      "dep\tgo.opentelemetry.io/otel/metric\tv1.45.0\th1:7Eg1uH7CJ5cXv9is6tnBe1FI6rj1nwUdbFypRm3br/M=",
+      "dep\tgo.opentelemetry.io/otel/sdk\tv1.45.0\th1:4VVSMgQ83dUgW2aoX5f6JgLvHwIvzcuLnF9lUdCSpCw=",
+      "dep\tgo.opentelemetry.io/otel/sdk/metric\tv1.45.0\th1:oVFszMfyj1Am6s24Vtc7wBb8BKLcwepJjNEYILuiE3o=",
+      "dep\tgo.opentelemetry.io/otel/trace\tv1.45.0\th1:l/mP6Uv7oNO7/TblbhpbgMidxhq1uO/rPsikOyVhxag=",
+      "dep\tgo.uber.org/atomic\tv1.11.0\th1:ZvwS0R+56ePWxUNi+Atn9dWONBPp/AUETXlHW0DxSjE=",
+      "dep\tgo.uber.org/multierr\tv1.11.0\th1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=",
+      "dep\tgo.uber.org/zap\tv1.28.0\th1:IZzaP1Fv73/T/pBMLk4VutPl36uNC+OSUh3JLG3FIjo=",
+      "dep\tgo.yaml.in/yaml/v3\tv3.0.5\th1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw=",
+      "dep\tgoftp.io/server/v2\tv2.0.3\th1:iz6Gxj7f2SFQVxrj0s1is+gueE6O9yTc+Ab0vtQ6Zn4=",
+      "dep\tgolang.org/x/crypto\tv0.56.0\th1:GUh5Ii4J5jtcseSMiRqr1jXCNHoxjeV9Fmekc2oLy6Y=",
+      "dep\tgolang.org/x/net\tv0.58.0\th1:ynWG7rqYi4ccpTEuPZ2QGWHktVEM9DMCj9yzDE0Q7To=",
+      "dep\tgolang.org/x/oauth2\tv0.36.0\th1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=",
+      "dep\tgolang.org/x/sync\tv0.22.0\th1:SZjpbeLmrCk4xhRSZFNZW5gFUeCeFgjekvI/+gfScek=",
+      "dep\tgolang.org/x/sys\tv0.47.0\th1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=",
+      "dep\tgolang.org/x/term\tv0.45.0\th1:NwWyBmoJCbfTHpxrWoZ9C6/VxOf7ic219I8xZZFdrf0=",
+      "dep\tgolang.org/x/text\tv0.41.0\th1:vz/seA0lnX87Othu2f/0L24RcgrXD9/YFTSuGjj3rH8=",
+      "dep\tgolang.org/x/time\tv0.15.0\th1:bbrp8t3bGUeFOx08pvsMYRTCVSMk89u4tKbNOZbp88U=",
+      "dep\tgoogle.golang.org/api\tv0.290.0\th1:eMw0Xo+IfbbMlKmW7aHvpyQRv9RCXuWx/vs8AD+0x9A=",
+      "dep\tgoogle.golang.org/genproto\tv0.0.0-20260319201613-d00831a3d3e7\th1:XzmzkmB14QhVhgnawEVsOn6OFsnpyxNPRY9QV01dNB0=",
+      "dep\tgoogle.golang.org/genproto/googleapis/api\tv0.0.0-20260831171406-18b4a7587f8a\th1:i3TAXhpKc7TUP1VAPiBBrv45kamjoizCC3rOC0cAbOs=",
+      "dep\tgoogle.golang.org/genproto/googleapis/rpc\tv0.0.0-20260831171406-18b4a7587f8a\th1:3Dnd1cDaZlB68lziofO+bJXpjOy8UfRv8Unt+yH8tQ4=",
+      "dep\tgoogle.golang.org/grpc\tv1.83.2\th1:EManeRomTObA0BU7I8vXgg/78uE5MJ9M8B39EX2WscU=",
+      "dep\tgoogle.golang.org/protobuf\tv1.36.12\th1:pJOKDDOyeXErUroCihFAd5LQuwXBSpVnKGrj5o/fwxc=",
+      "dep\tgopkg.in/ini.v1\tv1.67.3\th1:iM9Lhz5MRSGhHVGGwCuzG9KO8PoirCXj/m/qTmOJJQw=",
+      "dep\tgopkg.in/yaml.v2\tv2.4.0\th1:D8xgwECY7CYvx+Y2n4sBz93Jn9JRvxdiyyo8CTfuKaY="
+    ]
+  },
+  "linux_container": {
+    "image_id": "sha256:307af7711e2e04ab75759cb42a1eef45c43c4404894c0e30dd19f742b107b922",
+    "kind": "pre-existing generic Debian 12 base",
+    "network": "none",
+    "published_ports": [],
+    "server_or_console_image": false
+  },
+  "linux_integration": [
+    {
+      "case": "allpaths-add",
+      "binary": "candidate-go127",
+      "mode": "reject-mlkem",
+      "godebug": "tlsmlkem=0",
+      "tls13": false,
+      "cluster": 200,
+      "ready": 200,
+      "console": 200,
+      "admin_list_ok": true,
+      "curl": {
+        "exit": 0,
+        "status_protocol": "200 2"
+      },
+      "add_ok": true,
+      "add_reset": false,
+      "events": [
+        {
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ],
+          "bytes_read": 517,
+          "curves": [
+            29,
+            23,
+            30,
+            25,
+            24,
+            256,
+            257,
+            258,
+            259,
+            260
+          ],
+          "event": "hello",
+          "mode": "reject-mlkem",
+          "signatures": [
+            1027,
+            1283,
+            1539,
+            2055,
+            2056,
+            2057,
+            2058,
+            2059,
+            2052,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            771,
+            769,
+            770,
+            1026,
+            1282,
+            1538
+          ],
+          "versions": [
+            772,
+            771,
+            770,
+            769
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/2.0",
+          "resumed": false,
+          "tls": 771,
+          "user_agent_family": "curl/7.88.1"
+        },
+        {
+          "alpn": null,
+          "bytes_read": 287,
+          "curves": [
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mlkem",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "user_agent_family": "Silo"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/jwks",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "user_agent_family": "Silo"
+        }
+      ]
+    },
+    {
+      "case": "allpaths-compat-login",
+      "binary": "candidate-go127",
+      "mode": "reject-mlkem",
+      "godebug": "tlsmlkem=0",
+      "tls13": false,
+      "cluster": 200,
+      "ready": 200,
+      "console": 200,
+      "admin_list_ok": true,
+      "curl": {
+        "exit": 0,
+        "status_protocol": "200 2"
+      },
+      "oauth": {
+        "callback_status": 200,
+        "login_status": 204,
+        "buckets_status": 200,
+        "session_cookie": true
+      },
+      "bad-signature": {
+        "callback_status": 200,
+        "login_status": 500,
+        "buckets_status": 403,
+        "session_cookie": false
+      },
+      "bad-audience": {
+        "callback_status": 200,
+        "login_status": 500,
+        "buckets_status": 403,
+        "session_cookie": false
+      },
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 287,
+          "curves": [
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mlkem",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "user_agent_family": "Silo"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/jwks",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "user_agent_family": "Silo"
+        },
+        {
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ],
+          "bytes_read": 517,
+          "curves": [
+            29,
+            23,
+            30,
+            25,
+            24,
+            256,
+            257,
+            258,
+            259,
+            260
+          ],
+          "event": "hello",
+          "mode": "reject-mlkem",
+          "signatures": [
+            1027,
+            1283,
+            1539,
+            2055,
+            2056,
+            2057,
+            2058,
+            2059,
+            2052,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            771,
+            769,
+            770,
+            1026,
+            1282,
+            1538
+          ],
+          "versions": [
+            772,
+            771,
+            770,
+            769
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/2.0",
+          "resumed": false,
+          "tls": 771,
+          "user_agent_family": "curl/7.88.1"
+        },
+        {
+          "alpn": null,
+          "bytes_read": 269,
+          "curves": [
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "reject-mlkem",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "user_agent_family": "Go-http-client/1.1"
+        },
+        {
+          "alpn": null,
+          "bytes_read": 517,
+          "curves": [
+            29,
+            23,
+            30,
+            25,
+            24,
+            256,
+            257,
+            258,
+            259,
+            260
+          ],
+          "event": "hello",
+          "mode": "reject-mlkem",
+          "signatures": [
+            1027,
+            1283,
+            1539,
+            2055,
+            2056,
+            2057,
+            2058,
+            2059,
+            2052,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            771,
+            769,
+            770,
+            1026,
+            1282,
+            1538
+          ],
+          "versions": [
+            772,
+            771,
+            770,
+            769
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/authorize",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "user_agent_family": "Python-urllib/3.11"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "user_agent_family": "Go-http-client/1.1"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/token",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "user_agent_family": "Go-http-client/1.1"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "user_agent_family": "Go-http-client/1.1"
+        },
+        {
+          "alpn": null,
+          "bytes_read": 517,
+          "curves": [
+            29,
+            23,
+            30,
+            25,
+            24,
+            256,
+            257,
+            258,
+            259,
+            260
+          ],
+          "event": "hello",
+          "mode": "bad-signature",
+          "signatures": [
+            1027,
+            1283,
+            1539,
+            2055,
+            2056,
+            2057,
+            2058,
+            2059,
+            2052,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            771,
+            769,
+            770,
+            1026,
+            1282,
+            1538
+          ],
+          "versions": [
+            772,
+            771,
+            770,
+            769
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/authorize",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "user_agent_family": "Python-urllib/3.11"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "user_agent_family": "Go-http-client/1.1"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/token",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "user_agent_family": "Go-http-client/1.1"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/jwks",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "user_agent_family": "Silo"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "user_agent_family": "Go-http-client/1.1"
+        },
+        {
+          "alpn": null,
+          "bytes_read": 517,
+          "curves": [
+            29,
+            23,
+            30,
+            25,
+            24,
+            256,
+            257,
+            258,
+            259,
+            260
+          ],
+          "event": "hello",
+          "mode": "bad-audience",
+          "signatures": [
+            1027,
+            1283,
+            1539,
+            2055,
+            2056,
+            2057,
+            2058,
+            2059,
+            2052,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            771,
+            769,
+            770,
+            1026,
+            1282,
+            1538
+          ],
+          "versions": [
+            772,
+            771,
+            770,
+            769
+          ]
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/authorize",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "user_agent_family": "Python-urllib/3.11"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "user_agent_family": "Go-http-client/1.1"
+        },
+        {
+          "cipher": 49200,
+          "event": "request",
+          "path": "/token",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 771,
+          "user_agent_family": "Go-http-client/1.1"
+        }
+      ]
+    },
+    {
+      "case": "allpaths-tls13-login",
+      "binary": "candidate-go127",
+      "mode": "normal",
+      "godebug": null,
+      "tls13": true,
+      "cluster": 200,
+      "ready": 200,
+      "console": 200,
+      "admin_list_ok": true,
+      "curl": {
+        "exit": 0,
+        "status_protocol": "200 2"
+      },
+      "oauth": {
+        "callback_status": 200,
+        "login_status": 204,
+        "buckets_status": 200,
+        "session_cookie": true
+      },
+      "bad-signature": {
+        "callback_status": 200,
+        "login_status": 500,
+        "buckets_status": 403,
+        "session_cookie": false
+      },
+      "bad-audience": {
+        "callback_status": 200,
+        "login_status": 500,
+        "buckets_status": 403,
+        "session_cookie": false
+      },
+      "events": [
+        {
+          "alpn": null,
+          "bytes_read": 1513,
+          "curves": [
+            4588,
+            4587,
+            4589,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 4865,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 772,
+          "user_agent_family": "Silo"
+        },
+        {
+          "cipher": 4865,
+          "event": "request",
+          "path": "/jwks",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 772,
+          "user_agent_family": "Silo"
+        },
+        {
+          "alpn": [
+            "h2",
+            "http/1.1"
+          ],
+          "bytes_read": 517,
+          "curves": [
+            29,
+            23,
+            30,
+            25,
+            24,
+            256,
+            257,
+            258,
+            259,
+            260
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            1027,
+            1283,
+            1539,
+            2055,
+            2056,
+            2057,
+            2058,
+            2059,
+            2052,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            771,
+            769,
+            770,
+            1026,
+            1282,
+            1538
+          ],
+          "versions": [
+            772,
+            771,
+            770,
+            769
+          ]
+        },
+        {
+          "cipher": 4865,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/2.0",
+          "resumed": false,
+          "tls": 772,
+          "user_agent_family": "curl/7.88.1"
+        },
+        {
+          "alpn": null,
+          "bytes_read": 1495,
+          "curves": [
+            4588,
+            4587,
+            4589,
+            29,
+            23,
+            24,
+            25
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            2308,
+            2309,
+            2310,
+            2052,
+            1027,
+            2055,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            1283,
+            1539
+          ],
+          "versions": [
+            772,
+            771
+          ]
+        },
+        {
+          "cipher": 4865,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 772,
+          "user_agent_family": "Go-http-client/1.1"
+        },
+        {
+          "alpn": null,
+          "bytes_read": 517,
+          "curves": [
+            29,
+            23,
+            30,
+            25,
+            24,
+            256,
+            257,
+            258,
+            259,
+            260
+          ],
+          "event": "hello",
+          "mode": "normal",
+          "signatures": [
+            1027,
+            1283,
+            1539,
+            2055,
+            2056,
+            2057,
+            2058,
+            2059,
+            2052,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            771,
+            769,
+            770,
+            1026,
+            1282,
+            1538
+          ],
+          "versions": [
+            772,
+            771,
+            770,
+            769
+          ]
+        },
+        {
+          "cipher": 4865,
+          "event": "request",
+          "path": "/authorize",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 772,
+          "user_agent_family": "Python-urllib/3.11"
+        },
+        {
+          "cipher": 4865,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 772,
+          "user_agent_family": "Go-http-client/1.1"
+        },
+        {
+          "cipher": 4865,
+          "event": "request",
+          "path": "/token",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 772,
+          "user_agent_family": "Go-http-client/1.1"
+        },
+        {
+          "cipher": 4865,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 772,
+          "user_agent_family": "Go-http-client/1.1"
+        },
+        {
+          "alpn": null,
+          "bytes_read": 517,
+          "curves": [
+            29,
+            23,
+            30,
+            25,
+            24,
+            256,
+            257,
+            258,
+            259,
+            260
+          ],
+          "event": "hello",
+          "mode": "bad-signature",
+          "signatures": [
+            1027,
+            1283,
+            1539,
+            2055,
+            2056,
+            2057,
+            2058,
+            2059,
+            2052,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            771,
+            769,
+            770,
+            1026,
+            1282,
+            1538
+          ],
+          "versions": [
+            772,
+            771,
+            770,
+            769
+          ]
+        },
+        {
+          "cipher": 4865,
+          "event": "request",
+          "path": "/authorize",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 772,
+          "user_agent_family": "Python-urllib/3.11"
+        },
+        {
+          "cipher": 4865,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 772,
+          "user_agent_family": "Go-http-client/1.1"
+        },
+        {
+          "cipher": 4865,
+          "event": "request",
+          "path": "/token",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 772,
+          "user_agent_family": "Go-http-client/1.1"
+        },
+        {
+          "cipher": 4865,
+          "event": "request",
+          "path": "/jwks",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 772,
+          "user_agent_family": "Silo"
+        },
+        {
+          "cipher": 4865,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 772,
+          "user_agent_family": "Go-http-client/1.1"
+        },
+        {
+          "alpn": null,
+          "bytes_read": 517,
+          "curves": [
+            29,
+            23,
+            30,
+            25,
+            24,
+            256,
+            257,
+            258,
+            259,
+            260
+          ],
+          "event": "hello",
+          "mode": "bad-audience",
+          "signatures": [
+            1027,
+            1283,
+            1539,
+            2055,
+            2056,
+            2057,
+            2058,
+            2059,
+            2052,
+            2053,
+            2054,
+            1025,
+            1281,
+            1537,
+            771,
+            769,
+            770,
+            1026,
+            1282,
+            1538
+          ],
+          "versions": [
+            772,
+            771,
+            770,
+            769
+          ]
+        },
+        {
+          "cipher": 4865,
+          "event": "request",
+          "path": "/authorize",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 772,
+          "user_agent_family": "Python-urllib/3.11"
+        },
+        {
+          "cipher": 4865,
+          "event": "request",
+          "path": "/.well-known/openid-configuration",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 772,
+          "user_agent_family": "Go-http-client/1.1"
+        },
+        {
+          "cipher": 4865,
+          "event": "request",
+          "path": "/token",
+          "protocol": "HTTP/1.1",
+          "resumed": false,
+          "tls": 772,
+          "user_agent_family": "Go-http-client/1.1"
+        }
+      ]
+    }
+  ],
+  "ca_default_comparison": [
+    {
+      "explicit_ca": false,
+      "go": "go1.26.5",
+      "os": "darwin",
+      "trusted": false,
+      "binary": "cert-roots-126",
+      "module_go": "1.26.0",
+      "mode": "environment"
+    },
+    {
+      "explicit_ca": true,
+      "go": "go1.26.5",
+      "os": "darwin",
+      "trusted": true,
+      "binary": "cert-roots-126",
+      "module_go": "1.26.0",
+      "mode": "explicit"
+    },
+    {
+      "explicit_ca": false,
+      "go": "go1.26.5",
+      "os": "darwin",
+      "trusted": false,
+      "binary": "cert-roots-126",
+      "module_go": "1.26.0",
+      "mode": "legacy-platform"
+    },
+    {
+      "explicit_ca": false,
+      "go": "go1.26.5",
+      "os": "darwin",
+      "trusted": false,
+      "binary": "cert-roots-126",
+      "module_go": "1.26.0",
+      "mode": "force-environment"
+    },
+    {
+      "explicit_ca": false,
+      "go": "go1.27.1",
+      "os": "darwin",
+      "trusted": false,
+      "binary": "cert-roots-127",
+      "module_go": "1.26.0",
+      "mode": "environment"
+    },
+    {
+      "explicit_ca": true,
+      "go": "go1.27.1",
+      "os": "darwin",
+      "trusted": true,
+      "binary": "cert-roots-127",
+      "module_go": "1.26.0",
+      "mode": "explicit"
+    },
+    {
+      "explicit_ca": false,
+      "go": "go1.27.1",
+      "os": "darwin",
+      "trusted": false,
+      "binary": "cert-roots-127",
+      "module_go": "1.26.0",
+      "mode": "legacy-platform"
+    },
+    {
+      "explicit_ca": false,
+      "go": "go1.27.1",
+      "os": "darwin",
+      "trusted": true,
+      "binary": "cert-roots-127",
+      "module_go": "1.26.0",
+      "mode": "force-environment"
+    },
+    {
+      "explicit_ca": false,
+      "go": "go1.27.1",
+      "os": "darwin",
+      "trusted": true,
+      "binary": "cert-roots-app127",
+      "module_go": "1.27.1",
+      "mode": "environment"
+    },
+    {
+      "explicit_ca": true,
+      "go": "go1.27.1",
+      "os": "darwin",
+      "trusted": true,
+      "binary": "cert-roots-app127",
+      "module_go": "1.27.1",
+      "mode": "explicit"
+    },
+    {
+      "explicit_ca": false,
+      "go": "go1.27.1",
+      "os": "darwin",
+      "trusted": false,
+      "binary": "cert-roots-app127",
+      "module_go": "1.27.1",
+      "mode": "legacy-platform"
+    },
+    {
+      "explicit_ca": false,
+      "go": "go1.27.1",
+      "os": "darwin",
+      "trusted": true,
+      "binary": "cert-roots-app127",
+      "module_go": "1.27.1",
+      "mode": "force-environment"
+    }
+  ],
+  "commands": [
+    {
+      "repo": "silo",
+      "command": "CGO_ENABLED=0 GOWORK=off GOTOOLCHAIN=local go test -mod=readonly -tags kqueue -count=1 ./cmd -run ^Test(Outbound|Server)TLSKeyExchangeDefaults$",
+      "platform": "darwin/arm64",
+      "phase": "before fix",
+      "exit": 1,
+      "result": "All five outbound constructor cases incorrectly offered ML-KEM with tlsmlkem=0, against both TLS 1.2 and TLS 1.3 peers; the listener incorrectly accepted a PQ-only client."
+    },
+    {
+      "repo": "silo",
+      "command": "same focused command",
+      "platform": "darwin/arm64",
+      "phase": "after fix",
+      "exit": 0,
+      "result": "ok 1.322s"
+    },
+    {
+      "repo": "silo",
+      "command": "GOWORK=off GOTOOLCHAIN=local go test -mod=readonly -race -tags kqueue -count=1 ./cmd -run ^Test(Outbound|Server)TLSKeyExchangeDefaults$",
+      "platform": "darwin/arm64",
+      "exit": 0,
+      "result": "ok 2.533s"
+    },
+    {
+      "repo": "silo",
+      "command": "CGO_ENABLED=0 GOWORK=off GOTOOLCHAIN=local go test -mod=readonly -tags kqueue -count=1 ./internal/crypto ./internal/config/... ./internal/http ./internal/grid",
+      "platform": "darwin/arm64",
+      "exit": 0
+    },
+    {
+      "repo": "silo",
+      "command": "locally cross-compiled server-cmd.test -test.run ^Test(Outbound|Server)TLSKeyExchangeDefaults$ -test.v -test.timeout 45s",
+      "platform": "linux/arm64",
+      "exit": 0,
+      "result": "20 outbound combinations and 4 inbound handshake attempts pass"
+    },
+    {
+      "repo": "silo-pkg",
+      "command": "GOWORK=off GOTOOLCHAIN=local make test",
+      "go": "go1.27.1",
+      "platform": "darwin/arm64",
+      "exit": 0,
+      "result": "lint 0 issues; full race suite passes"
+    },
+    {
+      "repo": "silo-pkg",
+      "command": "CGO_ENABLED=0 GOWORK=off GOTOOLCHAIN=local /path/to/go1.26.5/bin/go test -mod=readonly -tags kqueue -count=1 ./...",
+      "go": "go1.26.5",
+      "platform": "darwin/arm64",
+      "exit": 0
+    },
+    {
+      "repo": "mc",
+      "command": "CGO_ENABLED=0 GOWORK=off GOTOOLCHAIN=local go test -mod=readonly -tags kqueue -count=1 ./cmd",
+      "go": "go1.27.1",
+      "platform": "darwin/arm64",
+      "exit": 0,
+      "result": "ok 19.430s; includes S3 Select early-close cancellation"
+    },
+    {
+      "repo": "mc",
+      "command": "golangci-lint v2.13.1 run --allow-serial-runners --build-tags kqueue --timeout=10m --config ./.golangci.yml",
+      "exit": 0,
+      "result": "0 issues; rerun after initial concurrent linter lock conflict"
+    },
+    {
+      "repo": "silo-console",
+      "command": "CGO_ENABLED=0 GOWORK=off GOTOOLCHAIN=local go test -mod=readonly -tags kqueue -count=1 ./api/... ./pkg/...",
+      "go": "go1.27.1",
+      "platform": "darwin/arm64",
+      "exit": 0
+    },
+    {
+      "repo": "silo-console",
+      "command": "golangci-lint v2.13.1 run --build-tags kqueue --timeout=5m --config ./.golangci.yml",
+      "exit": 0,
+      "result": "0 issues"
+    },
+    {
+      "repo": "silo",
+      "command": "GOWORK=off GOTOOLCHAIN=local make lint GOLANGCI=/Users/vonng/go/bin/golangci-lint",
+      "exit": 0,
+      "result": "Go lint 0 issues; typos absent, optional spelling check skipped. Used installed matching v2.13.1 after terminating only the task-owned redundant installer."
+    }
+  ],
+  "limits": [
+    "Synthetic loopback fixtures, not the customer IdP or production network.",
+    "No full distributed TLS cluster or actual etcd, cloud, LDAP or Keycloak deployment.",
+    "No rendered browser, logout or production data migration test.",
+    "No Windows, old macOS or PowerPC runtime test.",
+    "No claim that all possible Go 1.27 regressions have been excluded."
+  ],
+  "post_review_validation": {
+    "recorded_utc": "2026-09-09T10:45:18.855578+00:00",
+    "phase": "After first Fable 5.1 Max review corrections, before final review and commit",
+    "first_review_verdict": "CHANGES REQUIRED: synthetic fixture routes broke rebrand CI after staging",
+    "corrections": [
+      "Exclude docs/investigations from rebrand guard without changing its baseline",
+      "Use non-blocking ClientHello capture in all four test files",
+      "Remove unused internal HTTP curve override field",
+      "Clarify Keychain replacement and the SecP-only compatibility option",
+      "Label historical patch and worktree evidence as superseded or captured history"
+    ],
+    "rebrand_guard": {
+      "positive": {
+        "exit_code": 0,
+        "output": "compatibility manifest: imports=119 env=437 metrics=19 headers=86 routes=223 roots=1 grid=3 storage=15 policy=58 brand=180 sha256=373c66a6b05a19e2c2173034aa184b9237b249875fd33371cbda3414be7f6c34\nSilo rebrand compatibility baseline is unchanged\n"
+      },
+      "negative_control": {
+        "exit_code": 1,
+        "output": "routes compatibility set changed\n  + /codex-review-product-route\nexit status 1\n"
+      },
+      "baseline_diff": ""
+    },
+    "linux_server_build": {
+      "go": "go1.27.1",
+      "sha256": "e904a7df2fda47391a3a0725589332a6fc1b456411ffacca3e2dad326d744dcc",
+      "settings": [
+        "build\t-buildmode=exe",
+        "build\t-compiler=gc",
+        "build\t-tags=kqueue",
+        "build\tCGO_ENABLED=0",
+        "build\tGOARCH=arm64",
+        "build\tGOOS=linux",
+        "build\tGOARM64=v8.0",
+        "build\tvcs=git",
+        "build\tvcs.revision=d1105bbb3d4a0afa33b3a4ac11b821235038ed0e",
+        "build\tvcs.time=2026-09-09T06:55:35Z",
+        "build\tvcs.modified=true"
+      ],
+      "runtime_source_sha256": {
+        "cmd/grid.go": "570c10a301e4ed3c842c1811711df99021cbeafa7142a97e287df0f78175aae9",
+        "cmd/utils.go": "c84727b88ac0b7e1442bce1c81c719518dabdbd8fca5002144329070ea98e34e",
+        "internal/config/etcd/etcd.go": "0c29792e070d09f05b83effb639b324148ea56cc709077dcb6892a3a37c16d42",
+        "internal/crypto/crypto.go": "c3bf12d2fe9d998697a9a3aa6084b83d50d84d8af06c2af0e8598326e7ddbaf9",
+        "internal/http/transports.go": "12e22830e98dd7391329b852eee8481981c74450b1cf7601c1d6623ee46b3981"
+      }
+    },
+    "linux_integration": [
+      {
+        "case": "allpaths-add",
+        "binary": "candidate-go127",
+        "mode": "reject-mlkem",
+        "godebug": "tlsmlkem=0",
+        "tls13": false,
+        "cluster": 200,
+        "ready": 200,
+        "console": 200,
+        "admin_list_ok": true,
+        "curl": {
+          "exit": 0,
+          "status_protocol": "200 2"
+        },
+        "add_ok": true,
+        "add_reset": false,
+        "events": [
+          {
+            "alpn": [
+              "h2",
+              "http/1.1"
+            ],
+            "bytes_read": 517,
+            "curves": [
+              29,
+              23,
+              30,
+              25,
+              24,
+              256,
+              257,
+              258,
+              259,
+              260
+            ],
+            "event": "hello",
+            "mode": "reject-mlkem",
+            "signatures": [
+              1027,
+              1283,
+              1539,
+              2055,
+              2056,
+              2057,
+              2058,
+              2059,
+              2052,
+              2053,
+              2054,
+              1025,
+              1281,
+              1537,
+              771,
+              769,
+              770,
+              1026,
+              1282,
+              1538
+            ],
+            "versions": [
+              772,
+              771,
+              770,
+              769
+            ]
+          },
+          {
+            "cipher": 49200,
+            "event": "request",
+            "path": "/.well-known/openid-configuration",
+            "protocol": "HTTP/2.0",
+            "resumed": false,
+            "tls": 771,
+            "ua": "curl/7.88.1"
+          },
+          {
+            "alpn": null,
+            "bytes_read": 287,
+            "curves": [
+              29,
+              23,
+              24,
+              25
+            ],
+            "event": "hello",
+            "mode": "reject-mlkem",
+            "signatures": [
+              2308,
+              2309,
+              2310,
+              2052,
+              1027,
+              2055,
+              2053,
+              2054,
+              1025,
+              1281,
+              1537,
+              1283,
+              1539
+            ],
+            "versions": [
+              772,
+              771
+            ]
+          },
+          {
+            "cipher": 49200,
+            "event": "request",
+            "path": "/.well-known/openid-configuration",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 771,
+            "ua": "Silo (linux; arm64; mode-server-xl-single; docker; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:16; vendor:Apple; family:; model:0x000; stepping:0; model_name:))"
+          },
+          {
+            "cipher": 49200,
+            "event": "request",
+            "path": "/jwks",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 771,
+            "ua": "Silo (linux; arm64; mode-server-xl-single; docker; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:16; vendor:Apple; family:; model:0x000; stepping:0; model_name:))"
+          }
+        ]
+      },
+      {
+        "case": "allpaths-compat-login",
+        "binary": "candidate-go127",
+        "mode": "reject-mlkem",
+        "godebug": "tlsmlkem=0",
+        "tls13": false,
+        "cluster": 200,
+        "ready": 200,
+        "console": 200,
+        "admin_list_ok": true,
+        "curl": {
+          "exit": 0,
+          "status_protocol": "200 2"
+        },
+        "oauth": {
+          "callback_status": 200,
+          "login_status": 204,
+          "buckets_status": 200,
+          "session_cookie": true
+        },
+        "bad-signature": {
+          "callback_status": 200,
+          "login_status": 500,
+          "buckets_status": 403,
+          "session_cookie": false
+        },
+        "bad-audience": {
+          "callback_status": 200,
+          "login_status": 500,
+          "buckets_status": 403,
+          "session_cookie": false
+        },
+        "events": [
+          {
+            "alpn": null,
+            "bytes_read": 287,
+            "curves": [
+              29,
+              23,
+              24,
+              25
+            ],
+            "event": "hello",
+            "mode": "reject-mlkem",
+            "signatures": [
+              2308,
+              2309,
+              2310,
+              2052,
+              1027,
+              2055,
+              2053,
+              2054,
+              1025,
+              1281,
+              1537,
+              1283,
+              1539
+            ],
+            "versions": [
+              772,
+              771
+            ]
+          },
+          {
+            "cipher": 49200,
+            "event": "request",
+            "path": "/.well-known/openid-configuration",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 771,
+            "ua": "Silo (linux; arm64; mode-server-xl-single; docker; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:16; vendor:Apple; family:; model:0x000; stepping:0; model_name:))"
+          },
+          {
+            "cipher": 49200,
+            "event": "request",
+            "path": "/jwks",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 771,
+            "ua": "Silo (linux; arm64; mode-server-xl-single; docker; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:16; vendor:Apple; family:; model:0x000; stepping:0; model_name:))"
+          },
+          {
+            "alpn": [
+              "h2",
+              "http/1.1"
+            ],
+            "bytes_read": 517,
+            "curves": [
+              29,
+              23,
+              30,
+              25,
+              24,
+              256,
+              257,
+              258,
+              259,
+              260
+            ],
+            "event": "hello",
+            "mode": "reject-mlkem",
+            "signatures": [
+              1027,
+              1283,
+              1539,
+              2055,
+              2056,
+              2057,
+              2058,
+              2059,
+              2052,
+              2053,
+              2054,
+              1025,
+              1281,
+              1537,
+              771,
+              769,
+              770,
+              1026,
+              1282,
+              1538
+            ],
+            "versions": [
+              772,
+              771,
+              770,
+              769
+            ]
+          },
+          {
+            "cipher": 49200,
+            "event": "request",
+            "path": "/.well-known/openid-configuration",
+            "protocol": "HTTP/2.0",
+            "resumed": false,
+            "tls": 771,
+            "ua": "curl/7.88.1"
+          },
+          {
+            "alpn": null,
+            "bytes_read": 269,
+            "curves": [
+              29,
+              23,
+              24,
+              25
+            ],
+            "event": "hello",
+            "mode": "reject-mlkem",
+            "signatures": [
+              2308,
+              2309,
+              2310,
+              2052,
+              1027,
+              2055,
+              2053,
+              2054,
+              1025,
+              1281,
+              1537,
+              1283,
+              1539
+            ],
+            "versions": [
+              772,
+              771
+            ]
+          },
+          {
+            "cipher": 49200,
+            "event": "request",
+            "path": "/.well-known/openid-configuration",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 771,
+            "ua": "Go-http-client/1.1"
+          },
+          {
+            "alpn": null,
+            "bytes_read": 517,
+            "curves": [
+              29,
+              23,
+              30,
+              25,
+              24,
+              256,
+              257,
+              258,
+              259,
+              260
+            ],
+            "event": "hello",
+            "mode": "reject-mlkem",
+            "signatures": [
+              1027,
+              1283,
+              1539,
+              2055,
+              2056,
+              2057,
+              2058,
+              2059,
+              2052,
+              2053,
+              2054,
+              1025,
+              1281,
+              1537,
+              771,
+              769,
+              770,
+              1026,
+              1282,
+              1538
+            ],
+            "versions": [
+              772,
+              771,
+              770,
+              769
+            ]
+          },
+          {
+            "cipher": 49200,
+            "event": "request",
+            "path": "/authorize",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 771,
+            "ua": "Python-urllib/3.11"
+          },
+          {
+            "cipher": 49200,
+            "event": "request",
+            "path": "/.well-known/openid-configuration",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 771,
+            "ua": "Go-http-client/1.1"
+          },
+          {
+            "cipher": 49200,
+            "event": "request",
+            "path": "/token",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 771,
+            "ua": "Go-http-client/1.1"
+          },
+          {
+            "cipher": 49200,
+            "event": "request",
+            "path": "/.well-known/openid-configuration",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 771,
+            "ua": "Go-http-client/1.1"
+          },
+          {
+            "alpn": null,
+            "bytes_read": 517,
+            "curves": [
+              29,
+              23,
+              30,
+              25,
+              24,
+              256,
+              257,
+              258,
+              259,
+              260
+            ],
+            "event": "hello",
+            "mode": "bad-signature",
+            "signatures": [
+              1027,
+              1283,
+              1539,
+              2055,
+              2056,
+              2057,
+              2058,
+              2059,
+              2052,
+              2053,
+              2054,
+              1025,
+              1281,
+              1537,
+              771,
+              769,
+              770,
+              1026,
+              1282,
+              1538
+            ],
+            "versions": [
+              772,
+              771,
+              770,
+              769
+            ]
+          },
+          {
+            "cipher": 49200,
+            "event": "request",
+            "path": "/authorize",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 771,
+            "ua": "Python-urllib/3.11"
+          },
+          {
+            "cipher": 49200,
+            "event": "request",
+            "path": "/.well-known/openid-configuration",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 771,
+            "ua": "Go-http-client/1.1"
+          },
+          {
+            "cipher": 49200,
+            "event": "request",
+            "path": "/token",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 771,
+            "ua": "Go-http-client/1.1"
+          },
+          {
+            "cipher": 49200,
+            "event": "request",
+            "path": "/jwks",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 771,
+            "ua": "Silo (linux; arm64; mode-server-xl-single; docker; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:16; vendor:Apple; family:; model:0x000; stepping:0; model_name:))"
+          },
+          {
+            "cipher": 49200,
+            "event": "request",
+            "path": "/.well-known/openid-configuration",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 771,
+            "ua": "Go-http-client/1.1"
+          },
+          {
+            "alpn": null,
+            "bytes_read": 517,
+            "curves": [
+              29,
+              23,
+              30,
+              25,
+              24,
+              256,
+              257,
+              258,
+              259,
+              260
+            ],
+            "event": "hello",
+            "mode": "bad-audience",
+            "signatures": [
+              1027,
+              1283,
+              1539,
+              2055,
+              2056,
+              2057,
+              2058,
+              2059,
+              2052,
+              2053,
+              2054,
+              1025,
+              1281,
+              1537,
+              771,
+              769,
+              770,
+              1026,
+              1282,
+              1538
+            ],
+            "versions": [
+              772,
+              771,
+              770,
+              769
+            ]
+          },
+          {
+            "cipher": 49200,
+            "event": "request",
+            "path": "/authorize",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 771,
+            "ua": "Python-urllib/3.11"
+          },
+          {
+            "cipher": 49200,
+            "event": "request",
+            "path": "/.well-known/openid-configuration",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 771,
+            "ua": "Go-http-client/1.1"
+          },
+          {
+            "cipher": 49200,
+            "event": "request",
+            "path": "/token",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 771,
+            "ua": "Go-http-client/1.1"
+          }
+        ]
+      },
+      {
+        "case": "allpaths-tls13-login",
+        "binary": "candidate-go127",
+        "mode": "normal",
+        "godebug": null,
+        "tls13": true,
+        "cluster": 200,
+        "ready": 200,
+        "console": 200,
+        "admin_list_ok": true,
+        "curl": {
+          "exit": 0,
+          "status_protocol": "200 2"
+        },
+        "oauth": {
+          "callback_status": 200,
+          "login_status": 204,
+          "buckets_status": 200,
+          "session_cookie": true
+        },
+        "bad-signature": {
+          "callback_status": 200,
+          "login_status": 500,
+          "buckets_status": 403,
+          "session_cookie": false
+        },
+        "bad-audience": {
+          "callback_status": 200,
+          "login_status": 500,
+          "buckets_status": 403,
+          "session_cookie": false
+        },
+        "events": [
+          {
+            "alpn": null,
+            "bytes_read": 1513,
+            "curves": [
+              4588,
+              4587,
+              4589,
+              29,
+              23,
+              24,
+              25
+            ],
+            "event": "hello",
+            "mode": "normal",
+            "signatures": [
+              2308,
+              2309,
+              2310,
+              2052,
+              1027,
+              2055,
+              2053,
+              2054,
+              1025,
+              1281,
+              1537,
+              1283,
+              1539
+            ],
+            "versions": [
+              772,
+              771
+            ]
+          },
+          {
+            "cipher": 4865,
+            "event": "request",
+            "path": "/.well-known/openid-configuration",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 772,
+            "ua": "Silo (linux; arm64; mode-server-xl-single; docker; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:16; vendor:Apple; family:; model:0x000; stepping:0; model_name:))"
+          },
+          {
+            "cipher": 4865,
+            "event": "request",
+            "path": "/jwks",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 772,
+            "ua": "Silo (linux; arm64; mode-server-xl-single; docker; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:16; vendor:Apple; family:; model:0x000; stepping:0; model_name:))"
+          },
+          {
+            "alpn": [
+              "h2",
+              "http/1.1"
+            ],
+            "bytes_read": 517,
+            "curves": [
+              29,
+              23,
+              30,
+              25,
+              24,
+              256,
+              257,
+              258,
+              259,
+              260
+            ],
+            "event": "hello",
+            "mode": "normal",
+            "signatures": [
+              1027,
+              1283,
+              1539,
+              2055,
+              2056,
+              2057,
+              2058,
+              2059,
+              2052,
+              2053,
+              2054,
+              1025,
+              1281,
+              1537,
+              771,
+              769,
+              770,
+              1026,
+              1282,
+              1538
+            ],
+            "versions": [
+              772,
+              771,
+              770,
+              769
+            ]
+          },
+          {
+            "cipher": 4865,
+            "event": "request",
+            "path": "/.well-known/openid-configuration",
+            "protocol": "HTTP/2.0",
+            "resumed": false,
+            "tls": 772,
+            "ua": "curl/7.88.1"
+          },
+          {
+            "alpn": null,
+            "bytes_read": 1495,
+            "curves": [
+              4588,
+              4587,
+              4589,
+              29,
+              23,
+              24,
+              25
+            ],
+            "event": "hello",
+            "mode": "normal",
+            "signatures": [
+              2308,
+              2309,
+              2310,
+              2052,
+              1027,
+              2055,
+              2053,
+              2054,
+              1025,
+              1281,
+              1537,
+              1283,
+              1539
+            ],
+            "versions": [
+              772,
+              771
+            ]
+          },
+          {
+            "cipher": 4865,
+            "event": "request",
+            "path": "/.well-known/openid-configuration",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 772,
+            "ua": "Go-http-client/1.1"
+          },
+          {
+            "alpn": null,
+            "bytes_read": 517,
+            "curves": [
+              29,
+              23,
+              30,
+              25,
+              24,
+              256,
+              257,
+              258,
+              259,
+              260
+            ],
+            "event": "hello",
+            "mode": "normal",
+            "signatures": [
+              1027,
+              1283,
+              1539,
+              2055,
+              2056,
+              2057,
+              2058,
+              2059,
+              2052,
+              2053,
+              2054,
+              1025,
+              1281,
+              1537,
+              771,
+              769,
+              770,
+              1026,
+              1282,
+              1538
+            ],
+            "versions": [
+              772,
+              771,
+              770,
+              769
+            ]
+          },
+          {
+            "cipher": 4865,
+            "event": "request",
+            "path": "/authorize",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 772,
+            "ua": "Python-urllib/3.11"
+          },
+          {
+            "cipher": 4865,
+            "event": "request",
+            "path": "/.well-known/openid-configuration",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 772,
+            "ua": "Go-http-client/1.1"
+          },
+          {
+            "cipher": 4865,
+            "event": "request",
+            "path": "/token",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 772,
+            "ua": "Go-http-client/1.1"
+          },
+          {
+            "cipher": 4865,
+            "event": "request",
+            "path": "/.well-known/openid-configuration",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 772,
+            "ua": "Go-http-client/1.1"
+          },
+          {
+            "alpn": null,
+            "bytes_read": 517,
+            "curves": [
+              29,
+              23,
+              30,
+              25,
+              24,
+              256,
+              257,
+              258,
+              259,
+              260
+            ],
+            "event": "hello",
+            "mode": "bad-signature",
+            "signatures": [
+              1027,
+              1283,
+              1539,
+              2055,
+              2056,
+              2057,
+              2058,
+              2059,
+              2052,
+              2053,
+              2054,
+              1025,
+              1281,
+              1537,
+              771,
+              769,
+              770,
+              1026,
+              1282,
+              1538
+            ],
+            "versions": [
+              772,
+              771,
+              770,
+              769
+            ]
+          },
+          {
+            "cipher": 4865,
+            "event": "request",
+            "path": "/authorize",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 772,
+            "ua": "Python-urllib/3.11"
+          },
+          {
+            "cipher": 4865,
+            "event": "request",
+            "path": "/.well-known/openid-configuration",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 772,
+            "ua": "Go-http-client/1.1"
+          },
+          {
+            "cipher": 4865,
+            "event": "request",
+            "path": "/token",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 772,
+            "ua": "Go-http-client/1.1"
+          },
+          {
+            "cipher": 4865,
+            "event": "request",
+            "path": "/jwks",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 772,
+            "ua": "Silo (linux; arm64; mode-server-xl-single; docker; source DEVELOPMENT.GOGET DEVELOPMENT.GOGET DEVELOPMENT.GOGET;  CPU (total_cpus:1, total_cores:16; vendor:Apple; family:; model:0x000; stepping:0; model_name:))"
+          },
+          {
+            "cipher": 4865,
+            "event": "request",
+            "path": "/.well-known/openid-configuration",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 772,
+            "ua": "Go-http-client/1.1"
+          },
+          {
+            "alpn": null,
+            "bytes_read": 517,
+            "curves": [
+              29,
+              23,
+              30,
+              25,
+              24,
+              256,
+              257,
+              258,
+              259,
+              260
+            ],
+            "event": "hello",
+            "mode": "bad-audience",
+            "signatures": [
+              1027,
+              1283,
+              1539,
+              2055,
+              2056,
+              2057,
+              2058,
+              2059,
+              2052,
+              2053,
+              2054,
+              1025,
+              1281,
+              1537,
+              771,
+              769,
+              770,
+              1026,
+              1282,
+              1538
+            ],
+            "versions": [
+              772,
+              771,
+              770,
+              769
+            ]
+          },
+          {
+            "cipher": 4865,
+            "event": "request",
+            "path": "/authorize",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 772,
+            "ua": "Python-urllib/3.11"
+          },
+          {
+            "cipher": 4865,
+            "event": "request",
+            "path": "/.well-known/openid-configuration",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 772,
+            "ua": "Go-http-client/1.1"
+          },
+          {
+            "cipher": 4865,
+            "event": "request",
+            "path": "/token",
+            "protocol": "HTTP/1.1",
+            "resumed": false,
+            "tls": 772,
+            "ua": "Go-http-client/1.1"
+          }
+        ]
+      }
+    ],
+    "tests": {
+      "mc": [
+        {
+          "command": [
+            "go",
+            "test",
+            "-mod=readonly",
+            "-race",
+            "-tags",
+            "kqueue",
+            "-count=1",
+            "-run",
+            "^TestClientTLSKeyExchangeDefaults$",
+            "./cmd"
+          ],
+          "exit_code": 0,
+          "seconds": 10.066,
+          "log": "/private/tmp/silo-go127-fable51-review.7ega9azp/after-review-mc-0.log"
+        }
+      ],
+      "silo-console": [
+        {
+          "command": [
+            "go",
+            "test",
+            "-mod=readonly",
+            "-race",
+            "-tags",
+            "kqueue",
+            "-count=1",
+            "-run",
+            "^TestOutboundTLSKeyExchangeDefaults$",
+            "./api"
+          ],
+          "exit_code": 0,
+          "seconds": 10.603,
+          "log": "/private/tmp/silo-go127-fable51-review.7ega9azp/after-review-silo-console-0.log"
+        }
+      ],
+      "silo-pkg": [
+        {
+          "command": [
+            "make",
+            "test"
+          ],
+          "exit_code": 0,
+          "seconds": 16.946,
+          "log": "/private/tmp/silo-go127-fable51-review.7ega9azp/after-review-silo-pkg-0.log"
+        },
+        {
+          "command": [
+            "/Users/vonng/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.5.darwin-arm64/bin/go",
+            "test",
+            "-mod=readonly",
+            "-count=1",
+            "-run",
+            "^TestWebEnvTLSKeyExchangeDefaults$",
+            "./env"
+          ],
+          "exit_code": 0,
+          "seconds": 1.457,
+          "log": "/private/tmp/silo-go127-fable51-review.7ega9azp/after-review-silo-pkg-1.log"
+        }
+      ],
+      "silo": [
+        {
+          "command": [
+            "go",
+            "test",
+            "-mod=readonly",
+            "-race",
+            "-tags",
+            "kqueue",
+            "-count=1",
+            "-run",
+            "^Test(Outbound|Server)TLSKeyExchangeDefaults$",
+            "./cmd"
+          ],
+          "exit_code": 0,
+          "seconds": 33.047,
+          "log": "/private/tmp/silo-go127-fable51-review.7ega9azp/after-review-silo-0.log"
+        },
+        {
+          "command": [
+            "go",
+            "test",
+            "-mod=readonly",
+            "-race",
+            "-tags",
+            "kqueue",
+            "-count=1",
+            "./internal/http"
+          ],
+          "exit_code": 0,
+          "seconds": 2.379,
+          "log": "/private/tmp/silo-go127-fable51-review.7ega9azp/after-review-silo-1.log"
+        }
+      ]
+    },
+    "lint": [
+      {
+        "repo": "silo",
+        "command": [
+          "make",
+          "lint",
+          "GOLANGCI=/Users/vonng/go/bin/golangci-lint"
+        ],
+        "exit_code": 0,
+        "seconds": 63.943,
+        "log": "/private/tmp/silo-go127-fable51-review.7ega9azp/after-review-silo-lint.log"
+      },
+      {
+        "repo": "mc",
+        "command": [
+          "/Users/vonng/go/bin/golangci-lint",
+          "run",
+          "--build-tags",
+          "kqueue",
+          "--timeout=10m",
+          "--config",
+          "./.golangci.yml"
+        ],
+        "exit_code": 0,
+        "seconds": 15.794,
+        "log": "/private/tmp/silo-go127-fable51-review.7ega9azp/after-review-mc-lint.log"
+      },
+      {
+        "repo": "silo-console",
+        "command": [
+          "/Users/vonng/go/bin/golangci-lint",
+          "run",
+          "--build-tags",
+          "kqueue",
+          "--timeout=5m",
+          "--config",
+          "./.golangci.yml"
+        ],
+        "exit_code": 0,
+        "seconds": 29.207,
+        "log": "/private/tmp/silo-go127-fable51-review.7ega9azp/after-review-silo-console-lint.log"
+      }
+    ],
+    "independent_test_note": "The first review observed one shuffled certs.TestValidPairAfterWrite timing failure in an untouched separate test binary; three plain reruns, the same seed, and the full certs rerun passed. The post-correction make test full race suite also passes."
+  }
+}

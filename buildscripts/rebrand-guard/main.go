@@ -115,7 +115,9 @@ func collect(repo string) (manifest, error) {
 	fset := token.NewFileSet()
 
 	for _, rel := range files {
+		// Investigation artifacts contain synthetic routes and archived configurations.
 		if rel == "SILO_REBRANDING_MIGRATION.md" ||
+			strings.HasPrefix(rel, "docs/investigations/") ||
 			strings.HasPrefix(rel, "buildscripts/rebrand-guard/") ||
 			strings.HasPrefix(rel, "buildscripts/helm-migration-guard/") {
 			continue

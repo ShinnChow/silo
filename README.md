@@ -89,6 +89,26 @@ The S3 API, `MINIO_*` variables, `minio_*` metrics, `x-minio-*` headers, `/minio
 
 Every divergence from upstream is listed in the code-verified [compatibility audit](https://silo.pgsty.com/compatibility/server/). Treat each release as a downstream upgrade: pin versions, read the [release notes](https://silo.pgsty.com/tags/silo/), and keep a rollback path.
 
+### TLS and Go upgrades
+
+TLS key exchange follows Go's defaults across the S3 listener, node links,
+replication, identity providers, etcd, and external HTTP services. If an endpoint
+cannot accept ML-KEM, `GODEBUG=tlsmlkem=0` disables the default hybrid exchanges
+for the process; certificate verification remains enabled. This option does not
+disable ML-DSA signatures or resolve every TLS reset. Prefer updating the
+incompatible endpoint before removing the temporary setting.
+If only the new SecP hybrids cause problems, `GODEBUG=tlssecpmlkem=0` disables
+those groups while retaining X25519MLKEM768.
+
+For builds targeting Go 1.27, setting either `SSL_CERT_FILE` or `SSL_CERT_DIR`
+on macOS replaces Keychain trust with on-disk roots and Go's verifier. Stale or
+incomplete CA paths can break previously trusted connections; unset inherited
+values to restore Keychain trust. Explicit certificates in the configured `CAs`
+directory remain additive to the selected root pool.
+Go 1.27 binaries require macOS 13 or later. See the
+[Go release notes](https://go.dev/doc/go1.27) and the
+[SILO stack investigation](docs/investigations/go127-stack.md).
+
 ## Security & Contributing
 
 Report vulnerabilities privately as described in [`SECURITY.md`](SECURITY.md); every fix ships with a public [advisory](https://silo.pgsty.com/blog/security/). Contributions are accepted inbound=outbound under AGPL-3.0-or-later with no CLA — only DCO sign-off (`git commit -s`) is required; see [`CONTRIBUTING.md`](CONTRIBUTING.md).
