@@ -106,7 +106,7 @@ func TestReplicateDeleteMarkerTargetSemantics(t *testing.T) {
 
 func testReplicateDeleteMarkerPurge(obj ObjectLayer, instanceType, bucket string, router http.Handler, creds auth.Credentials, t *testing.T, legacy bool) {
 	ctx := t.Context()
-	const arn = "arn:minio:replication::00000000-0000-4000-8000-000000000001:replica"
+	const arn = "arn:minio:replication::af470089-d354-4473-934c-9e1f52f6da89:bucket"
 	const name = "marker"
 	version := mustGetUUID()
 	remoteBucket := getRandomBucketName()

@@ -79,7 +79,7 @@ func TestReplicationMRFDropsVisible(t *testing.T) {
 	seen = make(map[string]bool)
 	for _, family := range families {
 		for name, value := range want {
-			if family.GetName() != "minio_replication_"+name {
+			if family.GetName() != replicationCollectorPath.metricPrefix()+"_"+name {
 				continue
 			}
 			seen[name] = true
