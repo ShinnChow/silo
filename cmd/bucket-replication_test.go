@@ -26,7 +26,6 @@ import (
 	"path"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -328,20 +327,19 @@ func TestReplicationValidationObjectUsesRulePrefix(t *testing.T) {
 
 func newTestResyncer(bucket, arn string) (*replicationResyncer, resyncOpts) {
 	s := &replicationResyncer{
-		statusMap:      map[string]BucketReplicationResyncStatus{},
-		resyncCancelCh: make(chan struct{}, resyncWorkerCnt),
+		statusMap: map[string]BucketReplicationResyncStatus{},
 	}
 	brs := newBucketResyncStatus(bucket)
-	brs.TargetsMap[arn] = TargetReplicationResyncStatus{ResyncStatus: ResyncStarted}
+	brs.TargetsMap[arn] = TargetReplicationResyncStatus{ResyncStatus: ResyncStarted, ResyncID: "reset-" + bucket}
 	s.statusMap[bucket] = brs
 	return s, resyncOpts{bucket: bucket, arn: arn, resyncID: "reset-" + bucket}
 }
 
 // TestResyncBucketFinalize round-trips the terminal status through a real
 // ObjectLayer: a clean run persists Completed with every result, while a run
-// whose parent context was canceled during the drain, or in which a worker
-// dropped a result on the cancel signal, is downgraded to Failed so a persisted
-// Completed never misrepresents an incomplete resync.
+// whose parent context was canceled during the drain is downgraded to Failed;
+// a user-canceled run persists Canceled. Completed never misrepresents an
+// incomplete resync.
 func TestResyncBucketFinalize(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -354,9 +352,9 @@ func TestResyncBucketFinalize(t *testing.T) {
 	// persistTerminal applies resyncBucket's finalizer logic (finalResyncStatus
 	// then markStatus, which persists) and reads the status back the way the
 	// resync status API does.
-	persistTerminal := func(t *testing.T, s *replicationResyncer, opts resyncOpts, status ResyncStatusType, ctxErr error, aborted bool) TargetReplicationResyncStatus {
+	persistTerminal := func(t *testing.T, s *replicationResyncer, opts resyncOpts, status ResyncStatusType, cause error) TargetReplicationResyncStatus {
 		t.Helper()
-		s.markStatus(finalResyncStatus(status, ctxErr, aborted), opts, objAPI)
+		s.markStatus(finalResyncStatus(status, cause), opts, objAPI)
 		brs, err := loadBucketResyncMetadata(ctx, opts.bucket, objAPI)
 		if err != nil {
 			t.Fatalf("load persisted resync metadata: %v", err)
@@ -376,7 +374,7 @@ func TestResyncBucketFinalize(t *testing.T) {
 		var wg sync.WaitGroup // no producer workers for this case
 		results.finish(nil, &wg)
 
-		st := persistTerminal(t, s, opts, ResyncCompleted, nil, false)
+		st := persistTerminal(t, s, opts, ResyncCompleted, nil)
 		if st.ResyncStatus != ResyncCompleted {
 			t.Fatalf("persisted status = %s, want Completed", st.ResyncStatus)
 		}
@@ -398,29 +396,24 @@ func TestResyncBucketFinalize(t *testing.T) {
 
 		cctx, ccancel := context.WithCancel(context.Background())
 		ccancel()
-		st := persistTerminal(t, s, opts, ResyncCompleted, cctx.Err(), false)
+		st := persistTerminal(t, s, opts, ResyncCompleted, context.Cause(cctx))
 		if st.ResyncStatus != ResyncFailed {
 			t.Fatalf("persisted status = %s, want Failed (parent canceled during drain)", st.ResyncStatus)
 		}
 	})
 
-	// 3. A worker dropped a computed result on the resync-cancel token (parent
-	//    still alive) -> sendResyncResult records the abort and Completed is
-	//    downgraded to Failed.
-	t.Run("worker abort downgrades to failed", func(t *testing.T) {
+	// 3. A user-canceled worker cannot report a completed resync.
+	t.Run("user cancel persists canceled", func(t *testing.T) {
 		s, opts := newTestResyncer("finalize-worker-abort", "arn1")
-		s.resyncCancelCh <- struct{}{}                 // cancel token waiting
-		ch := make(chan TargetReplicationResyncStatus) // no reader: the send would block
-		var aborted atomic.Bool
-		if s.sendResyncResult(context.Background(), ch, TargetReplicationResyncStatus{Object: "dropped", ReplicatedCount: 1}, &aborted) {
-			t.Fatal("sendResyncResult reported success despite the cancel token")
+		ctx, cancel := context.WithCancelCause(context.Background())
+		cancel(errResyncCanceled)
+		ch := make(chan TargetReplicationResyncStatus)
+		if s.sendResyncResult(ctx, ch, TargetReplicationResyncStatus{Object: "dropped", ReplicatedCount: 1}) {
+			t.Fatal("sendResyncResult reported success after cancellation")
 		}
-		if !aborted.Load() {
-			t.Fatal("worker abort was not recorded")
-		}
-		st := persistTerminal(t, s, opts, ResyncCompleted, nil, aborted.Load())
-		if st.ResyncStatus != ResyncFailed {
-			t.Fatalf("persisted status = %s, want Failed (worker dropped a result)", st.ResyncStatus)
+		st := persistTerminal(t, s, opts, ResyncCompleted, context.Cause(ctx))
+		if st.ResyncStatus != ResyncCanceled {
+			t.Fatalf("persisted status = %s, want Canceled", st.ResyncStatus)
 		}
 	})
 }

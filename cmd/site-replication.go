@@ -202,6 +202,7 @@ func wrapSRErr(err error) SRError {
 // SiteReplicationSys - manages cluster-level replication.
 type SiteReplicationSys struct {
 	sync.RWMutex
+	resyncMu sync.Mutex // serialize site resync configuration start/cancel
 
 	enabled bool
 
@@ -6202,6 +6203,8 @@ func (c *SiteReplicationSys) getPeerForUpload(deplID string) (pi srPeerInfo, loc
 // is maintained in .minio.sys/buckets/site-replication/resync/<deployment-id.meta>, while collecting
 // individual bucket resync status in .minio.sys/buckets/<bucket-name>/replication/resync.bin
 func (c *SiteReplicationSys) startResync(ctx context.Context, objAPI ObjectLayer, peer madmin.PeerInfo) (res madmin.SRResyncOpStatus, err error) {
+	c.resyncMu.Lock()
+	defer c.resyncMu.Unlock()
 	if !c.isEnabled() {
 		return res, errSRNotEnabled
 	}
@@ -6321,6 +6324,8 @@ func (c *SiteReplicationSys) startResync(ctx context.Context, objAPI ObjectLayer
 
 // cancelResync stops an ongoing site level resync for the peer specified.
 func (c *SiteReplicationSys) cancelResync(ctx context.Context, objAPI ObjectLayer, peer madmin.PeerInfo) (res madmin.SRResyncOpStatus, err error) {
+	c.resyncMu.Lock()
+	defer c.resyncMu.Unlock()
 	if !c.isEnabled() {
 		return res, errSRNotEnabled
 	}
@@ -6386,34 +6391,22 @@ func (c *SiteReplicationSys) cancelResync(ctx context.Context, objAPI ObjectLaye
 				})
 				continue
 			}
-			// update resync state for the bucket
-			globalReplicationPool.Get().resyncer.Lock()
-			m, ok := globalReplicationPool.Get().resyncer.statusMap[bucket]
-			if !ok {
-				m = newBucketResyncStatus(bucket)
-			}
-			if st, ok := m.TargetsMap[t.Arn]; ok {
-				st.LastUpdate = UTCNow()
-				st.ResyncStatus = ResyncCanceled
-				m.TargetsMap[t.Arn] = st
-				m.LastUpdate = UTCNow()
-			}
-			globalReplicationPool.Get().resyncer.statusMap[bucket] = m
-			globalReplicationPool.Get().resyncer.Unlock()
 		}
 	}
 
+	// Configuration errors must not leave active or queued buckets running.
+	globalReplicationPool.Get().resyncer.cancelResyncID(rs.ResyncID)
 	rs.Status = ResyncCanceled
 	rs.LastUpdate = UTCNow()
+	for bucket, status := range rs.BucketStatuses {
+		if status == ResyncPending || status == ResyncStarted {
+			rs.BucketStatuses[bucket] = ResyncCanceled
+		}
+	}
+	globalSiteResyncMetrics.updateState(rs)
 	if err := saveSiteResyncMetadata(ctx, rs, objAPI); err != nil {
 		return res, err
 	}
-	select {
-	case globalReplicationPool.Get().resyncer.resyncCancelCh <- struct{}{}:
-	case <-ctx.Done():
-	}
-
-	globalSiteResyncMetrics.updateState(rs)
 
 	res.Status = rs.Status.String()
 	return res, nil
