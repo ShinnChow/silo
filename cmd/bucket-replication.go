@@ -2354,9 +2354,9 @@ func (p *ReplicationPool) queueReplicaTask(ri ReplicateObjectInfo) {
 	switch ri.OpType {
 	case replication.HealReplicationType, replication.ExistingObjectReplicationType:
 		ch = p.mrfReplicaCh
-		healCh = p.getWorkerCh(ri.Name, ri.Bucket, ri.Size)
+		healCh = p.getWorkerCh(ri.Bucket, ri.Name, ri.Size)
 	default:
-		ch = p.getWorkerCh(ri.Name, ri.Bucket, ri.Size)
+		ch = p.getWorkerCh(ri.Bucket, ri.Name, ri.Size)
 	}
 	if ch == nil && healCh == nil {
 		return
@@ -3820,6 +3820,7 @@ func (p *ReplicationPool) queueMRFSave(entry MRFReplicateEntry) {
 	if entry.RetryCount > mrfRetryLimit { // let scanner catch up if retry count exceeded
 		atomic.AddUint64(&p.stats.mrfStats.TotalDroppedCount, 1)
 		atomic.AddUint64(&p.stats.mrfStats.TotalDroppedBytes, uint64(entry.sz))
+		replLogOnceIf(GlobalContext, errors.New("Replication MRF retry limit reached; further repair is deferred to the scanner"), "replication-mrf-retry-limit", logger.WarningKind)
 		return
 	}
 
@@ -3834,6 +3835,7 @@ func (p *ReplicationPool) queueMRFSave(entry MRFReplicateEntry) {
 		default:
 			atomic.AddUint64(&p.stats.mrfStats.TotalDroppedCount, 1)
 			atomic.AddUint64(&p.stats.mrfStats.TotalDroppedBytes, uint64(entry.sz))
+			replLogOnceIf(GlobalContext, errors.New("Replication MRF queue is full; dropped entries will need scanner repair"), "replication-mrf-queue-full", logger.WarningKind)
 		}
 	}
 }
