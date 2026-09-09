@@ -577,8 +577,50 @@ func TestAPIFederatedCopyObjectSSE(t *testing.T) {
 	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{
 		t:          t,
 		objAPITest: testAPIFederatedCopyObjectSSE,
-		endpoints:  []string{"CopyObject", "PutObject", "HeadObject", "GetObject"},
+		// The test router registers routes in this order, and the plain
+		// PutObject route has no query matcher, so the multipart routes must
+		// precede it or they would never be reached.
+		endpoints: []string{
+			"NewMultipart", "PutObjectPart", "CompleteMultipart",
+			"CopyObject", "PutObject", "HeadObject", "GetObject",
+		},
 	})
+}
+
+// putFederationMultipartSource uploads parts as one multipart object through
+// the API router; headers apply to the NewMultipartUpload request.
+func putFederationMultipartSource(t *testing.T, apiRouter http.Handler, credentials auth.Credentials,
+	bucket, object string, parts [][]byte, headers map[string]string,
+) {
+	t.Helper()
+	do := func(method, url string, body []byte, headers map[string]string) *httptest.ResponseRecorder {
+		req, err := newTestSignedRequestV4(method, url, int64(len(body)), bytes.NewReader(body),
+			credentials.AccessKey, credentials.SecretKey, headers)
+		if err != nil {
+			t.Fatalf("failed to build %s %s request: %v", method, url, err)
+		}
+		rec := httptest.NewRecorder()
+		apiRouter.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s %s failed: %d %s", method, url, rec.Code, rec.Body.String())
+		}
+		return rec
+	}
+	var upload InitiateMultipartUploadResponse
+	rec := do(http.MethodPost, getNewMultipartURL("", bucket, object), nil, headers)
+	if err := xml.Unmarshal(rec.Body.Bytes(), &upload); err != nil {
+		t.Fatalf("failed to decode NewMultipartUpload response: %v", err)
+	}
+	completion := CompleteMultipartUpload{}
+	for i, part := range parts {
+		rec := do(http.MethodPut, getPutObjectPartURL("", bucket, object, upload.UploadID, strconv.Itoa(i+1)), part, nil)
+		completion.Parts = append(completion.Parts, CompletePart{PartNumber: i + 1, ETag: canonicalizeETag(rec.Header()[xhttp.ETag][0])})
+	}
+	body, err := xml.Marshal(completion)
+	if err != nil {
+		t.Fatalf("failed to encode CompleteMultipartUpload: %v", err)
+	}
+	do(http.MethodPost, getCompleteMultipartUploadURL("", bucket, object, upload.UploadID), body, nil)
 }
 
 func testAPIFederatedCopyObjectSSE(objectAPI ObjectLayer, instanceType, bucketName string,
@@ -611,10 +653,18 @@ func testAPIFederatedCopyObjectSSE(objectAPI ObjectLayer, instanceType, bucketNa
 		{name: "compressed", ext: ".txt", data: large},
 	}
 	pairs := []struct{ src, dst string }{
-		{"plain", "s3"}, {"s3", "plain"}, {"s3", "s3"},
-		{"plain", "c"}, {"c", "plain"}, {"c", "c"}, {"s3", "c"},
-		{"plain", "kms"}, {"kms", "plain"}, {"kms", "kms"},
-		{"plain", "kms-context"}, {"kms-context", "kms-context"},
+		{"plain", "s3"},
+		{"s3", "plain"},
+		{"s3", "s3"},
+		{"plain", "c"},
+		{"c", "plain"},
+		{"c", "c"},
+		{"s3", "c"},
+		{"plain", "kms"},
+		{"kms", "plain"},
+		{"kms", "kms"},
+		{"plain", "kms-context"},
+		{"kms-context", "kms-context"},
 	}
 	const srcKeyByte, dstKeyByte = 0x11, 0x22
 
@@ -694,5 +744,49 @@ func testAPIFederatedCopyObjectSSE(objectAPI ObjectLayer, instanceType, bucketNa
 				}
 			})
 		}
+	}
+
+	// A multipart SSE-S3 source is encrypted per part, so its logical size is
+	// the sum of the parts' decrypted sizes and the decrypting reader crosses
+	// a part boundary; the copy must still forward exactly the plaintext.
+	parts := [][]byte{bytes.Repeat([]byte("p"), globalMinPartSize+1), []byte("q!")}
+	data := bytes.Join(parts, nil)
+	for _, dst := range []string{"plain", "s3"} {
+		t.Run("multipart/s3-to-"+dst, func(t *testing.T) {
+			srcObject, dstObject := "federation/sse-multipart-source-"+dst+".bin", "federation/sse-multipart-destination-"+dst+".bin"
+			putFederationMultipartSource(t, apiRouter, credentials, bucketName, srcObject, parts,
+				federationSSEHeaders("s3", srcKeyByte, false))
+			before, err := objectAPI.GetObjectInfo(t.Context(), bucketName, srcObject, ObjectOptions{})
+			if err != nil {
+				t.Fatalf("%s: GetObjectInfo(source) failed: %v", instanceType, err)
+			}
+			if len(before.Parts) != len(parts) || federationStoredSSE(before.UserDefined) != "s3" {
+				t.Fatalf("%s: source has %d parts stored as %s, want %d parts as s3",
+					instanceType, len(before.Parts), federationStoredSSE(before.UserDefined), len(parts))
+			}
+
+			rec := federatedCopyRequest(t, apiRouter, credentials, bucketName, srcObject, remoteBucket, dstObject,
+				federationSSEHeaders(dst, dstKeyByte, false))
+			if rec.Code != http.StatusOK {
+				t.Fatalf("%s: federated CopyObject failed: %d %s", instanceType, rec.Code, rec.Body.String())
+			}
+			assertCopyChecksumResponse(t, rec, hash.ChecksumCRC64NVME, data)
+			got := federationGetObject(t, apiRouter, credentials, remoteBucket, dstObject, nil)
+			if got.Code != http.StatusOK || !bytes.Equal(got.Body.Bytes(), data) {
+				t.Fatalf("%s: destination GET = %d with %d bytes, want 200 with the %d-byte plaintext",
+					instanceType, got.Code, got.Body.Len(), len(data))
+			}
+			after, err := objectAPI.GetObjectInfo(t.Context(), remoteBucket, dstObject, ObjectOptions{})
+			if err != nil {
+				t.Fatalf("%s: GetObjectInfo(destination) failed: %v", instanceType, err)
+			}
+			if got := federationStoredSSE(after.UserDefined); got != dst {
+				t.Fatalf("%s: destination stored as %s, want %s", instanceType, got, dst)
+			}
+			if once := (ObjectInfo{Size: int64(len(data))}); dst == "s3" && after.Size != once.EncryptedSize() {
+				t.Fatalf("%s: destination stored %d bytes, want %d for %d bytes encrypted once",
+					instanceType, after.Size, once.EncryptedSize(), len(data))
+			}
+		})
 	}
 }
