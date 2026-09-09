@@ -1945,10 +1945,35 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 				delete(srcInfo.UserDefined, k)
 			}
 		}
+		// Legal hold does not survive the metadata map. minio-go's Header()
+		// writes the typed lock fields first, then prefixes every UserMetadata
+		// key it does not recognise with "x-amz-meta-": supportedHeaders lists
+		// x-amz-object-lock-mode and x-amz-object-lock-retain-until-date but not
+		// x-amz-object-lock-legal-hold, and isAmzHeader does not match it
+		// either. Forwarded in the map the hold arrives as
+		// X-Amz-Meta-X-Amz-Object-Lock-Legal-Hold, the destination stores no
+		// hold, and the copy still answers 200 (#166).
+		//
+		// Carry only the hold on the typed field, and forward a clone without
+		// the raw key: typed fields are written before the UserMetadata loop, so
+		// a leftover raw key would add a bogus x-amz-meta- entry beside the
+		// correct header. Retention stays in the map -- it already passes
+		// through as a standard header, and moving it to the typed
+		// RetainUntilDate field would truncate the date to whole seconds.
+		legalHoldKey := strings.ToLower(xhttp.AmzObjectLockLegalHold)
+		forwardedLegalHold := srcInfo.UserDefined[legalHoldKey]
+		forwardedMeta := srcInfo.UserDefined
+		if forwardedLegalHold != "" {
+			forwardedMeta = cloneMSS(srcInfo.UserDefined)
+			delete(forwardedMeta, legalHoldKey)
+		}
 		opts := miniogo.PutObjectOptions{
-			UserMetadata:         srcInfo.UserDefined,
+			UserMetadata:         forwardedMeta,
 			ServerSideEncryption: dstOpts.ServerSideEncryption,
 			UserTags:             tag.ToMap(),
+		}
+		if forwardedLegalHold != "" {
+			opts.LegalHold = miniogo.LegalHoldStatus(forwardedLegalHold)
 		}
 		// The destination must carry the same checksum the local path would
 		// produce; the federated path has the remote compute, validate, persist
@@ -1996,7 +2021,10 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 			writeErrorResponse(ctx, w, toAPIError(ctx, rerr), r.URL)
 			return
 		}
-		objInfo.UserDefined = cloneMSS(opts.UserMetadata)
+		// Built from the resolved values rather than the forwarding map: the
+		// legal hold was moved onto the typed option above, so opts.UserMetadata
+		// no longer carries it and the response and event would under-report.
+		objInfo.UserDefined = cloneMSS(srcInfo.UserDefined)
 		// A forwarded checksum header is a request detail, not object metadata.
 		if checksumHeaderValue != "" {
 			delete(objInfo.UserDefined, wantChecksumType.Key())
