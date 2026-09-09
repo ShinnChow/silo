@@ -640,10 +640,10 @@ type VersionPurgeStatusType = replication.VersionPurgeStatusType
 
 type replicationResyncer struct {
 	// map of bucket to their resync status
-	statusMap      map[string]BucketReplicationResyncStatus
-	workerSize     int
-	resyncCancelCh chan struct{}
-	workerCh       chan struct{}
+	statusMap     map[string]BucketReplicationResyncStatus
+	workerSize    int
+	cancelResyncs map[resyncOpts]context.CancelCauseFunc
+	workerCh      chan struct{}
 	sync.RWMutex
 }
 

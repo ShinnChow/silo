@@ -2354,9 +2354,9 @@ func (p *ReplicationPool) queueReplicaTask(ri ReplicateObjectInfo) {
 	switch ri.OpType {
 	case replication.HealReplicationType, replication.ExistingObjectReplicationType:
 		ch = p.mrfReplicaCh
-		healCh = p.getWorkerCh(ri.Name, ri.Bucket, ri.Size)
+		healCh = p.getWorkerCh(ri.Bucket, ri.Name, ri.Size)
 	default:
-		ch = p.getWorkerCh(ri.Name, ri.Bucket, ri.Size)
+		ch = p.getWorkerCh(ri.Bucket, ri.Name, ri.Size)
 	}
 	if ch == nil && healCh == nil {
 		return
@@ -2964,10 +2964,10 @@ const (
 
 func newresyncer() *replicationResyncer {
 	rs := replicationResyncer{
-		statusMap:      make(map[string]BucketReplicationResyncStatus),
-		workerSize:     resyncWorkerCnt,
-		resyncCancelCh: make(chan struct{}, resyncWorkerCnt),
-		workerCh:       make(chan struct{}, resyncWorkerCnt),
+		statusMap:     make(map[string]BucketReplicationResyncStatus),
+		workerSize:    resyncWorkerCnt,
+		cancelResyncs: make(map[resyncOpts]context.CancelCauseFunc),
+		workerCh:      make(chan struct{}, resyncWorkerCnt),
 	}
 	for i := 0; i < rs.workerSize; i++ {
 		rs.workerCh <- struct{}{}
@@ -2975,13 +2975,67 @@ func newresyncer() *replicationResyncer {
 	return &rs
 }
 
+var errResyncCanceled = errors.New("replication resync canceled")
+
+// Registration and cancellation share the status lock. A queued run therefore
+// cannot miss cancellation between publishing its status and taking a slot.
+func (s *replicationResyncer) registerResync(parent context.Context, opts resyncOpts) (context.Context, context.CancelCauseFunc, bool) {
+	s.Lock()
+	defer s.Unlock()
+	st, ok := s.statusMap[opts.bucket].TargetsMap[opts.arn]
+	if !ok || st.ResyncID != opts.resyncID {
+		return nil, nil, false
+	}
+	if _, running := s.cancelResyncs[opts]; running {
+		return nil, nil, false
+	}
+	ctx, cancel := context.WithCancelCause(parent)
+	if s.cancelResyncs == nil {
+		s.cancelResyncs = make(map[resyncOpts]context.CancelCauseFunc)
+	}
+	s.cancelResyncs[opts] = cancel
+	if st.ResyncStatus == ResyncCanceled {
+		cancel(errResyncCanceled)
+	}
+	return ctx, cancel, true
+}
+
+func (s *replicationResyncer) cancelResyncID(resyncID string) {
+	s.Lock()
+	defer s.Unlock()
+	for bucket, m := range s.statusMap {
+		for arn, st := range m.TargetsMap {
+			if st.ResyncID == resyncID && (st.ResyncStatus == ResyncPending || st.ResyncStatus == ResyncStarted) {
+				st.ResyncStatus = ResyncCanceled
+				st.LastUpdate = UTCNow()
+				m.TargetsMap[arn] = st
+				m.LastUpdate = st.LastUpdate
+			}
+		}
+		s.statusMap[bucket] = m
+	}
+	for opts, cancel := range s.cancelResyncs {
+		if opts.resyncID == resyncID {
+			cancel(errResyncCanceled)
+		}
+	}
+}
+
 // mark status of replication resync on remote target for the bucket
-func (s *replicationResyncer) markStatus(status ResyncStatusType, opts resyncOpts, objAPI ObjectLayer) {
+func (s *replicationResyncer) markStatus(status ResyncStatusType, opts resyncOpts, objAPI ObjectLayer) ResyncStatusType {
 	s.Lock()
 	defer s.Unlock()
 
 	m := s.statusMap[opts.bucket]
-	st := m.TargetsMap[opts.arn]
+	st, ok := m.TargetsMap[opts.arn]
+	if !ok || st.ResyncID != opts.resyncID {
+		return NoResync
+	}
+	// A cancel may win the lock after the finalizer checked its context.
+	// Persist that cancellation, never a stale Started/Completed result.
+	if st.ResyncStatus == ResyncCanceled {
+		status = ResyncCanceled
+	}
 	st.LastUpdate = UTCNow()
 	st.ResyncStatus = status
 	m.TargetsMap[opts.arn] = st
@@ -2991,14 +3045,18 @@ func (s *replicationResyncer) markStatus(status ResyncStatusType, opts resyncOpt
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	saveResyncStatus(ctx, opts.bucket, m, objAPI)
+	return status
 }
 
 // update replication resync stats for bucket's remote target
-func (s *replicationResyncer) incStats(ts TargetReplicationResyncStatus, opts resyncOpts) {
+func (s *replicationResyncer) incStats(ts TargetReplicationResyncStatus, opts resyncOpts) bool {
 	s.Lock()
 	defer s.Unlock()
 	m := s.statusMap[opts.bucket]
-	st := m.TargetsMap[opts.arn]
+	st, ok := m.TargetsMap[opts.arn]
+	if !ok || st.ResyncID != opts.resyncID || st.ResyncStatus == ResyncCanceled {
+		return false
+	}
 	st.Object = ts.Object
 	st.ReplicatedCount += ts.ReplicatedCount
 	st.FailedCount += ts.FailedCount
@@ -3007,6 +3065,7 @@ func (s *replicationResyncer) incStats(ts TargetReplicationResyncStatus, opts re
 	m.TargetsMap[opts.arn] = st
 	m.LastUpdate = UTCNow()
 	s.statusMap[opts.bucket] = m
+	return true
 }
 
 // resyncResults consumes the per-object outcomes produced by the resync worker
@@ -3023,8 +3082,9 @@ type resyncResults struct {
 // result into the bucket's resync status.
 func (s *replicationResyncer) newResyncResults(opts resyncOpts) *resyncResults {
 	return startResyncResults(func(r TargetReplicationResyncStatus) {
-		s.incStats(r, opts)
-		globalSiteResyncMetrics.updateMetric(r, opts.resyncID)
+		if s.incStats(r, opts) {
+			globalSiteResyncMetrics.updateMetric(r, opts.resyncID)
+		}
 	})
 }
 
@@ -3063,29 +3123,22 @@ func (rr *resyncResults) finish(workers []chan ReplicateObjectInfo, workerWg *sy
 }
 
 // sendResyncResult delivers a worker's computed per-object result to ch,
-// returning false if the worker must stop first. On the resync-cancel signal it
-// records the abort - the already-computed result is dropped - so
-// finalResyncStatus can downgrade a Completed run; on ctx cancellation it stops
-// without recording, since finalResyncStatus's parent-context check covers that.
-func (s *replicationResyncer) sendResyncResult(ctx context.Context, ch chan<- TargetReplicationResyncStatus, st TargetReplicationResyncStatus, workerAborted *atomic.Bool) bool {
+// returning false if the run's context was canceled first.
+func (s *replicationResyncer) sendResyncResult(ctx context.Context, ch chan<- TargetReplicationResyncStatus, st TargetReplicationResyncStatus) bool {
 	select {
 	case <-ctx.Done():
-		return false
-	case <-s.resyncCancelCh:
-		workerAborted.Store(true)
 		return false
 	case ch <- st:
 		return true
 	}
 }
 
-// finalResyncStatus downgrades a Completed status to Failed when the run could
-// not have observed every object: the parent context was canceled (workers then
-// return without sending their computed result) or a worker dropped a result on
-// the resync-cancel signal. Without this a persisted Completed would misrepresent
-// an incomplete resync.
-func finalResyncStatus(status ResyncStatusType, ctxErr error, workerAborted bool) ResyncStatusType {
-	if status == ResyncCompleted && (ctxErr != nil || workerAborted) {
+// User cancellation is terminal; interrupted completion remains retryable.
+func finalResyncStatus(status ResyncStatusType, cause error) ResyncStatusType {
+	if errors.Is(cause, errResyncCanceled) {
+		return ResyncCanceled
+	}
+	if status == ResyncCompleted && cause != nil {
 		return ResyncFailed
 	}
 	return status
@@ -3156,26 +3209,31 @@ func objectNeedsResyncForARN(roi ReplicateObjectInfo, arn string) bool {
 // resyncBucket resyncs all qualifying objects as per replication rules for the target
 // ARN
 func (s *replicationResyncer) resyncBucket(ctx context.Context, objectAPI ObjectLayer, heal bool, opts resyncOpts) {
+	ctx, cancel, registered := s.registerResync(ctx, opts)
+	if !registered {
+		return
+	}
+	defer func() {
+		cancel(nil)
+		s.Lock()
+		delete(s.cancelResyncs, opts)
+		s.Unlock()
+	}()
 	select {
 	case <-s.workerCh: // block till a worker is available
 	case <-ctx.Done():
+		if errors.Is(context.Cause(ctx), errResyncCanceled) {
+			status := s.markStatus(ResyncCanceled, opts, objectAPI)
+			globalSiteResyncMetrics.incBucket(opts, status)
+		}
 		return
 	}
 
 	resyncStatus := ResyncFailed
-	// workerAborted records that a worker dropped an already-computed result on
-	// the resync-cancel signal. With a canceled parent context (which makes
-	// workers return without sending their result), it means a Completed run did
-	// not actually observe every object - see finalResyncStatus below.
-	var workerAborted atomic.Bool
 	defer func() {
-		// Downgrade a Completed status whose counts are incomplete, so the
-		// persisted status is not a misleading Completed. Runs after results.finish
-		// drains (LIFO) and before markStatus persists - markStatus uses its own
-		// background context, so a parent cancellation during the drain would
-		// otherwise still record Completed.
-		resyncStatus = finalResyncStatus(resyncStatus, ctx.Err(), workerAborted.Load())
-		s.markStatus(resyncStatus, opts, objectAPI)
+		// Runs after workers/results drain and before our own deferred cancel.
+		resyncStatus = finalResyncStatus(resyncStatus, context.Cause(ctx))
+		resyncStatus = s.markStatus(resyncStatus, opts, objectAPI)
 		globalSiteResyncMetrics.incBucket(opts, resyncStatus)
 		s.workerCh <- struct{}{}
 	}()
@@ -3210,8 +3268,8 @@ func (s *replicationResyncer) resyncBucket(ctx context.Context, objectAPI Object
 		return
 	}
 	// mark resync status as resync started
-	if !heal {
-		s.markStatus(ResyncStarted, opts, objectAPI)
+	if !heal && s.markStatus(ResyncStarted, opts, objectAPI) != ResyncStarted {
+		return
 	}
 
 	// Walk through all object versions - Walk() is always in ascending order needed to ensure
@@ -3237,7 +3295,14 @@ func (s *replicationResyncer) resyncBucket(ctx context.Context, objectAPI Object
 	// cannot race the last incStats. Registered after the markStatus finalizer, so
 	// LIFO runs finish first.
 	results := s.newResyncResults(opts)
-	defer results.finish(workers, &wg)
+	defer func() {
+		if resyncStatus != ResyncCompleted {
+			cancel(nil)
+		}
+		// Exactly one finish: success drains with a live context; errors stop
+		// blocked workers first. Both drain counts before persisting status.
+		results.finish(workers, &wg)
+	}()
 	for i := range resyncParallelRoutines {
 		wg.Add(1)
 		workers[i] = make(chan ReplicateObjectInfo, 100)
@@ -3248,7 +3313,6 @@ func (s *replicationResyncer) resyncBucket(ctx context.Context, objectAPI Object
 				select {
 				case <-ctx.Done():
 					return
-				case <-s.resyncCancelCh:
 				default:
 				}
 				traceFn := s.trace(tgt.ResetID, fmt.Sprintf("%s/%s (%s)", opts.bucket, roi.Name, roi.VersionID))
@@ -3295,25 +3359,28 @@ func (s *replicationResyncer) resyncBucket(ctx context.Context, objectAPI Object
 					}
 				}
 				traceFn(traceSize, traceErr)
-				if !s.sendResyncResult(ctx, results.ch, st, &workerAborted) {
+				if !s.sendResyncResult(ctx, results.ch, st) {
 					return
 				}
 			}
 		}(ctx, i)
 	}
-	for res := range objInfoCh {
+walkLoop:
+	for {
+		var res itemOrErr[ObjectInfo]
+		select {
+		case <-ctx.Done():
+			return
+		case item, ok := <-objInfoCh:
+			if !ok {
+				break walkLoop
+			}
+			res = item
+		}
 		if res.Err != nil {
 			resyncStatus = ResyncFailed
 			replLogIf(ctx, res.Err)
 			return
-		}
-		select {
-		case <-s.resyncCancelCh:
-			resyncStatus = ResyncCanceled
-			return
-		case <-ctx.Done():
-			return
-		default:
 		}
 		if heal && lastCheckpoint != "" && lastCheckpoint != res.Item.Name {
 			continue
@@ -3328,14 +3395,11 @@ func (s *replicationResyncer) resyncBucket(ctx context.Context, objectAPI Object
 		if !objectNeedsResyncForARN(roi, opts.arn) {
 			continue
 		}
+		h := xxh3.HashString(roi.Bucket + roi.Name)
 		select {
-		case <-s.resyncCancelCh:
-			return
 		case <-ctx.Done():
 			return
-		default:
-			h := xxh3.HashString(roi.Bucket + roi.Name)
-			workers[h%uint64(resyncParallelRoutines)] <- roi
+		case workers[h%uint64(resyncParallelRoutines)] <- roi:
 		}
 	}
 	resyncStatus = ResyncCompleted
@@ -3363,9 +3427,9 @@ func (s *replicationResyncer) start(ctx context.Context, objAPI ObjectLayer, opt
 	if len(tgtArns) == 0 {
 		return fmt.Errorf("arn %s specified for resync not found in replication config", opts.arn)
 	}
-	globalReplicationPool.Get().resyncer.RLock()
-	data, ok := globalReplicationPool.Get().resyncer.statusMap[opts.bucket]
-	globalReplicationPool.Get().resyncer.RUnlock()
+	s.Lock()
+	defer s.Unlock()
+	data, ok := s.statusMap[opts.bucket]
 	if !ok {
 		data, err = loadBucketResyncMetadata(ctx, opts.bucket, objAPI)
 		if err != nil {
@@ -3386,23 +3450,14 @@ func (s *replicationResyncer) start(ctx context.Context, objAPI ObjectLayer, opt
 		ResyncStatus:     ResyncPending,
 		Bucket:           opts.bucket,
 	}
+	data.TargetsMap = data.cloneTgtStats()
 	data.TargetsMap[opts.arn] = status
 	if err = saveResyncStatus(ctx, opts.bucket, data, objAPI); err != nil {
 		return err
 	}
 
-	globalReplicationPool.Get().resyncer.Lock()
-	defer globalReplicationPool.Get().resyncer.Unlock()
-	brs, ok := globalReplicationPool.Get().resyncer.statusMap[opts.bucket]
-	if !ok {
-		brs = BucketReplicationResyncStatus{
-			Version:    resyncMetaVersion,
-			TargetsMap: make(map[string]TargetReplicationResyncStatus),
-		}
-	}
-	brs.TargetsMap[opts.arn] = status
-	globalReplicationPool.Get().resyncer.statusMap[opts.bucket] = brs
-	go globalReplicationPool.Get().resyncer.resyncBucket(GlobalContext, objAPI, false, opts)
+	s.statusMap[opts.bucket] = data
+	go s.resyncBucket(GlobalContext, objAPI, false, opts)
 	return nil
 }
 
@@ -3476,6 +3531,9 @@ func (p *ReplicationPool) loadResync(ctx context.Context, buckets []string, objA
 	// Make sure only one node running resync on the cluster.
 	ctx, cancel := globalLeaderLock.GetLock(ctx)
 	defer cancel()
+	var workers sync.WaitGroup
+	// Keep the merged leader context alive until every resumed run exits.
+	defer workers.Wait()
 
 	for index := range buckets {
 		bucket := buckets[index]
@@ -3489,19 +3547,24 @@ func (p *ReplicationPool) loadResync(ctx context.Context, buckets []string, objA
 		}
 
 		p.resyncer.Lock()
-		p.resyncer.statusMap[bucket] = meta
-		p.resyncer.Unlock()
-
+		if current, ok := p.resyncer.statusMap[bucket]; ok {
+			// A concurrent start/cancel is newer than the disk snapshot.
+			meta = current
+		} else {
+			p.resyncer.statusMap[bucket] = meta
+		}
 		tgts := meta.cloneTgtStats()
+		p.resyncer.Unlock()
 		for arn, st := range tgts {
 			switch st.ResyncStatus {
 			case ResyncFailed, ResyncStarted, ResyncPending:
-				go p.resyncer.resyncBucket(ctx, objAPI, true, resyncOpts{
+				opts := resyncOpts{
 					bucket:       bucket,
 					arn:          arn,
 					resyncID:     st.ResyncID,
 					resyncBefore: st.ResyncBeforeDate,
-				})
+				}
+				workers.Go(func() { p.resyncer.resyncBucket(ctx, objAPI, true, opts) })
 			}
 		}
 	}
@@ -3820,6 +3883,7 @@ func (p *ReplicationPool) queueMRFSave(entry MRFReplicateEntry) {
 	if entry.RetryCount > mrfRetryLimit { // let scanner catch up if retry count exceeded
 		atomic.AddUint64(&p.stats.mrfStats.TotalDroppedCount, 1)
 		atomic.AddUint64(&p.stats.mrfStats.TotalDroppedBytes, uint64(entry.sz))
+		replLogOnceIf(GlobalContext, errors.New("Replication MRF retry limit reached; further repair is deferred to the scanner"), "replication-mrf-retry-limit", logger.WarningKind)
 		return
 	}
 
@@ -3834,6 +3898,7 @@ func (p *ReplicationPool) queueMRFSave(entry MRFReplicateEntry) {
 		default:
 			atomic.AddUint64(&p.stats.mrfStats.TotalDroppedCount, 1)
 			atomic.AddUint64(&p.stats.mrfStats.TotalDroppedBytes, uint64(entry.sz))
+			replLogOnceIf(GlobalContext, errors.New("Replication MRF queue is full; dropped entries will need scanner repair"), "replication-mrf-queue-full", logger.WarningKind)
 		}
 	}
 }
