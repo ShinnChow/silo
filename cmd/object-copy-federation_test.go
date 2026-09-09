@@ -496,10 +496,11 @@ func testAPIFederatedCopyObjectInheritedChecksum(objectAPI ObjectLayer, instance
 const federationTestKMSKeyID = "federation-test-key"
 
 // federationSSEHeaders returns the request headers that select one server-side
-// encryption kind: "plain", "s3", "kms" or "c". SSE-C keys derive from keyByte
-// so a case can name two distinct customer keys. With copySource the SSE-C key
-// is returned in its x-amz-copy-source-* form, the only kind a copy has to
-// name for its source; the other kinds then return nothing.
+// encryption kind: "plain", "s3", "kms", "kms-context" (SSE-KMS with an
+// explicit encryption context) or "c". SSE-C keys derive from keyByte so a
+// case can name two distinct customer keys. With copySource the SSE-C key is
+// returned in its x-amz-copy-source-* form, the only kind a copy has to name
+// for its source; the other kinds then return nothing.
 func federationSSEHeaders(kind string, keyByte byte, copySource bool) map[string]string {
 	h := map[string]string{}
 	if copySource && kind != "c" {
@@ -509,9 +510,12 @@ func federationSSEHeaders(kind string, keyByte byte, copySource bool) map[string
 	case "plain":
 	case "s3":
 		h[xhttp.AmzServerSideEncryption] = xhttp.AmzEncryptionAES
-	case "kms":
+	case "kms", "kms-context":
 		h[xhttp.AmzServerSideEncryption] = xhttp.AmzEncryptionKMS
 		h[xhttp.AmzServerSideEncryptionKmsID] = federationTestKMSKeyID
+		if kind == "kms-context" {
+			h[xhttp.AmzServerSideEncryptionKmsContext] = base64.StdEncoding.EncodeToString([]byte(`{"tenant":"federation"}`))
+		}
 	case "c":
 		key := bytes.Repeat([]byte{keyByte}, 32)
 		sum := md5.Sum(key)
@@ -609,6 +613,8 @@ func testAPIFederatedCopyObjectSSE(objectAPI ObjectLayer, instanceType, bucketNa
 	pairs := []struct{ src, dst string }{
 		{"plain", "s3"}, {"s3", "plain"}, {"s3", "s3"},
 		{"plain", "c"}, {"c", "plain"}, {"c", "c"}, {"s3", "c"},
+		{"plain", "kms"}, {"kms", "plain"}, {"kms", "kms"},
+		{"plain", "kms-context"}, {"kms-context", "kms-context"},
 	}
 	const srcKeyByte, dstKeyByte = 0x11, 0x22
 
@@ -624,8 +630,8 @@ func testAPIFederatedCopyObjectSSE(objectAPI ObjectLayer, instanceType, bucketNa
 				if err != nil {
 					t.Fatalf("%s: GetObjectInfo(source) failed: %v", instanceType, err)
 				}
-				if got := federationStoredSSE(before.UserDefined); got != pair.src {
-					t.Fatalf("%s: source stored as %s, want %s", instanceType, got, pair.src)
+				if got, want := federationStoredSSE(before.UserDefined), strings.TrimSuffix(pair.src, "-context"); got != want {
+					t.Fatalf("%s: source stored as %s, want %s", instanceType, got, want)
 				}
 				if compressed := body.ext == ".txt" && pair.src != "c"; before.IsCompressed() != compressed {
 					t.Fatalf("%s: source compressed=%v, want %v", instanceType, before.IsCompressed(), compressed)
@@ -666,8 +672,8 @@ func testAPIFederatedCopyObjectSSE(objectAPI ObjectLayer, instanceType, bucketNa
 				if err != nil {
 					t.Fatalf("%s: GetObjectInfo(destination) failed: %v", instanceType, err)
 				}
-				if got := federationStoredSSE(after.UserDefined); got != pair.dst {
-					t.Fatalf("%s: destination stored as %s, want %s", instanceType, got, pair.dst)
+				if got, want := federationStoredSSE(after.UserDefined), strings.TrimSuffix(pair.dst, "-context"); got != want {
+					t.Fatalf("%s: destination stored as %s, want %s", instanceType, got, want)
 				}
 				if pair.dst != "plain" && !after.IsCompressed() {
 					once := ObjectInfo{Size: int64(len(body.data))}
