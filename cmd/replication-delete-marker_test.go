@@ -176,8 +176,13 @@ func testReplicateDeleteMarkerPurge(obj ObjectLayer, instanceType, bucket string
 	meta.replicationConfig = &cfg
 	globalBucketMetadataSys.Set(bucket, meta)
 	worker := make(chan ReplicationWorkerOperation, 1)
-	p := &ReplicationPool{ctx: ctx, objLayer: obj, workers: []chan ReplicationWorkerOperation{worker},
-		stats: globalReplicationStats.Load(), mrfSaveCh: make(chan MRFReplicateEntry, 1)}
+	p := &ReplicationPool{
+		ctx:       ctx,
+		objLayer:  obj,
+		workers:   []chan ReplicationWorkerOperation{worker},
+		stats:     globalReplicationStats.Load(),
+		mrfSaveCh: make(chan MRFReplicateEntry, 1),
+	}
 	oldPool := globalReplicationPool
 	globalReplicationPool = once.NewSingleton[ReplicationPool]()
 	globalReplicationPool.Set(p)
