@@ -197,6 +197,13 @@ func federatedCopyRequest(t *testing.T, apiRouter http.Handler, credentials auth
 		t.Fatalf("failed to build federated CopyObject request: %v", err)
 	}
 	req.Header.Set(xhttp.AmzCopySource, SlashSeparator+pathJoin(srcBucket, srcObject))
+	// Re-sign so x-amz-copy-source is covered by the signature, as real S3
+	// clients send it; the verifier rejects unsigned x-amz-* headers.
+	if credentials.AccessKey != "" && credentials.SecretKey != "" {
+		if err := signRequestV4(req, credentials.AccessKey, credentials.SecretKey); err != nil {
+			t.Fatalf("failed to re-sign federated CopyObject request: %v", err)
+		}
+	}
 	rec := httptest.NewRecorder()
 	apiRouter.ServeHTTP(rec, req)
 	return rec
