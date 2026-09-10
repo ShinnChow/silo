@@ -1,6 +1,6 @@
 # Contributors
 
-SILO is built by **40 community contributors**, including its maintainers. This record covers every
+SILO is built by **41 community contributors**, including its maintainers. This record covers every
 human author who has opened an issue or pull request in the repositories listed below, in any state.
 It was checked against the complete, paginated GitHub API records on **2026-09-07 03:00:14 UTC**.
 
@@ -30,6 +30,7 @@ the Git history and [NOTICE](NOTICE); this record covers activity in the PGSTY r
 <a href="https://github.com/sulin37392"><img src="https://silo.pgsty.com/images/contributors/sulin37392.svg" width="48" height="48" alt="@sulin37392" title="@sulin37392 — Proposed dependency updates"></a>
 <a href="https://github.com/cbornet"><img src="https://silo.pgsty.com/images/contributors/cbornet.svg" width="60" height="60" alt="@cbornet" title="@cbornet — Reported multipart and streaming checksum defects and missing-bucket semantics"></a>
 <a href="https://github.com/vampywiz17"><img src="https://silo.pgsty.com/images/contributors/vampywiz17.svg" width="60" height="60" alt="@vampywiz17" title="@vampywiz17 — Reported LDAP TLS and Console login regressions"></a>
+<a href="https://github.com/orenyomtov"><img src="https://silo.pgsty.com/images/contributors/orenyomtov.svg" width="60" height="60" alt="@orenyomtov" title="@orenyomtov — Reported the unsigned-header CopyObject cross-object read (SN-2026-011)"></a>
 <a href="https://github.com/mumu-lab"><img src="https://silo.pgsty.com/images/contributors/mumu-lab.svg" width="48" height="48" alt="@mumu-lab" title="@mumu-lab — Reported bucket quota metrics reading a deprecated field"></a>
 <a href="https://github.com/jvasile"><img src="https://silo.pgsty.com/images/contributors/jvasile.svg" width="48" height="48" alt="@jvasile" title="@jvasile — Reported missing user, group, and defaults in Debian packages"></a>
 <a href="https://github.com/pmezhuev"><img src="https://silo.pgsty.com/images/contributors/pmezhuev.svg" width="48" height="48" alt="@pmezhuev" title="@pmezhuev — Reported missing RPM package signatures"></a>
@@ -96,6 +97,7 @@ for their reports as well; the avatar wall and community total still count each 
 | [@davinkevin](https://github.com/davinkevin) | [pgsty/silo#20](https://github.com/pgsty/silo/issues/20) Proposal: Enable Renovate for automated dependency updates |
 | [@cbornet](https://github.com/cbornet) | [pgsty/silo#31](https://github.com/pgsty/silo/issues/31) Multipart uploads with FULL_OBJECT CRC32 not working<br>[pgsty/silo#32](https://github.com/pgsty/silo/issues/32) `listObjects` should return `NoSuchBucket` when the bucket doesn't exist and prefix is passed<br>[pgsty/silo#107](https://github.com/pgsty/silo/issues/107) PutObject fails with chunked encoding and checksumType |
 | [@vampywiz17](https://github.com/vampywiz17) | [pgsty/silo#15](https://github.com/pgsty/silo/issues/15) LDAP TLS regression in RELEASE.2026-03-21T00-00-00Z breaks built-in Console and external Console LDAP login on Kubernetes Tenant<br>[pgsty/silo#108](https://github.com/pgsty/silo/issues/108) Web Console login regression in RELEASE.2026-09-03T13-18-01Z (local and LDAP users fail) |
+| [@orenyomtov](https://github.com/orenyomtov) | Private security disclosure: a presigned or signed PUT could be turned into a server-side CopyObject read of any object the signing key can reach via an unsigned `x-amz-copy-source` header. Fixed as [`SN-2026-011`](https://github.com/pgsty/silo/blob/main/docs/security/advisories.md) ([pgsty/silo#173](https://github.com/pgsty/silo/pull/173)) |
 | [@mumu-lab](https://github.com/mumu-lab) | [pgsty/silo#106](https://github.com/pgsty/silo/issues/106) 监控指标读取已弃用的 BucketQuota.Quota 字段导致 Quota 指标无值 |
 | [@jvasile](https://github.com/jvasile) | [pgsty/silo#33](https://github.com/pgsty/silo/issues/33) .deb doesn't create user/group/default files |
 | [@pmezhuev](https://github.com/pmezhuev) | [pgsty/silo#43](https://github.com/pgsty/silo/issues/43) RPM package for RELEASE.2026-06-18T00-00-00Z is missing GPG signature |

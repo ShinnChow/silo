@@ -95,7 +95,7 @@ S3 API、`MINIO_*` 环境变量、`minio_*` 指标、`x-minio-*` 头、`/minio/*
 
 ## 贡献者
 
-**40 位社区贡献者**共同建设 SILO、Console、mcli、公共包与相关项目。名单包含维护者，以及所有提出 Issue 或 PR 的真人作者；按已合并 PR、其他 PR、Issue 报告排序，黄圈标记显著贡献。
+**41 位社区贡献者**共同建设 SILO、Console、mcli、公共包与相关项目。名单包含维护者，以及所有提出 Issue 或 PR 的真人作者；按已合并 PR、其他 PR、Issue 报告排序，黄圈标记显著贡献。
 
 <p align="center">
 <a href="https://github.com/Vonng"><img src="https://silo.pgsty.com/images/contributors/Vonng.svg" width="60" height="60" alt="@Vonng" title="@Vonng — 维护 SILO、Console、mcli、公共包、发行与文档"></a>
@@ -115,6 +115,7 @@ S3 API、`MINIO_*` 环境变量、`minio_*` 指标、`x-minio-*` 头、`/minio/*
 <a href="https://github.com/sulin37392"><img src="https://silo.pgsty.com/images/contributors/sulin37392.svg" width="48" height="48" alt="@sulin37392" title="@sulin37392 — 提交依赖更新"></a>
 <a href="https://github.com/cbornet"><img src="https://silo.pgsty.com/images/contributors/cbornet.svg" width="60" height="60" alt="@cbornet" title="@cbornet — 报告分片与流式校验和缺陷及缺失桶语义问题"></a>
 <a href="https://github.com/vampywiz17"><img src="https://silo.pgsty.com/images/contributors/vampywiz17.svg" width="60" height="60" alt="@vampywiz17" title="@vampywiz17 — 报告 LDAP TLS 与 Console 登录回归"></a>
+<a href="https://github.com/orenyomtov"><img src="https://silo.pgsty.com/images/contributors/orenyomtov.svg" width="60" height="60" alt="@orenyomtov" title="@orenyomtov — 报告未签名头导致的 CopyObject 跨对象读取（SN-2026-011）"></a>
 <a href="https://github.com/mumu-lab"><img src="https://silo.pgsty.com/images/contributors/mumu-lab.svg" width="48" height="48" alt="@mumu-lab" title="@mumu-lab — 报告桶配额指标读取已弃用字段的问题"></a>
 <a href="https://github.com/jvasile"><img src="https://silo.pgsty.com/images/contributors/jvasile.svg" width="48" height="48" alt="@jvasile" title="@jvasile — 报告 Debian 包缺少用户、用户组与默认配置"></a>
 <a href="https://github.com/pmezhuev"><img src="https://silo.pgsty.com/images/contributors/pmezhuev.svg" width="48" height="48" alt="@pmezhuev" title="@pmezhuev — 报告 RPM 包缺少 GPG 签名"></a>

@@ -115,7 +115,7 @@ Report vulnerabilities privately as described in [`SECURITY.md`](SECURITY.md); e
 
 ## Contributors
 
-**40 community contributors** build SILO, Console, mcli, shared packages, and related projects. The list includes maintainers and every human Issue or PR author, ordered by merged PRs, other PRs, then issue reports. Gold rings highlight significant contributions.
+**41 community contributors** build SILO, Console, mcli, shared packages, and related projects. The list includes maintainers and every human Issue or PR author, ordered by merged PRs, other PRs, then issue reports. Gold rings highlight significant contributions.
 
 <p align="center">
 <a href="https://github.com/Vonng"><img src="https://silo.pgsty.com/images/contributors/Vonng.svg" width="60" height="60" alt="@Vonng" title="@Vonng — Maintains SILO, Console, mcli, shared packages, releases, and documentation"></a>
@@ -135,6 +135,7 @@ Report vulnerabilities privately as described in [`SECURITY.md`](SECURITY.md); e
 <a href="https://github.com/sulin37392"><img src="https://silo.pgsty.com/images/contributors/sulin37392.svg" width="48" height="48" alt="@sulin37392" title="@sulin37392 — Proposed dependency updates"></a>
 <a href="https://github.com/cbornet"><img src="https://silo.pgsty.com/images/contributors/cbornet.svg" width="60" height="60" alt="@cbornet" title="@cbornet — Reported multipart and streaming checksum defects and missing-bucket semantics"></a>
 <a href="https://github.com/vampywiz17"><img src="https://silo.pgsty.com/images/contributors/vampywiz17.svg" width="60" height="60" alt="@vampywiz17" title="@vampywiz17 — Reported LDAP TLS and Console login regressions"></a>
+<a href="https://github.com/orenyomtov"><img src="https://silo.pgsty.com/images/contributors/orenyomtov.svg" width="60" height="60" alt="@orenyomtov" title="@orenyomtov — Reported the unsigned-header CopyObject cross-object read (SN-2026-011)"></a>
 <a href="https://github.com/mumu-lab"><img src="https://silo.pgsty.com/images/contributors/mumu-lab.svg" width="48" height="48" alt="@mumu-lab" title="@mumu-lab — Reported bucket quota metrics reading a deprecated field"></a>
 <a href="https://github.com/jvasile"><img src="https://silo.pgsty.com/images/contributors/jvasile.svg" width="48" height="48" alt="@jvasile" title="@jvasile — Reported missing user, group, and defaults in Debian packages"></a>
 <a href="https://github.com/pmezhuev"><img src="https://silo.pgsty.com/images/contributors/pmezhuev.svg" width="48" height="48" alt="@pmezhuev" title="@pmezhuev — Reported missing RPM package signatures"></a>
