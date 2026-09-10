@@ -3658,15 +3658,18 @@ func (api objectAPIHandlers) PutObjectTaggingHandler(w http.ResponseWriter, r *h
 	}
 	tagsStr := tags.String()
 
-	// Set this such that authorization policies can be applied on the object tags.
-	r.Header.Set(xhttp.AmzObjectTagging, tagsStr)
-
 	logger.GetReqInfo(ctx).BucketName = bucket
 	logger.GetReqInfo(ctx).ObjectName = object
 	if s3Error := authenticateRequest(ctx, r, policy.PutObjectTaggingAction); s3Error != ErrNone {
 		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(s3Error), r.URL)
 		return
 	}
+
+	// Set this such that authorization policies can be applied on the object
+	// tags. This is derived from the request body, so it must be injected only
+	// after signature verification: the SigV4 verifier now rejects unsigned
+	// x-amz-* request headers, and this synthesized header is never signed.
+	r.Header.Set(xhttp.AmzObjectTagging, tagsStr)
 
 	opts, err := getOpts(ctx, r, bucket, object)
 	if err != nil {

@@ -25,6 +25,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	xhttp "github.com/minio/minio/internal/http"
 )
 
 func niceError(code APIErrorCode) string {
@@ -311,5 +313,44 @@ func TestDoesPresignedSignatureMatch(t *testing.T) {
 		if err != testCase.expected {
 			t.Errorf("(%d) expected to get %s, instead got %s", i, niceError(testCase.expected), niceError(err))
 		}
+	}
+}
+
+// TestPresignedVerifyIdempotent guards against a regression where verifying the
+// same presigned request twice began to fail. doesPresignedSignatureMatch
+// writes an internal x-amz-signature-age header after validating the signature;
+// the unsigned-header check must exempt that scratch header (and an unsigned
+// x-amz-content-sha256 the client may carry) so a second verification of the
+// same *http.Request still succeeds.
+func TestPresignedVerifyIdempotent(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	obj, fsDir, err := prepareFS(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(fsDir)
+	if err = newTestConfig(globalMinioDefaultRegion, obj); err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := newTestRequest(http.MethodGet, "http://127.0.0.1:9000/bucket/object", 0, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = preSignV4(req, globalActiveCred.AccessKey, globalActiveCred.SecretKey, int64(10*60)); err != nil {
+		t.Fatal(err)
+	}
+	if err = req.ParseForm(); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := reqSignatureV4Verify(req, globalSite.Region(), serviceS3); got != ErrNone {
+		t.Fatalf("first verification: expected ErrNone, got %s", niceError(got))
+	}
+	if got := reqSignatureV4Verify(req, globalSite.Region(), serviceS3); got != ErrNone {
+		t.Fatalf("second verification of the same request: expected ErrNone, got %s (x-amz-signature-age=%q)",
+			niceError(got), req.Header.Get(xhttp.AmzSignatureAge))
 	}
 }
