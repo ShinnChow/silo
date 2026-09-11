@@ -1404,11 +1404,27 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 	allowReplicationMetadata := replicaTrusted
 
-	// Check if bucket encryption is enabled
-	sseConfig, _ := globalBucketSSEConfigSys.Get(dstBucket)
-	sseConfig.Apply(r.Header, sse.ApplyOptions{
-		AutoEncrypt: globalAutoEncryption,
-	})
+	// Federation only: the destination bucket lives on another deployment and
+	// the copy is forwarded to it as a PutObject. That remote write owns the
+	// destination's storage transformations, so this handler hands it the
+	// logical (decompressed, decrypted) bytes at their logical size and lets
+	// the remote compress and encrypt once. Encrypting here as well would
+	// forward ciphertext under the destination's own SSE option, which either
+	// fails the length check or, for SSE to SSE, has the remote encrypt the
+	// ciphertext a second time and store an unreadable object (#158).
+	remoteCallRequired := isRemoteCopyRequired(ctx, srcBucket, dstBucket, objectAPI)
+
+	// Apply the destination bucket's default encryption only when this
+	// deployment writes the destination. For a remote destination the proxy
+	// has no authority over that bucket's defaults: applying its own here
+	// would forward an explicit SSE header that the remote then honors in
+	// place of the destination's configuration (#167).
+	if !remoteCallRequired {
+		sseConfig, _ := globalBucketSSEConfigSys.Get(dstBucket)
+		sseConfig.Apply(r.Header, sse.ApplyOptions{
+			AutoEncrypt: globalAutoEncryption,
+		})
+	}
 	var srcOpts, dstOpts ObjectOptions
 	srcOpts, err = copySrcOpts(ctx, r, srcBucket, srcObject)
 	if err != nil {
@@ -1517,16 +1533,6 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 			return
 		}
 	}
-
-	// Federation only: the destination bucket lives on another deployment and
-	// the copy is forwarded to it as a PutObject. That remote write owns the
-	// destination's storage transformations, so this handler hands it the
-	// logical (decompressed, decrypted) bytes at their logical size and lets
-	// the remote compress and encrypt once. Encrypting here as well would
-	// forward ciphertext under the destination's own SSE option, which either
-	// fails the length check or, for SSE to SSE, has the remote encrypt the
-	// ciphertext a second time and store an unreadable object (#158).
-	remoteCallRequired := isRemoteCopyRequired(ctx, srcBucket, dstBucket, objectAPI)
 
 	var compressMetadata map[string]string
 	// No need to compress for remote etcd calls
@@ -1945,35 +1951,23 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 				delete(srcInfo.UserDefined, k)
 			}
 		}
-		// Legal hold does not survive the metadata map. minio-go's Header()
-		// writes the typed lock fields first, then prefixes every UserMetadata
-		// key it does not recognise with "x-amz-meta-": supportedHeaders lists
-		// x-amz-object-lock-mode and x-amz-object-lock-retain-until-date but not
-		// x-amz-object-lock-legal-hold, and isAmzHeader does not match it
-		// either. Forwarded in the map the hold arrives as
-		// X-Amz-Meta-X-Amz-Object-Lock-Legal-Hold, the destination stores no
-		// hold, and the copy still answers 200 (#166).
-		//
-		// Carry only the hold on the typed field, and forward a clone without
-		// the raw key: typed fields are written before the UserMetadata loop, so
-		// a leftover raw key would add a bogus x-amz-meta- entry beside the
-		// correct header. Retention stays in the map -- it already passes
-		// through as a standard header, and moving it to the typed
-		// RetainUntilDate field would truncate the date to whole seconds.
+		// Forward a clone: request-only keys are removed or added below and
+		// srcInfo.UserDefined stays the resolved record for the response.
+		forwardedMeta := cloneMSS(srcInfo.UserDefined)
+		// minio-go prefixes any UserMetadata key it does not recognize with
+		// x-amz-meta-, and it recognizes the retention headers but not
+		// x-amz-object-lock-legal-hold, so a hold left in the map reaches the
+		// remote as user metadata and is silently dropped (#166). Carry it on
+		// the typed option instead. Retention stays in the map: the typed
+		// RetainUntilDate would truncate the date to whole seconds.
 		legalHoldKey := strings.ToLower(xhttp.AmzObjectLockLegalHold)
-		forwardedLegalHold := srcInfo.UserDefined[legalHoldKey]
-		forwardedMeta := srcInfo.UserDefined
-		if forwardedLegalHold != "" {
-			forwardedMeta = cloneMSS(srcInfo.UserDefined)
-			delete(forwardedMeta, legalHoldKey)
-		}
+		forwardedLegalHold := forwardedMeta[legalHoldKey]
+		delete(forwardedMeta, legalHoldKey)
 		opts := miniogo.PutObjectOptions{
 			UserMetadata:         forwardedMeta,
 			ServerSideEncryption: dstOpts.ServerSideEncryption,
 			UserTags:             tag.ToMap(),
-		}
-		if forwardedLegalHold != "" {
-			opts.LegalHold = miniogo.LegalHoldStatus(forwardedLegalHold)
+			LegalHold:            miniogo.LegalHoldStatus(forwardedLegalHold),
 		}
 		// The destination must carry the same checksum the local path would
 		// produce; the federated path has the remote compute, validate, persist
@@ -2021,14 +2015,18 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 			writeErrorResponse(ctx, w, toAPIError(ctx, rerr), r.URL)
 			return
 		}
-		// Built from the resolved values rather than the forwarding map: the
-		// legal hold was moved onto the typed option above, so opts.UserMetadata
-		// no longer carries it and the response and event would under-report.
+		// Keep the resolved legal hold in response and event metadata; the
+		// request-only checksum header exists only in the forwarding map.
 		objInfo.UserDefined = cloneMSS(srcInfo.UserDefined)
-		// A forwarded checksum header is a request detail, not object metadata.
-		if checksumHeaderValue != "" {
-			delete(objInfo.UserDefined, wantChecksumType.Key())
-		}
+		// The response headers and the ObjectCreated:Copy event describe the
+		// object this handler wrote, so name it: without these the response
+		// carries no x-amz-version-id and the event has an empty key and zero
+		// size (#170). Size is the logical size the remote was handed, which is
+		// what it reports back.
+		objInfo.Bucket = dstBucket
+		objInfo.Name = dstObject
+		objInfo.Size = actualSize
+		objInfo.VersionID = remoteObjInfo.VersionID
 		objInfo.ETag = remoteObjInfo.ETag
 		objInfo.ModTime = remoteObjInfo.LastModified
 		// Bind the checksum the remote computed for this exact write. A single
