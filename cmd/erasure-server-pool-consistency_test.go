@@ -20,6 +20,7 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -571,5 +572,111 @@ func TestPoolsReplicaCleanupFailureCanRetry(t *testing.T) {
 	}
 	if _, err := z.serverPools[0].GetObjectInfo(t.Context(), bucket, object, ObjectOptions{VersionID: oi.VersionID}); !isErrVersionNotFound(err) {
 		t.Errorf("retry left the competing version: %v", err)
+	}
+}
+
+func TestPoolsRetiringCopyPreservesSharedTierObject(t *testing.T) {
+	for _, test := range []struct {
+		name              string
+		deleting          bool
+		failPrimaryDelete bool
+		differentRemote   bool
+		restored          bool
+	}{
+		{name: "metadata-copy"},
+		{name: "restored-metadata-copy", restored: true},
+		{name: "metadata-copy-distinct-reference", differentRemote: true},
+		{name: "failed-primary-delete", deleting: true, failPrimaryDelete: true},
+		{name: "failed-primary-delete-distinct-reference", deleting: true, failPrimaryDelete: true, differentRemote: true},
+		{name: "successful-delete", deleting: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			z, bucket := consistencyPools(t)
+			const object = "shared-tier-object"
+			metadata := map[string]string{
+				ReservedMetadataPrefixLower + TransitionStatus:       "complete",
+				ReservedMetadataPrefixLower + TransitionTier:         "TEST-TIER",
+				ReservedMetadataPrefixLower + TransitionedObjectName: "shared-remote-object",
+				ReservedMetadataPrefixLower + TransitionedVersionID:  "shared-remote-version",
+			}
+			if test.restored {
+				metadata[xhttp.AmzRestore] = completedRestoreObj(time.Now().Add(time.Hour)).String()
+			}
+			oi := putConsistencyObject(t, z, bucket, object, 0, "data", ObjectOptions{Versioned: true, UserDefined: metadata})
+			secondaryMetadata := maps.Clone(metadata)
+			if test.differentRemote {
+				secondaryMetadata[ReservedMetadataPrefixLower+TransitionedObjectName] = "other-remote-object"
+			}
+			putConsistencyObject(t, z, bucket, object, 1, "data", ObjectOptions{
+				Versioned: true, VersionID: oi.VersionID, MTime: oi.ModTime, UserDefined: secondaryMetadata,
+			})
+			current, err := z.GetObjectInfo(t.Context(), bucket, object, ObjectOptions{VersionID: oi.VersionID})
+			if err != nil || current.TransitionedObject.Status != "complete" || current.IsRemote() == test.restored {
+				t.Fatalf("fixture did not persist the tier reference: %+v, %v", current.TransitionedObject, err)
+			}
+			if test.failPrimaryDelete {
+				// The authoritative copy remains readable if its deletion fails.
+				// Retiring a secondary copy must not schedule its shared remote
+				// contents for garbage collection in that case.
+				set := z.serverPools[0].getHashedSet(object)
+				getDisks := set.getDisks
+				faulty := append([]StorageAPI(nil), getDisks()...)
+				for i := range faulty {
+					faulty[i] = accessMoveDeleteFaultDisk{StorageAPI: faulty[i], bucket: bucket, object: object, version: oi.VersionID}
+				}
+				set.getDisks = func() []StorageAPI { return faulty }
+				defer func() { set.getDisks = getDisks }()
+			}
+			if test.deleting {
+				_, err := z.DeleteObject(t.Context(), bucket, object, ObjectOptions{
+					Versioned: true, VersionID: oi.VersionID,
+					CheckPrecondFn: func(info ObjectInfo) bool { return info.ETag != current.ETag },
+				})
+				if (err != nil) != test.failPrimaryDelete {
+					t.Fatalf("unexpected authoritative delete result: %v", err)
+				}
+			} else {
+				current.metadataOnly = true
+				current.UserDefined["metadata-update"] = "new"
+				_, err := z.CopyObject(t.Context(), bucket, object, bucket, object, current,
+					ObjectOptions{VersionID: oi.VersionID}, ObjectOptions{
+						Versioned: true, VersionID: oi.VersionID, MTime: oi.ModTime, ReplicaLockReconcile: true,
+					})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			_, err = z.serverPools[0].GetObjectInfo(t.Context(), bucket, object, ObjectOptions{VersionID: oi.VersionID})
+			primaryDeleted := test.deleting && !test.failPrimaryDelete
+			if primaryDeleted {
+				if !isErrVersionNotFound(err) {
+					t.Fatalf("authoritative copy survived successful delete: %v", err)
+				}
+			} else if err != nil {
+				t.Fatalf("lost retained authoritative copy: %v", err)
+			}
+			for pool, wantFree := range []bool{primaryDeleted, test.differentRemote} {
+				for _, disk := range z.serverPools[pool].getHashedSet(object).getDisks() {
+					data, err := disk.ReadAll(t.Context(), bucket, pathJoin(object, xlStorageFormatFile))
+					if errors.Is(err, errFileNotFound) && !wantFree {
+						continue
+					}
+					if err != nil {
+						t.Fatal(err)
+					}
+					versions, err := getFileInfoVersions(data, bucket, object, false)
+					if err != nil {
+						t.Fatal(err)
+					}
+					wantCount := 0
+					if wantFree {
+						wantCount = 1
+					}
+					if len(versions.FreeVersions) != wantCount {
+						t.Fatalf("pool %d has %d tier GC markers, want %d", pool, len(versions.FreeVersions), wantCount)
+					}
+				}
+			}
+		})
 	}
 }

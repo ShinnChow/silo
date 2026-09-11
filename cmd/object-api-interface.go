@@ -139,8 +139,8 @@ type ObjectOptions struct {
 	// when looking up a version by fi.VersionID
 	InclFreeVersions bool
 	// SkipFreeVersion skips adding a free version when a tiered version is
-	// being 'replaced'
-	// Note: Used only when a tiered object is being expired.
+	// being replaced. Used when expiring tiered content or retiring a copy
+	// whose tier reference is still owned by another copy.
 	SkipFreeVersion bool
 
 	MetadataChg           bool                  // is true if it is a metadata update operation.

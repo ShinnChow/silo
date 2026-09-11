@@ -28,6 +28,12 @@ Cleanup failures propagate; a replacement may already have committed when
 cleanup fails, and a retry can finish cleanup. Data movement keeps ownership of
 its source cleanup.
 
+Retiring copies preserves any remote-tier reference still held by a surviving
+copy, including temporarily restored objects. Only the last copy of that tier
+reference schedules remote contents for garbage collection. This also protects
+the authoritative copy if the final conditional deletion fails; unrelated tier
+contents remain eligible for cleanup.
+
 Conditional DELETE evaluates its precondition against the logical latest or
 explicitly addressed version. It checks all pools before mutation, removes
 secondary copies before the authoritative one, and returns cleanup errors.
@@ -40,17 +46,24 @@ The deterministic two-pool, 32-drive fixtures cover version selection,
 duplicate removal, delete failure propagation, PUT/DELETE and completion/DELETE
 interleavings, independent lock winners, draining/rebalancing owners, null
 versions, metadata COPY, metadata/healing serialization and cleanup retry.
+Tiered-copy tests inspect the persisted garbage-collection markers after
+metadata COPY, restored COPY, successful deletion and failed primary deletion,
+with distinct remote references as cleanup controls.
 The original branch reproduced the wrong-version lookup, surviving duplicate,
 suppressed delete error, PUT/DELETE race, and PUT/completion lock-state failures
 before the fixes were applied.
 
-Validation completed locally: the full `cmd` suite (255.720 s), all `internal`
-tests, `go vet ./...`, generated-file checks and the branding/entrypoint checks.
+Before the final tier-reference guard, local validation passed the full `cmd`
+suite (255.720 s), all `internal` tests, `go vet ./...`, generated-file checks
+and the branding/entrypoint checks.
 Focused race checks cover the pooled interleavings, SSE-C lock regressions,
 conditional deletion, access-tier movement and TLS defaults. The two-pool and
 related replica/delete/movement tests also passed as a Linux/arm64 test binary
 in an isolated container with an 8 GiB `/tmp` tmpfs. Its initial 1 GiB tmpfs
 was insufficient for the existing single-drive test fixtures' free-space guard.
+The final tier-reference guard passed all six new cases in that Linux fixture;
+the retained restart binary below predates this guard and has no remote tier
+configured.
 
 ## Linux restart/readback (#116)
 

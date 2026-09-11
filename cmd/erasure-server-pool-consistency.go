@@ -25,6 +25,7 @@ import (
 	"time"
 
 	madmin "github.com/minio/madmin-go/v3"
+	"github.com/minio/minio/internal/bucket/lifecycle"
 	xhttp "github.com/minio/minio/internal/http"
 )
 
@@ -232,6 +233,22 @@ func reconcileStoredObjectTags(metadata, stored map[string]string) {
 	}
 }
 
+// A restored version still owns its tier reference even while IsRemote is
+// false. Only the last copy of a reference may schedule its contents for GC.
+func sharesTierObject(oi ObjectInfo, copies []PoolObjInfo) bool {
+	ref := oi.TransitionedObject
+	if ref.Status != lifecycle.TransitionComplete {
+		return false
+	}
+	for _, copy := range copies {
+		other := copy.ObjInfo.TransitionedObject
+		if other.Status == lifecycle.TransitionComplete && ref.Tier == other.Tier && ref.Name == other.Name && ref.VersionID == other.VersionID {
+			return true
+		}
+	}
+	return false
+}
+
 // retireReplicaCopies runs only after committing a replacement. Failures are
 // returned to the caller, so a stale copy cannot be hidden behind a successful
 // response. Data movement owns its source cleanup and does not use this helper.
@@ -244,12 +261,25 @@ func (z *erasureServerPools) retireReplicaCopies(ctx context.Context, bucket, ob
 	if err != nil {
 		return err
 	}
+	var retained []PoolObjInfo
 	for _, copy := range copies {
+		if copy.Index == keep {
+			retained = []PoolObjInfo{copy}
+			break
+		}
+	}
+	if len(retained) == 0 {
+		return VersionNotFound{Bucket: bucket, Object: decodeDirObject(object), VersionID: versionID}
+	}
+	for i, copy := range copies {
 		if copy.Index == keep {
 			continue
 		}
 		_, err := z.serverPools[copy.Index].DeleteObject(ctx, bucket, object,
-			ObjectOptions{VersionID: versionID, NoLock: true, NoAuditLog: true})
+			ObjectOptions{
+				VersionID: versionID, NoLock: true, NoAuditLog: true,
+				SkipFreeVersion: sharesTierObject(copy.ObjInfo, retained) || sharesTierObject(copy.ObjInfo, copies[i+1:]),
+			})
 		if err != nil && !isErrObjectNotFound(err) && !isErrVersionNotFound(err) {
 			return err
 		}
@@ -304,8 +334,11 @@ func (z *erasureServerPools) deleteObjectConditional(ctx context.Context, bucket
 	// Retire non-authoritative copies first. If cleanup fails, retain the
 	// authoritative version and report the error instead of acknowledging a
 	// deletion that would expose an older copy.
-	for _, copy := range copies[1:] {
-		_, err := z.serverPools[copy.Index].DeleteObject(ctx, bucket, object, opts)
+	for i := 1; i < len(copies); i++ {
+		candidate := copies[i]
+		deleteOpts := opts
+		deleteOpts.SkipFreeVersion = opts.SkipFreeVersion || sharesTierObject(candidate.ObjInfo, copies[:1]) || sharesTierObject(candidate.ObjInfo, copies[i+1:])
+		_, err := z.serverPools[candidate.Index].DeleteObject(ctx, bucket, object, deleteOpts)
 		if err != nil && !isErrObjectNotFound(err) && !isErrVersionNotFound(err) {
 			return ObjectInfo{}, err
 		}
