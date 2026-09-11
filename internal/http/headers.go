@@ -132,11 +132,6 @@ const (
 	AmzMaxParts             = "X-Amz-Max-Parts"
 	AmzPartNumberMarker     = "X-Amz-Part-Number-Marker"
 
-	// AmzSignatureAge is an internal scratch header the presigned verifier
-	// writes after validating the signature so that bucket-policy evaluation can
-	// expose s3:signatureAge. It is never sent or signed by a client.
-	AmzSignatureAge = "X-Amz-Signature-Age"
-
 	// Constants used for GetObjectAttributes and GetObjectVersionAttributes
 	AmzObjectAttributes = "X-Amz-Object-Attributes"
 

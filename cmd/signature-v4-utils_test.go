@@ -469,15 +469,16 @@ func TestCheckUnsignedHeaders(t *testing.T) {
 		t.Fatalf("unsigned x-amz-content-sha256 must be exempt: expected %d, got %d", ErrNone, errCode)
 	}
 
-	// X-Amz-Signature-Age is the presigned verifier's own scratch header,
-	// written after this check. Exempting it keeps verification idempotent when
-	// the same request object is verified more than once.
+	// X-Amz-Signature-Age was once a scratch header the presigned verifier wrote
+	// back and this check exempted. s3:signatureAge is now derived from the
+	// signed date, so a client that sends the header is sending an ordinary
+	// unsigned x-amz-* header and must be rejected like any other.
 	r, err = http.NewRequest(http.MethodPut, "http://play.min.io:9000", nil)
 	if err != nil {
 		t.Fatal("Unable to create http.Request :", err)
 	}
-	r.Header.Set(xhttp.AmzSignatureAge, "1234")
-	if errCode = checkUnsignedHeaders(signedHeadersMap, r); errCode != ErrNone {
-		t.Fatalf("internal x-amz-signature-age must be exempt: expected %d, got %d", ErrNone, errCode)
+	r.Header.Set("X-Amz-Signature-Age", "1234")
+	if errCode = checkUnsignedHeaders(signedHeadersMap, r); errCode != ErrUnsignedHeaders {
+		t.Fatalf("unsigned x-amz-signature-age must be rejected: expected %d, got %d", ErrUnsignedHeaders, errCode)
 	}
 }

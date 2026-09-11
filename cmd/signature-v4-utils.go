@@ -211,7 +211,16 @@ func extractSignedHeaders(signedHeaders []string, r *http.Request) (http.Header,
 		// `host` will not be found in the headers, can be found in r.Host.
 		// but its always necessary that the list of signed headers containing host in it.
 		val, ok := reqHeaders[http.CanonicalHeaderKey(header)]
-		if !ok {
+		if ok {
+			// Canonicalization comma-joins repeated header fields, so a signature
+			// over the single value "/src/a,tail" also verifies a request carrying
+			// ["/src/a", "tail"]. The copy handlers read only Header.Get, so that
+			// rewrite would copy a different source than the one signed. Reject a
+			// repeated x-amz-copy-source; a single value may still contain commas.
+			if len(val) > 1 && strings.EqualFold(header, strings.ToLower(xhttp.AmzCopySource)) {
+				return nil, ErrInvalidCopySource
+			}
+		} else {
 			// try to set headers from Query String
 			val, ok = reqQueries[header]
 		}
@@ -274,9 +283,8 @@ func signV4TrimAll(input string) string {
 // object the signing key can reach.
 //
 // Only headers actually sent by the client are inspected. Server-synthesized
-// x-amz-* headers (e.g. x-amz-tagging derived from a request body, or the
-// post-verification x-amz-signature-age scratch header) are set after signature
-// verification and therefore never reach this walk.
+// x-amz-* headers (e.g. x-amz-tagging derived from a request body) are set
+// after signature verification and therefore never reach this walk.
 func checkUnsignedHeaders(signedHeadersMap http.Header, r *http.Request) APIErrorCode {
 	// check headers that arrived on the request
 	for k := range r.Header {
@@ -292,14 +300,6 @@ func checkUnsignedHeaders(signedHeadersMap http.Header, r *http.Request) APIErro
 		// clients send it as an unsigned header, so exempt it to preserve
 		// compatibility without weakening the operation-header protection.
 		if strings.EqualFold(k, xhttp.AmzContentSha256) {
-			continue
-		}
-		// X-Amz-Signature-Age is an internal scratch header written by the
-		// presigned verifier itself, after this check, purely so bucket-policy
-		// evaluation can expose s3:signatureAge. It is never sent or signed by a
-		// client, and exempting it keeps signature verification idempotent when
-		// the same request is verified more than once.
-		if strings.EqualFold(k, xhttp.AmzSignatureAge) {
 			continue
 		}
 		// The header must be a member of the signed-headers list. Testing
