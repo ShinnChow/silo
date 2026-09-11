@@ -1832,6 +1832,7 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		applyReplicatedObjectLock(srcInfo.UserDefined, storedLock, replicaTrusted,
 			retentionMode, retentionDate, legalHold,
 			dstOpts.ReplicationSourceRetentionTimestamp, dstOpts.ReplicationSourceLegalholdTimestamp)
+		dstOpts.ReplicaLockReconcile = replicaTrusted && dstOpts.VersionID != ""
 
 		if replicaTrusted {
 			// An SSE-C key rotation snapshots every stored reserved key into
@@ -2414,10 +2415,8 @@ func (api objectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		// The decision above orders against the version as read here; let the
 		// object layer re-run it against the version read under the write lock
 		// that guards the replacement, so a newer hold or retention committed in
-		// between is not rolled back (issue #120). Scoped to the SSE-C replica
-		// retransmit this issue enables, keyed on the incoming write's restored
-		// SSE-C seal, the same predicate as the duplicate-version exemption.
-		opts.ReplicaLockReconcile = isReplicaTrusted(ctx) && opts.VersionID != "" && crypto.SSEC.IsEncrypted(metadata)
+		// between is not rolled back, across all pools and encryption modes.
+		opts.ReplicaLockReconcile = isReplicaTrusted(ctx) && opts.VersionID != ""
 	}
 	if s3Err != ErrNone {
 		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(s3Err), r.URL)
