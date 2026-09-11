@@ -1155,17 +1155,10 @@ func (er erasureObjects) CompleteMultipartUpload(ctx context.Context, bucket str
 		return oi, toObjectErr(err, bucket, object, uploadID)
 	}
 
-	// A trusted SSE-C replica completion re-orders the Object Lock carried in the
-	// upload metadata against the version it is about to replace, read on this
-	// erasure set under the write lock held above, so a hold or retention that
-	// reached the version after this upload was initiated is not rolled back at
-	// completion (issue #120). Scoped to SSE-C uploads, the only ones this issue
-	// routes through completion.
-	//
-	// Scope: correct for a single erasure set. A multi-pool deployment (duplicate
-	// versions across pools, ModTime ties, cross-pool lock authority) is out of
-	// scope and tracked in pgsty/silo#133.
-	if opts.ReplicaLockReconcile && crypto.SSEC.IsEncrypted(fi.Metadata) {
+	// Reconcile against the upload's persisted version, under the object lock.
+	// Multi-pool callers supply a resolver spanning all pools, including those
+	// draining their contents; the upload itself stays in its original pool.
+	if opts.ReplicaLockReconcile {
 		// A persisted upload records the null version as an empty VersionID; look
 		// it up as the null version so the reconcile reads the addressed version's
 		// stored lock, not the latest version's.
@@ -1173,7 +1166,11 @@ func (er erasureObjects) CompleteMultipartUpload(ctx context.Context, bucket str
 		if lookupVersionID == "" {
 			lookupVersionID = nullVersionID
 		}
-		curr, gerr := er.getObjectInfo(ctx, bucket, object, ObjectOptions{
+		getObjectInfo := er.getObjectInfo
+		if opts.replicaObjectInfo != nil {
+			getObjectInfo = opts.replicaObjectInfo
+		}
+		curr, gerr := getObjectInfo(ctx, bucket, object, ObjectOptions{
 			VersionID:        lookupVersionID,
 			Versioned:        opts.Versioned,
 			VersionSuspended: opts.VersionSuspended,
@@ -1182,6 +1179,7 @@ func (er erasureObjects) CompleteMultipartUpload(ctx context.Context, bucket str
 		switch {
 		case gerr == nil:
 			reconcileStoredObjectLock(fi.Metadata, storedObjectLockState(curr.UserDefined))
+			reconcileStoredObjectTags(fi.Metadata, curr.UserDefined)
 		case isErrVersionNotFound(gerr) || isErrObjectNotFound(gerr):
 			// No existing version to order against: keep the upload's own accepted
 			// lock, including a pre-upgrade upload that persisted values without

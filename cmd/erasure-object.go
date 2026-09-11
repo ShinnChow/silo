@@ -133,6 +133,11 @@ func (er erasureObjects) CopyObject(ctx context.Context, srcBucket, srcObject, d
 		return fi.ToObjectInfo(srcBucket, srcObject, srcOpts.Versioned || srcOpts.VersionSuspended), toObjectErr(errMethodNotAllowed, srcBucket, srcObject)
 	}
 
+	if dstOpts.ReplicaLockReconcile {
+		reconcileStoredObjectLock(srcInfo.UserDefined, storedObjectLockState(fi.Metadata))
+		reconcileStoredObjectTags(srcInfo.UserDefined, fi.Metadata)
+	}
+
 	filterOnlineDisksInplace(fi, metaArr, onlineDisks)
 
 	versionID := srcInfo.VersionID
@@ -1280,7 +1285,11 @@ func (er erasureObjects) putObject(ctx context.Context, bucket string, object st
 			opts.NoLock = true
 		}
 
-		obj, err := er.getObjectInfo(ctx, bucket, object, opts)
+		getObjectInfo := er.getObjectInfo
+		if opts.replicaObjectInfo != nil {
+			getObjectInfo = opts.replicaObjectInfo
+		}
+		obj, err := getObjectInfo(ctx, bucket, object, opts)
 		// A destination read that fails for a reason other than not-found must not
 		// be taken as a passed precondition or as absent lock state.
 		if err != nil && !isErrVersionNotFound(err) && !isErrObjectNotFound(err) {
@@ -1297,17 +1306,12 @@ func (er erasureObjects) putObject(ctx context.Context, bucket string, object st
 			}
 		}
 
-		// Order this trusted SSE-C replica's Object Lock against the addressed
-		// version's stored state, read on this erasure set under the write lock,
-		// so a value that lost the ordering cannot overwrite a newer one committed
-		// after the handler decided (issue #120). Only reconcile against an
-		// existing version; on not-found the write's own accepted lock is kept.
-		//
-		// Scope: correct for a single erasure set. A multi-pool deployment
-		// (duplicate versions across pools, ModTime ties, cross-pool lock
-		// authority) is out of scope and tracked in pgsty/silo#133.
+		// Re-read under the write lock, using the pools-layer resolver when
+		// present. A missing version keeps the incoming accepted state; an
+		// existing version contributes independently ordered lock and tags.
 		if opts.ReplicaLockReconcile && err == nil {
 			reconcileStoredObjectLock(opts.UserDefined, storedObjectLockState(obj.UserDefined))
+			reconcileStoredObjectTags(opts.UserDefined, obj.UserDefined)
 		}
 	}
 

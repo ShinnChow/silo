@@ -99,9 +99,12 @@ type ObjectOptions struct {
 	ReplicationSourceTaggingTimestamp   time.Time // set if MinIOSourceTaggingTimestamp received
 	ReplicationSourceLegalholdTimestamp time.Time // set if MinIOSourceObjectLegalholdTimestamp received
 	ReplicationSourceRetentionTimestamp time.Time // set if MinIOSourceObjectRetentionTimestamp received
-	ReplicaLockReconcile                bool      // set for a trusted SSE-C replica full write/completion: re-order Object Lock against the destination version read under the write lock (single erasure set; see pgsty/silo#133)
+	ReplicaLockReconcile                bool      // re-order a trusted replica write against the destination version under the object write lock
 	DeletePrefix                        bool      // set true to enforce a prefix deletion, only application for DeleteObject API,
 	DeletePrefixObject                  bool      // set true when object's erasure set is resolvable by object name (using getHashedSetIndex)
+
+	// Pools-layer version resolver; the caller holds the shared object lock.
+	replicaObjectInfo GetObjectInfoFn
 
 	Speedtest bool // object call specifically meant for SpeedTest code, set to 'true' when invoked by SpeedtestHandler.
 
