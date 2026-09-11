@@ -1,0 +1,534 @@
+{
+  "date": "2026-09-11",
+  "runs": [
+    {
+      "runid": "silo-v1-0806-9c53f14c",
+      "version": "0806",
+      "image": "sha256:29a498b24669cae1fed11c1a2fb2b3d73c68829a0a9c0b14e71b386671d38fac",
+      "nodes": 4,
+      "drives": 4,
+      "filesystem": "Linux tmpfs named volumes, held mounted across server restarts",
+      "drive_bytes": 268435456,
+      "status": "PASS",
+      "phases": [
+        {
+          "phase": "startup-admin",
+          "seconds_from_start": 4.157,
+          "first_online_by_coordinator": [
+            4.037,
+            4.078,
+            4.118,
+            3.737
+          ]
+        },
+        {
+          "phase": "startup-canary",
+          "attempts": 1,
+          "puts": 4,
+          "gets": 16,
+          "hard_deadline_seconds": 60,
+          "gate_seconds": 0.239,
+          "seconds_from_start": 4.396,
+          "first_put_seconds_after_admin_by_coordinator": [
+            0.096,
+            0.116,
+            0.127,
+            0.138
+          ],
+          "first_four_reads_seconds_after_admin_by_coordinator": [
+            0.162,
+            0.194,
+            0.217,
+            0.239
+          ],
+          "transient_error_count": 0,
+          "first_transient_errors": []
+        },
+        {
+          "phase": "full-restart-admin",
+          "seconds_from_start": 2.084,
+          "first_online_by_coordinator": [
+            1.937,
+            1.976,
+            2.016,
+            1.643
+          ]
+        },
+        {
+          "phase": "full-restart-canary",
+          "attempts": 45,
+          "puts": 4,
+          "gets": 16,
+          "hard_deadline_seconds": 60,
+          "gate_seconds": 14.449,
+          "seconds_from_start": 16.534,
+          "first_put_seconds_after_admin_by_coordinator": [
+            14.315,
+            13.573,
+            13.953,
+            0.05
+          ],
+          "first_four_reads_seconds_after_admin_by_coordinator": [
+            14.373,
+            14.396,
+            14.426,
+            14.449
+          ],
+          "transient_error_count": 129,
+          "first_transient_errors": [
+            {
+              "attempt": 1,
+              "operation": "put",
+              "node": 0,
+              "error": "An error occurred (SlowDownWrite) when calling the PutObject operation (reached max retries: 0): Resource requested is unwritable, please reduce your request rate"
+            },
+            {
+              "attempt": 1,
+              "operation": "put",
+              "node": 1,
+              "error": "An error occurred (SlowDownWrite) when calling the PutObject operation (reached max retries: 0): Resource requested is unwritable, please reduce your request rate"
+            },
+            {
+              "attempt": 1,
+              "operation": "put",
+              "node": 2,
+              "error": "An error occurred (SlowDownWrite) when calling the PutObject operation (reached max retries: 0): Resource requested is unwritable, please reduce your request rate"
+            },
+            {
+              "attempt": 2,
+              "operation": "put",
+              "node": 0,
+              "error": "An error occurred (SlowDownWrite) when calling the PutObject operation (reached max retries: 0): Resource requested is unwritable, please reduce your request rate"
+            }
+          ]
+        },
+        {
+          "phase": "readback-15s",
+          "seconds_after_canary": 17.596,
+          "objects": 55,
+          "reads": 220,
+          "errors": []
+        },
+        {
+          "phase": "readback-30s",
+          "seconds_after_canary": 31.357,
+          "objects": 55,
+          "reads": 220,
+          "errors": []
+        },
+        {
+          "phase": "readback-60s",
+          "seconds_after_canary": 61.566,
+          "objects": 55,
+          "reads": 220,
+          "errors": []
+        },
+        {
+          "phase": "one-node-outage",
+          "existing_read": true,
+          "put": true,
+          "readers": 3
+        },
+        {
+          "phase": "rejoin-admin",
+          "seconds_from_start": 1.382,
+          "first_online_by_coordinator": [
+            1.27,
+            1.307,
+            1.343,
+            1.382
+          ]
+        },
+        {
+          "phase": "rejoin-canary",
+          "attempts": 1,
+          "puts": 4,
+          "gets": 16,
+          "hard_deadline_seconds": 60,
+          "gate_seconds": 0.158,
+          "seconds_from_start": 1.541,
+          "first_put_seconds_after_admin_by_coordinator": [
+            0.013,
+            0.029,
+            0.039,
+            0.05
+          ],
+          "first_four_reads_seconds_after_admin_by_coordinator": [
+            0.077,
+            0.102,
+            0.132,
+            0.158
+          ],
+          "transient_error_count": 0,
+          "first_transient_errors": []
+        },
+        {
+          "phase": "final-readback",
+          "seconds_after_canary": 1.71,
+          "objects": 60,
+          "reads": 240,
+          "errors": []
+        }
+      ],
+      "acknowledged_objects": 60,
+      "version_ids_recorded": true,
+      "sha256_recorded": true
+    },
+    {
+      "runid": "silo-v1-0903-a457573c",
+      "version": "0903",
+      "image": "sha256:b616a0cf8cb281e7e6bb3c9b1fb53875b4016a2878223925541c18f82d6c5ca3",
+      "nodes": 4,
+      "drives": 4,
+      "filesystem": "Linux tmpfs named volumes, held mounted across server restarts",
+      "drive_bytes": 268435456,
+      "status": "PASS",
+      "phases": [
+        {
+          "phase": "startup-admin",
+          "seconds_from_start": 4.271,
+          "first_online_by_coordinator": [
+            4.158,
+            4.194,
+            3.827,
+            3.867
+          ]
+        },
+        {
+          "phase": "startup-canary",
+          "attempts": 1,
+          "puts": 4,
+          "gets": 16,
+          "hard_deadline_seconds": 60,
+          "gate_seconds": 0.2,
+          "seconds_from_start": 4.471,
+          "first_put_seconds_after_admin_by_coordinator": [
+            0.054,
+            0.068,
+            0.081,
+            0.092
+          ],
+          "first_four_reads_seconds_after_admin_by_coordinator": [
+            0.118,
+            0.146,
+            0.167,
+            0.2
+          ],
+          "transient_error_count": 0,
+          "first_transient_errors": []
+        },
+        {
+          "phase": "full-restart-admin",
+          "seconds_from_start": 2.284,
+          "first_online_by_coordinator": [
+            2.143,
+            2.193,
+            0.849,
+            0.902
+          ]
+        },
+        {
+          "phase": "full-restart-canary",
+          "attempts": 1,
+          "puts": 4,
+          "gets": 16,
+          "hard_deadline_seconds": 60,
+          "gate_seconds": 0.191,
+          "seconds_from_start": 2.476,
+          "first_put_seconds_after_admin_by_coordinator": [
+            0.016,
+            0.029,
+            0.044,
+            0.057
+          ],
+          "first_four_reads_seconds_after_admin_by_coordinator": [
+            0.093,
+            0.124,
+            0.158,
+            0.192
+          ],
+          "transient_error_count": 0,
+          "first_transient_errors": []
+        },
+        {
+          "phase": "readback-15s",
+          "seconds_after_canary": 15.235,
+          "objects": 8,
+          "reads": 32,
+          "errors": []
+        },
+        {
+          "phase": "readback-30s",
+          "seconds_after_canary": 30.356,
+          "objects": 8,
+          "reads": 32,
+          "errors": []
+        },
+        {
+          "phase": "readback-60s",
+          "seconds_after_canary": 60.192,
+          "objects": 8,
+          "reads": 32,
+          "errors": []
+        },
+        {
+          "phase": "one-node-outage",
+          "existing_read": true,
+          "put": true,
+          "readers": 3
+        },
+        {
+          "phase": "rejoin-admin",
+          "seconds_from_start": 0.903,
+          "first_online_by_coordinator": [
+            0.791,
+            0.829,
+            0.865,
+            0.903
+          ]
+        },
+        {
+          "phase": "rejoin-canary",
+          "attempts": 1,
+          "puts": 4,
+          "gets": 16,
+          "hard_deadline_seconds": 60,
+          "gate_seconds": 0.141,
+          "seconds_from_start": 1.044,
+          "first_put_seconds_after_admin_by_coordinator": [
+            0.012,
+            0.022,
+            0.035,
+            0.045
+          ],
+          "first_four_reads_seconds_after_admin_by_coordinator": [
+            0.069,
+            0.096,
+            0.12,
+            0.141
+          ],
+          "transient_error_count": 0,
+          "first_transient_errors": []
+        },
+        {
+          "phase": "final-readback",
+          "seconds_after_canary": 0.301,
+          "objects": 13,
+          "reads": 52,
+          "errors": []
+        }
+      ],
+      "acknowledged_objects": 13,
+      "version_ids_recorded": true,
+      "sha256_recorded": true
+    },
+    {
+      "runid": "silo-v1-current-6a14eb18",
+      "version": "current",
+      "image": "pgsty/d12a:build",
+      "image_id": "sha256:307af7711e2e04ab75759cb42a1eef45c43c4404894c0e30dd19f742b107b922",
+      "platform": "linux/arm64",
+      "nodes": 4,
+      "drives": 4,
+      "filesystem": "Linux tmpfs named volumes, held mounted across server restarts",
+      "drive_bytes": 268435456,
+      "status": "PASS",
+      "binary_sha256": "1e4cd7b78ecfa1b0cf28f1961d48a220a712c6be1fd3a01b60ee99aec62f04a4",
+      "source_revision": "b32f2d9dd01a383a9991d34ffe248063463a031d+pool-consistency",
+      "phases": [
+        {
+          "phase": "startup-admin",
+          "seconds_from_start": 7.374,
+          "first_online_by_coordinator": [
+            7.207,
+            6.677,
+            6.74,
+            6.8
+          ]
+        },
+        {
+          "phase": "startup-canary",
+          "attempts": 1,
+          "puts": 4,
+          "gets": 16,
+          "hard_deadline_seconds": 60,
+          "gate_seconds": 0.479,
+          "seconds_from_start": 7.854,
+          "first_put_seconds_after_admin_by_coordinator": [
+            0.266,
+            0.279,
+            0.292,
+            0.305
+          ],
+          "first_four_reads_seconds_after_admin_by_coordinator": [
+            0.336,
+            0.378,
+            0.431,
+            0.479
+          ],
+          "transient_error_count": 0,
+          "first_transient_errors": []
+        },
+        {
+          "phase": "full-restart-admin",
+          "seconds_from_start": 2.461,
+          "first_online_by_coordinator": [
+            2.264,
+            1.414,
+            2.396,
+            2.461
+          ]
+        },
+        {
+          "phase": "full-restart-canary",
+          "attempts": 36,
+          "puts": 4,
+          "gets": 16,
+          "hard_deadline_seconds": 60,
+          "gate_seconds": 14.489,
+          "seconds_from_start": 16.951,
+          "first_put_seconds_after_admin_by_coordinator": [
+            0.013,
+            0.025,
+            14.301,
+            0.046
+          ],
+          "first_four_reads_seconds_after_admin_by_coordinator": [
+            14.358,
+            14.394,
+            14.435,
+            14.489
+          ],
+          "transient_error_count": 104,
+          "first_transient_errors": [
+            {
+              "attempt": 1,
+              "operation": "put",
+              "node": 2,
+              "error": "An error occurred (SlowDownWrite) when calling the PutObject operation (reached max retries: 0): Resource requested is unwritable, please reduce your request rate"
+            },
+            {
+              "attempt": 1,
+              "operation": "get",
+              "node": 2,
+              "key": "full-restart-attempt-1-node-0",
+              "error": "An error occurred (SlowDownRead) when calling the GetObject operation (reached max retries: 0): Resource requested is unreadable, please reduce your request rate"
+            },
+            {
+              "attempt": 1,
+              "operation": "get",
+              "node": 2,
+              "key": "full-restart-attempt-1-node-3",
+              "error": "An error occurred (SlowDownRead) when calling the GetObject operation (reached max retries: 0): Resource requested is unreadable, please reduce your request rate"
+            },
+            {
+              "attempt": 2,
+              "operation": "put",
+              "node": 2,
+              "error": "An error occurred (SlowDownWrite) when calling the PutObject operation (reached max retries: 0): Resource requested is unwritable, please reduce your request rate"
+            }
+          ]
+        },
+        {
+          "phase": "readback-15s",
+          "started_seconds_after_canary": 15.0,
+          "seconds_after_canary": 22.006,
+          "objects": 113,
+          "reads": 452,
+          "errors": []
+        },
+        {
+          "phase": "readback-30s",
+          "started_seconds_after_canary": 30.003,
+          "seconds_after_canary": 36.571,
+          "objects": 113,
+          "reads": 452,
+          "errors": []
+        },
+        {
+          "phase": "readback-60s",
+          "started_seconds_after_canary": 60.0,
+          "seconds_after_canary": 65.743,
+          "objects": 113,
+          "reads": 452,
+          "errors": []
+        },
+        {
+          "phase": "one-node-outage",
+          "existing_read": true,
+          "put": true,
+          "readers": 3
+        },
+        {
+          "phase": "rejoin-admin",
+          "seconds_from_start": 2.49,
+          "first_online_by_coordinator": [
+            1.165,
+            2.417,
+            1.646,
+            2.087
+          ]
+        },
+        {
+          "phase": "rejoin-canary",
+          "attempts": 37,
+          "puts": 4,
+          "gets": 16,
+          "hard_deadline_seconds": 60,
+          "gate_seconds": 13.977,
+          "seconds_from_start": 16.468,
+          "first_put_seconds_after_admin_by_coordinator": [
+            0.013,
+            0.024,
+            0.035,
+            13.889
+          ],
+          "first_four_reads_seconds_after_admin_by_coordinator": [
+            13.909,
+            13.927,
+            13.953,
+            13.977
+          ],
+          "transient_error_count": 36,
+          "first_transient_errors": [
+            {
+              "attempt": 1,
+              "operation": "put",
+              "node": 3,
+              "error": "An error occurred (SlowDownWrite) when calling the PutObject operation (reached max retries: 0): Resource requested is unwritable, please reduce your request rate"
+            },
+            {
+              "attempt": 2,
+              "operation": "put",
+              "node": 3,
+              "error": "An error occurred (SlowDownWrite) when calling the PutObject operation (reached max retries: 0): Resource requested is unwritable, please reduce your request rate"
+            },
+            {
+              "attempt": 3,
+              "operation": "put",
+              "node": 3,
+              "error": "An error occurred (SlowDownWrite) when calling the PutObject operation (reached max retries: 0): Resource requested is unwritable, please reduce your request rate"
+            },
+            {
+              "attempt": 4,
+              "operation": "put",
+              "node": 3,
+              "error": "An error occurred (SlowDownWrite) when calling the PutObject operation (reached max retries: 0): Resource requested is unwritable, please reduce your request rate"
+            }
+          ]
+        },
+        {
+          "phase": "final-readback",
+          "started_seconds_after_canary": 0.0,
+          "seconds_after_canary": 6.507,
+          "objects": 226,
+          "reads": 904,
+          "errors": []
+        }
+      ],
+      "acknowledged_objects": 226,
+      "version_ids_recorded": true,
+      "sha256_recorded": true
+    }
+  ]
+}
