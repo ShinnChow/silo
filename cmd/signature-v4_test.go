@@ -25,8 +25,6 @@ import (
 	"os"
 	"testing"
 	"time"
-
-	xhttp "github.com/minio/minio/internal/http"
 )
 
 func niceError(code APIErrorCode) string {
@@ -317,11 +315,11 @@ func TestDoesPresignedSignatureMatch(t *testing.T) {
 }
 
 // TestPresignedVerifyIdempotent guards against a regression where verifying the
-// same presigned request twice began to fail. doesPresignedSignatureMatch
-// writes an internal x-amz-signature-age header after validating the signature;
-// the unsigned-header check must exempt that scratch header (and an unsigned
-// x-amz-content-sha256 the client may carry) so a second verification of the
-// same *http.Request still succeeds.
+// same presigned request twice began to fail. The verifier must not write
+// anything back to the request (it once recorded an internal
+// x-amz-signature-age header that the unsigned-header check then had to
+// exempt), and an unsigned x-amz-content-sha256 the client may carry stays
+// exempt, so a second verification of the same *http.Request still succeeds.
 func TestPresignedVerifyIdempotent(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
@@ -350,7 +348,9 @@ func TestPresignedVerifyIdempotent(t *testing.T) {
 		t.Fatalf("first verification: expected ErrNone, got %s", niceError(got))
 	}
 	if got := reqSignatureV4Verify(req, globalSite.Region(), serviceS3); got != ErrNone {
-		t.Fatalf("second verification of the same request: expected ErrNone, got %s (x-amz-signature-age=%q)",
-			niceError(got), req.Header.Get(xhttp.AmzSignatureAge))
+		t.Fatalf("second verification of the same request: expected ErrNone, got %s", niceError(got))
+	}
+	if _, ok := req.Header["X-Amz-Signature-Age"]; ok {
+		t.Fatal("the verifier wrote a scratch header back to the request")
 	}
 }

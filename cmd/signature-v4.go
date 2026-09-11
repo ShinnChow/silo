@@ -336,8 +336,6 @@ func doesPresignedSignatureMatch(hashedPayload string, r *http.Request, region s
 		return ErrSignatureDoesNotMatch
 	}
 
-	r.Header.Set(xhttp.AmzSignatureAge, strconv.FormatInt(UTCNow().Sub(pSignValues.Date).Milliseconds(), 10))
-
 	return ErrNone
 }
 

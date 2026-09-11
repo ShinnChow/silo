@@ -334,11 +334,10 @@ func checkPutObjectLockAllowed(ctx context.Context, rq *http.Request, bucket, ob
 			return mode, retainDate, legalHold, ErrObjectLocked
 		}
 
-		if !legalHoldRequested && retentionCfg.LockEnabled {
-			// inherit retention from bucket configuration
-			return retentionCfg.Mode, objectlock.RetentionDate{Time: t.Add(retentionCfg.Validity)}, legalHold, ErrNone
-		}
-		return "", objectlock.RetentionDate{}, legalHold, ErrNone
+		// Inherit retention from the bucket configuration. A legal-hold header
+		// on the same request, ON or OFF, is independent of retention and must
+		// not suppress the default (#165).
+		return retentionCfg.Mode, objectlock.RetentionDate{Time: t.Add(retentionCfg.Validity)}, legalHold, ErrNone
 	}
 	return mode, retainDate, legalHold, ErrNone
 }
