@@ -4,9 +4,9 @@ go 1.27.1
 
 // Console and MC retain their historical module paths for best-effort upstream
 // compatibility. Pin the maintained PGSTY implementations used by SILO.
-replace github.com/minio/console => github.com/pgsty/silo-console v0.0.0-20260908142700-c103d08ec36a
+replace github.com/minio/console => github.com/pgsty/silo-console v0.0.0-20260910093545-6a0b31b5ade2
 
-replace github.com/minio/mc => github.com/pgsty/mc v0.0.0-20260909015522-fcd5cad8247f
+replace github.com/minio/mc => github.com/pgsty/mc v0.0.0-20260910093317-e6a60edf0952
 
 // v22.7.0 does not compile on NetBSD because its unix implementation uses
 // CLOCK_MONOTONIC, which is unavailable there. Keep the last portable release
@@ -68,7 +68,7 @@ require (
 	github.com/minio/kms-go/kes v0.3.1
 	github.com/minio/kms-go/kms v0.6.0
 	github.com/minio/madmin-go/v3 v3.0.110
-	github.com/minio/minio-go/v7 v7.3.1-0.20260828014306-0e78d3f18efe
+	github.com/minio/minio-go/v7 v7.3.1-0.20260909183557-78bfa91607c2
 	github.com/minio/mux v1.10.1
 	github.com/minio/selfupdate v0.6.0
 	github.com/minio/simdjson-go v0.4.5
@@ -81,7 +81,7 @@ require (
 	github.com/nats-io/stan.go v0.10.4
 	github.com/ncw/directio v1.0.5
 	github.com/nsqio/go-nsq v1.1.0
-	github.com/pgsty/silo-pkg/v3 v3.13.3
+	github.com/pgsty/silo-pkg/v3 v3.13.4-0.20260910091716-2d8fd3cbbf07
 	github.com/philhofer/fwd v1.2.0
 	github.com/pierrec/lz4/v4 v4.1.29
 	github.com/pkg/errors v0.9.1
