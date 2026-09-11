@@ -5,12 +5,14 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/xml"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/minio/minio/internal/amztime"
 	"github.com/minio/minio/internal/auth"
 	sse "github.com/minio/minio/internal/bucket/encryption"
 	"github.com/minio/minio/internal/event"
@@ -68,6 +70,13 @@ func TestAPIFederatedCopyObjectVersionAndEvent(t *testing.T) {
 						info, err := obj.GetObjectInfo(t.Context(), remoteBucket, destination, ObjectOptions{VersionID: versionID})
 						if err != nil || info.VersionID != versionID {
 							t.Fatalf("response does not name the written version: %v, %q", err, info.VersionID)
+						}
+						var response CopyObjectResponse
+						if err := xml.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+							t.Fatal(err)
+						}
+						if want := amztime.ISO8601Format(info.ModTime.UTC()); response.LastModified != want {
+							t.Errorf("copy time = %q, want written version time %q", response.LastModified, want)
 						}
 					}
 					select {

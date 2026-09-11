@@ -36,6 +36,44 @@ import (
 
 var etagRegex = regexp.MustCompile("\"*?([^\"]*?)\"*?$")
 
+// federatedLastModified carries the committed object/part time on the write
+// response. HTTP Date is a response time and Last-Modified loses subsecond
+// precision, so neither can supply CopyObject/UploadPartCopy's timestamp.
+const federatedLastModified = "X-Minio-Last-Modified"
+
+type federatedWriteTimeKey struct{}
+
+// withFederatedWriteTime allocates one result per SDK operation. SDK retries
+// run sequentially with this context; concurrent copies never share the result.
+func withFederatedWriteTime(ctx context.Context) (context.Context, *time.Time) {
+	modified := new(time.Time)
+	return context.WithValue(ctx, federatedWriteTimeKey{}, modified), modified
+}
+
+type federatedWriteTransport struct {
+	http.RoundTripper
+}
+
+func (t federatedWriteTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	resp, err := t.RoundTripper.RoundTrip(r)
+	if modified, ok := r.Context().Value(federatedWriteTimeKey{}).(*time.Time); ok && r.Method == http.MethodPut {
+		// Replace on every attempt, including a success from an older target
+		// without the header. Never retain a failed attempt's timestamp or fail
+		// a committed write just because its timestamp is unavailable.
+		*modified = time.Time{}
+		if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
+			*modified, _ = time.Parse(time.RFC3339Nano, resp.Header.Get(federatedLastModified))
+		}
+	}
+	return resp, err
+}
+
+func setFederatedWriteTime(w http.ResponseWriter, r *http.Request, modified time.Time) {
+	if isFederatedInternalRequest(r.UserAgent()) && !modified.IsZero() {
+		w.Header().Set(federatedLastModified, modified.UTC().Format(time.RFC3339Nano))
+	}
+}
+
 // Validates the preconditions for CopyObjectPart, returns true if CopyObjectPart
 // operation should not proceed. Preconditions supported are:
 //
