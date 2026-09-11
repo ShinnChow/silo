@@ -59,8 +59,8 @@ import (
 //
 // This is only a response-shape hint. User-Agent is not authenticated and must
 // never gate authorization, object visibility, or request validation. It is
-// safe here because the only effect is returning the checksum of the body the
-// caller was already authorized to upload.
+// safe here because the only effect is returning the checksum and modification
+// time of the body the caller was already authorized to upload.
 func isFederatedInternalRequest(userAgent string) bool {
 	for _, product := range strings.Fields(userAgent) {
 		name, version, ok := strings.Cut(product, "/")
@@ -572,7 +572,8 @@ func (api objectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 			SSE: dstOpts.ServerSideEncryption,
 		}
 
-		partInfo, err := core.PutObjectPart(ctx, dstBucket, dstObject, uploadID, partID, gr, length, popts)
+		writeCtx, modified := withFederatedWriteTime(ctx)
+		partInfo, err := core.PutObjectPart(writeCtx, dstBucket, dstObject, uploadID, partID, gr, length, popts)
 		if err != nil {
 			writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
 			return
@@ -580,7 +581,7 @@ func (api objectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 
 		response := generateCopyObjectPartResponse(PartInfo{
 			ETag:              partInfo.ETag,
-			LastModified:      partInfo.LastModified,
+			LastModified:      *modified,
 			ChecksumCRC32:     partInfo.ChecksumCRC32,
 			ChecksumCRC32C:    partInfo.ChecksumCRC32C,
 			ChecksumSHA1:      partInfo.ChecksumSHA1,
@@ -1082,6 +1083,7 @@ func (api objectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 		// checksum cannot be mixed with a concurrent overwrite.
 		hash.AddChecksumHeader(w, partChecksumMap(partInfo))
 	}
+	setFederatedWriteTime(w, r, partInfo.LastModified)
 
 	writeSuccessResponseHeadersOnly(w)
 }

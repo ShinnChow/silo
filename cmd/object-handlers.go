@@ -1205,12 +1205,20 @@ const federatedInternalAppName = "minio-federated"
 // Applicable only in a federated deployment
 var getRemoteInstanceClient = func(r *http.Request, host string) (*miniogo.Core, error) {
 	cred := getReqAccessCred(r, globalSite.Region())
+	transport := getRemoteInstanceTransport()
+	if transport == nil {
+		var err error
+		transport, err = miniogo.DefaultTransport(globalIsTLS)
+		if err != nil {
+			return nil, err
+		}
+	}
 	// In a federated deployment, all the instances share config files
 	// and hence expected to have same credentials.
 	core, err := miniogo.NewCore(host, &miniogo.Options{
 		Creds:     credentials.NewStaticV4(cred.AccessKey, cred.SecretKey, ""),
 		Secure:    globalIsTLS,
-		Transport: getRemoteInstanceTransport(),
+		Transport: federatedWriteTransport{transport},
 	})
 	if err != nil {
 		return nil, err
@@ -1489,6 +1497,12 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 	defer gr.Close()
 	srcInfo := gr.ObjInfo
+	// A trusted SSE-C replica reads raw ciphertext. Federation's ordinary PUT
+	// expects plaintext and does not forward the replica's sealed-key metadata.
+	if remoteCallRequired && replicaTrusted && crypto.SSEC.IsEncrypted(srcInfo.UserDefined) {
+		writeErrorResponse(ctx, w, toAPIError(ctx, NotImplemented{Message: "federated raw SSE-C replica CopyObject is not supported"}), r.URL)
+		return
+	}
 
 	// maximum Upload size for object in a single CopyObject operation.
 	if isMaxObjectSize(srcInfo.Size) {
@@ -2007,10 +2021,11 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		if checksumHeaderValue != "" {
 			opts.UserMetadata[wantChecksumType.Key()] = checksumHeaderValue
 		}
-		// srcInfo.Reader yields the logical bytes, so declare the logical size:
-		// srcInfo.Size is the stored size, which differs for an encrypted or
-		// compressed source.
-		remoteObjInfo, rerr := core.PutObject(ctx, dstBucket, dstObject, srcInfo.Reader,
+		// For an ordinary federated copy, actualSize is the logical plaintext
+		// length to declare. srcInfo.Size is not a reliable wire length because
+		// the read path may already have adjusted it.
+		writeCtx, modified := withFederatedWriteTime(ctx)
+		remoteObjInfo, rerr := core.PutObject(writeCtx, dstBucket, dstObject, srcInfo.Reader,
 			actualSize, "", "", opts)
 		if rerr != nil {
 			writeErrorResponse(ctx, w, toAPIError(ctx, rerr), r.URL)
@@ -2029,7 +2044,7 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		objInfo.Size = actualSize
 		objInfo.VersionID = remoteObjInfo.VersionID
 		objInfo.ETag = remoteObjInfo.ETag
-		objInfo.ModTime = remoteObjInfo.LastModified
+		objInfo.ModTime = *modified
 		// Bind the checksum the remote computed for this exact write. A single
 		// forwarded PutObject must yield a full-object digest, so reject a
 		// missing, malformed, or multipart-marked ("-N") value rather than
@@ -2531,6 +2546,7 @@ func (api objectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	setPutObjHeaders(w, objInfo, false, r.Header)
+	setFederatedWriteTime(w, r, objInfo.ModTime)
 
 	// Notify object created event.
 	evt := eventArgs{

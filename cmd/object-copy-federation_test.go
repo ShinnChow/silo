@@ -36,6 +36,7 @@ import (
 	miniogo "github.com/minio/minio-go/v7"
 	miniocredentials "github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/minio/minio-go/v7/pkg/set"
+	"github.com/minio/minio/internal/amztime"
 	"github.com/minio/minio/internal/auth"
 	"github.com/minio/minio/internal/config/dns"
 	"github.com/minio/minio/internal/crypto"
@@ -164,7 +165,7 @@ func setupCopyObjectFederationRemote(t *testing.T, objectAPI ObjectLayer, apiRou
 			core, err := miniogo.NewCore(host, &miniogo.Options{
 				Creds:     miniocredentials.NewStaticV4(cred.AccessKey, cred.SecretKey, ""),
 				Secure:    true,
-				Transport: transport,
+				Transport: federatedWriteTransport{transport},
 			})
 			if err != nil {
 				return nil, err
@@ -207,6 +208,50 @@ func federatedCopyRequest(t *testing.T, apiRouter http.Handler, credentials auth
 	rec := httptest.NewRecorder()
 	apiRouter.ServeHTTP(rec, req)
 	return rec
+}
+
+func TestAPIFederatedCopyObjectRejectsRawSSECReplica(t *testing.T) {
+	defer DetectTestLeak(t)()
+	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{
+		t:         t,
+		endpoints: []string{"CopyObject", "PutObject"},
+		objAPITest: func(obj ObjectLayer, instanceType, bucket string, router http.Handler, cred auth.Credentials, t *testing.T) {
+			remoteBucket, capture, cleanup := setupCopyObjectFederationRemote(t, obj, router, instanceType, bucket, true)
+			defer cleanup()
+			for _, body := range []string{"", "raw SSE-C replica"} {
+				for _, withKey := range []bool{false, true} {
+					t.Run("size="+strconv.Itoa(len(body))+"/key="+strconv.FormatBool(withKey), func(t *testing.T) {
+						putCopyChecksumSource(t, router, cred, bucket, "source", []byte(body), federationSSEHeaders("c", 0x11, false))
+						headers := map[string]string{
+							xhttp.MinIOSourceReplicationRequest: "true",
+							xhttp.AmzBucketReplicationStatus:    "REPLICA",
+						}
+						if withKey {
+							maps.Copy(headers, federationSSEHeaders("c", 0x11, true))
+						}
+						destination := "destination-" + strconv.Itoa(len(body)) + "-" + strconv.FormatBool(withKey)
+						rec := federatedCopyRequest(t, router, cred, bucket, "source", remoteBucket, destination, headers)
+						var response APIErrorResponse
+						if err := xml.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+							t.Fatal(err)
+						}
+						if rec.Code != http.StatusNotImplemented || response.Code != "NotImplemented" ||
+							!strings.Contains(response.Message, "federated raw SSE-C replica CopyObject") {
+							t.Errorf("copy = %d %s, want explicit 501 rejection", rec.Code, rec.Body.String())
+						}
+						if _, err := obj.GetObjectInfo(t.Context(), remoteBucket, destination, ObjectOptions{}); !isErrObjectNotFound(err) {
+							t.Errorf("rejected copy created a destination: %v", err)
+						}
+					})
+				}
+			}
+			capture.mu.Lock()
+			defer capture.mu.Unlock()
+			if len(capture.headers) != 0 {
+				t.Errorf("rejected copies made %d remote requests", len(capture.headers))
+			}
+		},
+	})
 }
 
 // TestAPIFederatedCopyObjectInlineSource drives the legacy etcd federation
@@ -504,7 +549,7 @@ const federationTestKMSKeyID = "federation-test-key"
 
 // federationSSEHeaders returns the request headers that select one server-side
 // encryption kind: "plain", "s3", "kms", "kms-context" (SSE-KMS with an
-// explicit encryption context) or "c". SSE-C keys derive from keyByte so a
+// explicit encryption context), "kms-empty-context" or "c". SSE-C keys derive from keyByte so a
 // case can name two distinct customer keys. With copySource the SSE-C key is
 // returned in its x-amz-copy-source-* form, the only kind a copy has to name
 // for its source; the other kinds then return nothing.
@@ -517,11 +562,14 @@ func federationSSEHeaders(kind string, keyByte byte, copySource bool) map[string
 	case "plain":
 	case "s3":
 		h[xhttp.AmzServerSideEncryption] = xhttp.AmzEncryptionAES
-	case "kms", "kms-context":
+	case "kms", "kms-context", "kms-empty-context":
 		h[xhttp.AmzServerSideEncryption] = xhttp.AmzEncryptionKMS
 		h[xhttp.AmzServerSideEncryptionKmsID] = federationTestKMSKeyID
-		if kind == "kms-context" {
+		switch kind {
+		case "kms-context":
 			h[xhttp.AmzServerSideEncryptionKmsContext] = base64.StdEncoding.EncodeToString([]byte(`{"tenant":"federation"}`))
+		case "kms-empty-context":
+			h[xhttp.AmzServerSideEncryptionKmsContext] = base64.StdEncoding.EncodeToString([]byte(`{}`))
 		}
 	case "c":
 		key := bytes.Repeat([]byte{keyByte}, 32)
@@ -569,6 +617,77 @@ func federationGetObject(t *testing.T, apiRouter http.Handler, credentials auth.
 	return rec
 }
 
+// assertFederationCopyReadback checks storage and the public GET/HEAD checksum
+// surface with the destination key, including the committed write's time.
+func assertFederationCopyReadback(t *testing.T, obj ObjectLayer, router http.Handler, cred auth.Credentials,
+	bucket, object string, rec *httptest.ResponseRecorder, typ hash.ChecksumType, data []byte, compressed bool, keyHeaders map[string]string,
+) ObjectInfo {
+	t.Helper()
+	assertCopyChecksumResponse(t, rec, typ, data)
+	headers := make(http.Header)
+	for k, v := range keyHeaders {
+		headers.Set(k, v)
+	}
+	info := assertCopyChecksum(t, obj, bucket, object, typ, data, compressed, headers)
+	var response CopyObjectResponse
+	if err := xml.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if want := amztime.ISO8601Format(info.ModTime.UTC()); info.ModTime.IsZero() || response.LastModified != want {
+		t.Errorf("copy time = %q, want stored time %q", response.LastModified, want)
+	}
+	readHeaders := map[string]string{xhttp.AmzChecksumMode: "ENABLED"}
+	maps.Copy(readHeaders, keyHeaders)
+	for _, method := range []string{http.MethodGet, http.MethodHead} {
+		req, err := newTestSignedRequestV4(method, getGetObjectURL("", bucket, object), 0, nil, cred.AccessKey, cred.SecretKey, readHeaders)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := httptest.NewRecorder()
+		router.ServeHTTP(got, req)
+		if got.Code != http.StatusOK {
+			t.Fatalf("destination %s = %d %s", method, got.Code, got.Body.String())
+		}
+		if method == http.MethodGet && !bytes.Equal(got.Body.Bytes(), data) {
+			t.Fatalf("destination GET differs from the %d-byte plaintext", len(data))
+		}
+		if got.Header().Get(xhttp.ContentLength) != strconv.Itoa(len(data)) ||
+			got.Header().Get(typ.Key()) != mustChecksum(t, typ, data) ||
+			got.Header().Get(xhttp.AmzChecksumType) != xhttp.AmzChecksumTypeFullObject {
+			t.Fatalf("destination %s length/checksum headers = %v", method, got.Header())
+		}
+	}
+	return info
+}
+
+func assertFederationKMSContext(t *testing.T, info ObjectInfo, requested string) {
+	t.Helper()
+	decode := func(encoded string) map[string]string {
+		t.Helper()
+		value, err := base64.StdEncoding.DecodeString(encoded)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var context map[string]string
+		if err := json.Unmarshal(value, &context); err != nil {
+			t.Fatal(err)
+		}
+		return context
+	}
+	want := map[string]string{}
+	if requested != "" {
+		want = decode(requested)
+	}
+	stored, present := info.UserDefined[crypto.MetaContext]
+	if len(want) == 0 {
+		if present {
+			t.Errorf("absent/empty destination context stored client metadata %q", stored)
+		}
+	} else if !present || !maps.Equal(decode(stored), want) {
+		t.Errorf("stored KMS context = %q, want %v", stored, want)
+	}
+}
+
 // TestAPIFederatedCopyObjectSSE guards the legacy etcd federation branch of
 // CopyObjectHandler for encrypted sources and destinations (#158). The proxy
 // reads its source through getObjectNInfo, which yields the decrypted and
@@ -584,9 +703,8 @@ func TestAPIFederatedCopyObjectSSE(t *testing.T) {
 	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{
 		t:          t,
 		objAPITest: testAPIFederatedCopyObjectSSE,
-		// The test router registers routes in this order, and the plain
-		// PutObject route has no query matcher, so the multipart routes must
-		// precede it or they would never be reached.
+		// Register PutObjectPart and CopyObject before the query-less
+		// PutObject PUT route; otherwise PutObject shadows them.
 		endpoints: []string{
 			"NewMultipart", "PutObjectPart", "CompleteMultipart",
 			"CopyObject", "PutObject", "HeadObject", "GetObject",
@@ -595,7 +713,8 @@ func TestAPIFederatedCopyObjectSSE(t *testing.T) {
 }
 
 // putFederationMultipartSource uploads parts as one multipart object through
-// the API router; headers apply to the NewMultipartUpload request.
+// the API router. Headers select the upload's encryption/checksum; SSE-C keys
+// and checksums are also supplied on the parts and completion as required.
 func putFederationMultipartSource(t *testing.T, apiRouter http.Handler, credentials auth.Credentials,
 	bucket, object string, parts [][]byte, headers map[string]string,
 ) {
@@ -619,15 +738,27 @@ func putFederationMultipartSource(t *testing.T, apiRouter http.Handler, credenti
 		t.Fatalf("failed to decode NewMultipartUpload response: %v", err)
 	}
 	completion := CompleteMultipartUpload{}
+	partHeaders := map[string]string{}
+	for _, key := range []string{xhttp.AmzServerSideEncryptionCustomerAlgorithm, xhttp.AmzServerSideEncryptionCustomerKey, xhttp.AmzServerSideEncryptionCustomerKeyMD5} {
+		if value := headers[key]; value != "" {
+			partHeaders[key] = value
+		}
+	}
+	checksumType := hash.NewChecksumType(headers[xhttp.AmzChecksumAlgo], headers[xhttp.AmzChecksumType])
 	for i, part := range parts {
-		rec := do(http.MethodPut, getPutObjectPartURL("", bucket, object, upload.UploadID, strconv.Itoa(i+1)), part, nil)
-		completion.Parts = append(completion.Parts, CompletePart{PartNumber: i + 1, ETag: canonicalizeETag(rec.Header()[xhttp.ETag][0])})
+		if checksumType.IsSet() {
+			partHeaders[checksumType.Key()] = mustChecksum(t, checksumType, part)
+		}
+		rec := do(http.MethodPut, getPutObjectPartURL("", bucket, object, upload.UploadID, strconv.Itoa(i+1)), part, partHeaders)
+		completion.Parts = append(completion.Parts, completePartWithChecksum(checksumType, i+1,
+			canonicalizeETag(rec.Header()[xhttp.ETag][0]), partHeaders[checksumType.Key()]))
 	}
 	body, err := xml.Marshal(completion)
 	if err != nil {
 		t.Fatalf("failed to encode CompleteMultipartUpload: %v", err)
 	}
-	do(http.MethodPost, getCompleteMultipartUploadURL("", bucket, object, upload.UploadID), body, nil)
+	delete(partHeaders, checksumType.Key())
+	do(http.MethodPost, getCompleteMultipartUploadURL("", bucket, object, upload.UploadID), body, partHeaders)
 }
 
 func testAPIFederatedCopyObjectSSE(objectAPI ObjectLayer, instanceType, bucketName string,
@@ -652,9 +783,13 @@ func testAPIFederatedCopyObjectSSE(objectAPI ObjectLayer, instanceType, bucketNa
 	// packages and catch a size that accounts for only one.
 	large := bytes.Repeat([]byte("federated sse copy body "), 64*1024/24+1)[:64*1024+1]
 	bodies := []struct {
-		name, ext string
-		data      []byte
+		name, ext            string
+		data                 []byte
+		requested, inherited hash.ChecksumType
 	}{
+		{name: "empty", ext: ".bin"},
+		{name: "empty-explicit", ext: ".bin", requested: hash.ChecksumSHA256},
+		{name: "inherited", ext: ".bin", data: []byte("stored encrypted checksum"), inherited: hash.ChecksumCRC32},
 		{name: "small", ext: ".bin", data: []byte("abc")},
 		{name: "two-packages", ext: ".bin", data: large},
 		{name: "compressed", ext: ".txt", data: large},
@@ -672,64 +807,74 @@ func testAPIFederatedCopyObjectSSE(objectAPI ObjectLayer, instanceType, bucketNa
 		{"kms", "kms"},
 		{"plain", "kms-context"},
 		{"kms-context", "kms-context"},
+		{"kms-context", "kms"},
+		{"kms-context", "kms-empty-context"},
 	}
 	const srcKeyByte, dstKeyByte = 0x11, 0x22
 
 	for _, body := range bodies {
 		for _, pair := range pairs {
+			// Focus empty and inherited-checksum cases on each encrypted kind.
+			if body.name == "empty" || body.name == "empty-explicit" || body.name == "inherited" {
+				if pair.src != pair.dst || pair.src == "kms-context" {
+					continue
+				}
+			}
 			t.Run(body.name+"/"+pair.src+"-to-"+pair.dst, func(t *testing.T) {
 				prefix := "federation/sse-" + body.name + "-" + pair.src + "-to-" + pair.dst
 				srcObject, dstObject := prefix+"-source"+body.ext, prefix+"-destination"+body.ext
 
-				putCopyChecksumSource(t, apiRouter, credentials, bucketName, srcObject, body.data,
-					federationSSEHeaders(pair.src, srcKeyByte, false))
+				sourceHeaders := federationSSEHeaders(pair.src, srcKeyByte, false)
+				if pair.src == "kms-context" {
+					sourceHeaders[xhttp.AmzServerSideEncryptionKmsContext] = base64.StdEncoding.EncodeToString([]byte(`{"tenant":"source"}`))
+				}
+				if body.inherited.IsSet() {
+					sourceHeaders[body.inherited.Key()] = mustChecksum(t, body.inherited, body.data)
+				}
+				putCopyChecksumSource(t, apiRouter, credentials, bucketName, srcObject, body.data, sourceHeaders)
 				before, err := objectAPI.GetObjectInfo(t.Context(), bucketName, srcObject, ObjectOptions{})
 				if err != nil {
 					t.Fatalf("%s: GetObjectInfo(source) failed: %v", instanceType, err)
 				}
-				if got, want := federationStoredSSE(before.UserDefined), strings.TrimSuffix(pair.src, "-context"); got != want {
+				if got, want := federationStoredSSE(before.UserDefined), strings.Split(pair.src, "-")[0]; got != want {
 					t.Fatalf("%s: source stored as %s, want %s", instanceType, got, want)
 				}
 				if compressed := body.ext == ".txt" && pair.src != "c"; before.IsCompressed() != compressed {
 					t.Fatalf("%s: source compressed=%v, want %v", instanceType, before.IsCompressed(), compressed)
 				}
+				assertFederationKMSContext(t, before, sourceHeaders[xhttp.AmzServerSideEncryptionKmsContext])
 
+				if body.inherited.IsSet() {
+					sourceKeys := make(http.Header)
+					for k, v := range federationSSEHeaders(pair.src, srcKeyByte, true) {
+						sourceKeys.Set(k, v)
+					}
+					assertCopyChecksum(t, objectAPI, bucketName, srcObject, body.inherited, body.data, false, sourceKeys)
+				}
 				headers := federationSSEHeaders(pair.dst, dstKeyByte, false)
+				if body.requested.IsSet() {
+					headers[xhttp.AmzChecksumAlgo] = body.requested.String()
+				}
 				maps.Copy(headers, federationSSEHeaders(pair.src, srcKeyByte, true))
 				rec := federatedCopyRequest(t, apiRouter, credentials, bucketName, srcObject, remoteBucket, dstObject, headers)
 				if rec.Code != http.StatusOK {
 					t.Fatalf("%s: federated CopyObject failed: %d %s", instanceType, rec.Code, rec.Body.String())
 				}
-				// The remote computes the S3 default CRC-64NVME over the bytes it
-				// received, so the returned checksum must be the plaintext's.
-				assertCopyChecksumResponse(t, rec, hash.ChecksumCRC64NVME, body.data)
-
-				// A destination GET must return the original plaintext at its length.
+				wantChecksum := hash.ChecksumCRC64NVME
+				if body.requested.IsSet() {
+					wantChecksum = body.requested
+				} else if body.inherited.IsSet() {
+					wantChecksum = body.inherited
+				}
 				var getHeaders map[string]string
 				if pair.dst == "c" {
 					getHeaders = federationSSEHeaders("c", dstKeyByte, false)
 				}
-				got := federationGetObject(t, apiRouter, credentials, remoteBucket, dstObject, getHeaders)
-				if got.Code != http.StatusOK {
-					t.Fatalf("%s: destination GET failed: %d %s", instanceType, got.Code, got.Body.String())
-				}
-				if !bytes.Equal(got.Body.Bytes(), body.data) {
-					t.Fatalf("%s: destination GET returned %d bytes that differ from the %d-byte plaintext",
-						instanceType, got.Body.Len(), len(body.data))
-				}
-				if want := strconv.Itoa(len(body.data)); got.Header().Get(xhttp.ContentLength) != want {
-					t.Fatalf("%s: destination Content-Length = %q, want %q",
-						instanceType, got.Header().Get(xhttp.ContentLength), want)
-				}
-
-				// The destination is stored under the requested SSE kind and was
-				// encrypted exactly once: a second layer would add its own DARE
-				// package overhead to the stored size.
-				after, err := objectAPI.GetObjectInfo(t.Context(), remoteBucket, dstObject, ObjectOptions{})
-				if err != nil {
-					t.Fatalf("%s: GetObjectInfo(destination) failed: %v", instanceType, err)
-				}
-				if got, want := federationStoredSSE(after.UserDefined), strings.TrimSuffix(pair.dst, "-context"); got != want {
+				after := assertFederationCopyReadback(t, objectAPI, apiRouter, credentials, remoteBucket, dstObject,
+					rec, wantChecksum, body.data, body.ext == ".txt" && pair.dst != "c", getHeaders)
+				assertFederationKMSContext(t, after, headers[xhttp.AmzServerSideEncryptionKmsContext])
+				// A second encryption layer would add its own DARE overhead.
+				if got, want := federationStoredSSE(after.UserDefined), strings.Split(pair.dst, "-")[0]; got != want {
 					t.Fatalf("%s: destination stored as %s, want %s", instanceType, got, want)
 				}
 				if pair.dst != "plain" && !after.IsCompressed() {
@@ -753,46 +898,58 @@ func testAPIFederatedCopyObjectSSE(objectAPI ObjectLayer, instanceType, bucketNa
 		}
 	}
 
-	// A multipart SSE-S3 source is encrypted per part, so its logical size is
-	// the sum of the parts' decrypted sizes and the decrypting reader crosses
-	// a part boundary; the copy must still forward exactly the plaintext.
+	// Multipart sources cross an encryption boundary per part. SHA256 also
+	// exercises promotion from a stored composite to a full-object checksum.
 	parts := [][]byte{bytes.Repeat([]byte("p"), globalMinPartSize+1), []byte("q!")}
 	data := bytes.Join(parts, nil)
-	for _, dst := range []string{"plain", "s3"} {
-		t.Run("multipart/s3-to-"+dst, func(t *testing.T) {
-			srcObject, dstObject := "federation/sse-multipart-source-"+dst+".bin", "federation/sse-multipart-destination-"+dst+".bin"
-			putFederationMultipartSource(t, apiRouter, credentials, bucketName, srcObject, parts,
-				federationSSEHeaders("s3", srcKeyByte, false))
+	for _, pair := range []struct {
+		src, dst  string
+		composite bool
+	}{
+		{src: "s3", dst: "plain"},
+		{src: "s3", dst: "s3"},
+		{src: "c", dst: "c"},
+		{src: "kms", dst: "kms", composite: true},
+	} {
+		t.Run("multipart/"+pair.src+"-to-"+pair.dst, func(t *testing.T) {
+			srcObject, dstObject := "federation/multipart-source-"+pair.src+"-"+pair.dst+".bin", "federation/multipart-destination-"+pair.src+"-"+pair.dst+".bin"
+			sourceHeaders := federationSSEHeaders(pair.src, srcKeyByte, false)
+			wantChecksum := hash.ChecksumCRC64NVME
+			if pair.composite {
+				wantChecksum = hash.ChecksumSHA256
+				sourceHeaders[xhttp.AmzChecksumAlgo] = wantChecksum.String()
+				sourceHeaders[xhttp.AmzChecksumType] = xhttp.AmzChecksumTypeComposite
+			}
+			putFederationMultipartSource(t, apiRouter, credentials, bucketName, srcObject, parts, sourceHeaders)
 			before, err := objectAPI.GetObjectInfo(t.Context(), bucketName, srcObject, ObjectOptions{})
 			if err != nil {
-				t.Fatalf("%s: GetObjectInfo(source) failed: %v", instanceType, err)
+				t.Fatal(err)
 			}
-			if len(before.Parts) != len(parts) || federationStoredSSE(before.UserDefined) != "s3" {
-				t.Fatalf("%s: source has %d parts stored as %s, want %d parts as s3",
-					instanceType, len(before.Parts), federationStoredSSE(before.UserDefined), len(parts))
+			if len(before.Parts) != len(parts) || federationStoredSSE(before.UserDefined) != pair.src {
+				t.Fatalf("source has %d parts stored as %s, want %d parts as %s", len(before.Parts), federationStoredSSE(before.UserDefined), len(parts), pair.src)
 			}
-
-			rec := federatedCopyRequest(t, apiRouter, credentials, bucketName, srcObject, remoteBucket, dstObject,
-				federationSSEHeaders(dst, dstKeyByte, false))
+			if pair.composite {
+				checksums, _ := before.decryptChecksums(0, nil)
+				if checksums[xhttp.AmzChecksumType] != xhttp.AmzChecksumTypeComposite || !strings.HasSuffix(checksums[wantChecksum.String()], "-2") {
+					t.Fatalf("source did not persist a two-part composite checksum: %v", checksums)
+				}
+			}
+			headers := federationSSEHeaders(pair.dst, dstKeyByte, false)
+			maps.Copy(headers, federationSSEHeaders(pair.src, srcKeyByte, true))
+			rec := federatedCopyRequest(t, apiRouter, credentials, bucketName, srcObject, remoteBucket, dstObject, headers)
 			if rec.Code != http.StatusOK {
 				t.Fatalf("%s: federated CopyObject failed: %d %s", instanceType, rec.Code, rec.Body.String())
 			}
-			assertCopyChecksumResponse(t, rec, hash.ChecksumCRC64NVME, data)
-			got := federationGetObject(t, apiRouter, credentials, remoteBucket, dstObject, nil)
-			if got.Code != http.StatusOK || !bytes.Equal(got.Body.Bytes(), data) {
-				t.Fatalf("%s: destination GET = %d with %d bytes, want 200 with the %d-byte plaintext",
-					instanceType, got.Code, got.Body.Len(), len(data))
+			var getHeaders map[string]string
+			if pair.dst == "c" {
+				getHeaders = federationSSEHeaders("c", dstKeyByte, false)
 			}
-			after, err := objectAPI.GetObjectInfo(t.Context(), remoteBucket, dstObject, ObjectOptions{})
-			if err != nil {
-				t.Fatalf("%s: GetObjectInfo(destination) failed: %v", instanceType, err)
+			after := assertFederationCopyReadback(t, objectAPI, apiRouter, credentials, remoteBucket, dstObject, rec, wantChecksum, data, false, getHeaders)
+			if got := federationStoredSSE(after.UserDefined); got != pair.dst {
+				t.Fatalf("destination stored as %s, want %s", got, pair.dst)
 			}
-			if got := federationStoredSSE(after.UserDefined); got != dst {
-				t.Fatalf("%s: destination stored as %s, want %s", instanceType, got, dst)
-			}
-			if once := (ObjectInfo{Size: int64(len(data))}); dst == "s3" && after.Size != once.EncryptedSize() {
-				t.Fatalf("%s: destination stored %d bytes, want %d for %d bytes encrypted once",
-					instanceType, after.Size, once.EncryptedSize(), len(data))
+			if once := (ObjectInfo{Size: int64(len(data))}); pair.dst != "plain" && after.Size != once.EncryptedSize() {
+				t.Fatalf("destination stored %d bytes, want %d for %d bytes encrypted once", after.Size, once.EncryptedSize(), len(data))
 			}
 		})
 	}
