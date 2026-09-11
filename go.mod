@@ -4,7 +4,7 @@ go 1.27.1
 
 // Console and MC retain their historical module paths for best-effort upstream
 // compatibility. Pin the maintained PGSTY implementations used by SILO.
-replace github.com/minio/console => github.com/pgsty/silo-console v0.0.0-20260911081814-153f48fb5f80
+replace github.com/minio/console => github.com/pgsty/silo-console v0.0.0-20260911085047-638eefd7aece
 
 replace github.com/minio/mc => github.com/pgsty/mc v0.0.0-20260910093317-e6a60edf0952
 
@@ -92,7 +92,7 @@ require (
 	github.com/prometheus/common v0.71.0
 	github.com/prometheus/procfs v0.22.0
 	github.com/puzpuzpuz/xsync/v3 v3.5.1
-	github.com/rabbitmq/amqp091-go v1.10.0
+	github.com/rabbitmq/amqp091-go v1.14.0
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9
 	github.com/rs/cors v1.11.1
 	github.com/secure-io/sio-go v0.3.1

@@ -547,8 +547,8 @@ github.com/pborman/getopt v0.0.0-20170112200414-7148bc3a4c30/go.mod h1:85jBQOZwp
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
 github.com/pgsty/mc v0.0.0-20260910093317-e6a60edf0952 h1:b6jpBuZWUiZhBox64eF1cmNL4HWGwdSk/LVXNc3DBQ0=
 github.com/pgsty/mc v0.0.0-20260910093317-e6a60edf0952/go.mod h1:VsGNEmditljwBgmYKy7X+//dXLN8gEfSPR2m4lcMPmo=
-github.com/pgsty/silo-console v0.0.0-20260911081814-153f48fb5f80 h1:bEpCn6B+aEOLriH9EjJwsGY9tarR5P/9Npv54S7DMJQ=
-github.com/pgsty/silo-console v0.0.0-20260911081814-153f48fb5f80/go.mod h1:bCyOnZactQajLOqlgCn0lHwQWMNylvP6MUOqqLako00=
+github.com/pgsty/silo-console v0.0.0-20260911085047-638eefd7aece h1:1QGCeVCRV4TzDLww9IFfRT70YOI8r/X88pRo+KILvZ4=
+github.com/pgsty/silo-console v0.0.0-20260911085047-638eefd7aece/go.mod h1:bCyOnZactQajLOqlgCn0lHwQWMNylvP6MUOqqLako00=
 github.com/pgsty/silo-pkg/v3 v3.13.4-0.20260910091716-2d8fd3cbbf07 h1:IKm2AyPsvuL4NyniK3ixqqQz1CIargmhyCkL2eZvlhA=
 github.com/pgsty/silo-pkg/v3 v3.13.4-0.20260910091716-2d8fd3cbbf07/go.mod h1:1JdcUcM+TRXObb9QrC8FWhav0RKk6/u8RT2RgimfxRQ=
 github.com/philhofer/fwd v1.2.0 h1:e6DnBTl7vGY+Gz322/ASL4Gyp1FspeMvx1RNDoToZuM=
@@ -590,8 +590,8 @@ github.com/prometheus/prometheus v0.314.0 h1:YjsimqsIi6/mOtzZcrPEYUALO6zpfaht9O5
 github.com/prometheus/prometheus v0.314.0/go.mod h1:zjg3pMTAkY0/JG8jy/h8/YgSQUVB+aCXMhUqN6l64jg=
 github.com/puzpuzpuz/xsync/v3 v3.5.1 h1:GJYJZwO6IdxN/IKbneznS6yPkVC+c3zyY/j19c++5Fg=
 github.com/puzpuzpuz/xsync/v3 v3.5.1/go.mod h1:VjzYrABPabuM4KyBh1Ftq6u8nhwY5tBPKP9jpmh0nnA=
-github.com/rabbitmq/amqp091-go v1.10.0 h1:STpn5XsHlHGcecLmMFCtg7mqq0RnD+zFr4uzukfVhBw=
-github.com/rabbitmq/amqp091-go v1.10.0/go.mod h1:Hy4jKW5kQART1u+JkDTF9YYOQUHXqMuhrgxOEeS7G4o=
+github.com/rabbitmq/amqp091-go v1.14.0 h1:RSaT7aOKt/OrkVUyswPDW29lnRz9psuGmfZFBmLqLek=
+github.com/rabbitmq/amqp091-go v1.14.0/go.mod h1:Hy4jKW5kQART1u+JkDTF9YYOQUHXqMuhrgxOEeS7G4o=
 github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9 h1:bsUq1dX0N8AOIL7EB/X911+m4EHsnWEHeJ0c+3TTBrg=
 github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/rivo/uniseg v0.1.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
