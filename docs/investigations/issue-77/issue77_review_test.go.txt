@@ -1,0 +1,147 @@
+package cmd
+
+// Review-only tests against the unchanged 2026-09-12 main. Failures are evidence,
+// not a production regression-test submission.
+import (
+	"bytes"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"testing"
+	"time"
+
+	"github.com/minio/madmin-go/v3"
+	"github.com/minio/minio/internal/auth"
+)
+
+func TestIssue77CurrentSourceTimeAndDeletion(t *testing.T) {
+	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{t: t, objAPITest: review77SourceTimeAndDeletion})
+}
+
+func review77SourceTimeAndDeletion(obj ObjectLayer, backend, bucket string, _ http.Handler, cred auth.Credentials, t *testing.T) {
+	ctx := t.Context()
+	created := UTCNow().Add(-time.Hour)
+	putAt := created.Add(10 * time.Minute)
+	delAt := putAt.Add(time.Minute)
+	enc := func(s string) *string { v := base64.StdEncoding.EncodeToString([]byte(s)); return &v }
+	base := newBucketMetadata(bucket)
+	base.SetCreatedAt(created)
+	base.defaultTimestamps()
+	quotaJSON, err := json.Marshal(madmin.BucketQuota{Quota: 1024, Type: madmin.HardQuota})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name, file string
+		put        madmin.SRBucketMeta
+		value      func(BucketMetadata) []byte
+		stamp      func(BucketMetadata) time.Time
+		exported   func(madmin.SRBucketInfo) time.Time
+		deletable  bool
+	}{
+		{"policy", bucketPolicyConfig, madmin.SRBucketMeta{Type: madmin.SRBucketMetaTypePolicy, Policy: []byte(fmt.Sprintf(`{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":"arn:aws:s3:::%s/*"}]}`, bucket))}, func(m BucketMetadata) []byte { return m.PolicyConfigJSON }, func(m BucketMetadata) time.Time { return m.PolicyConfigUpdatedAt }, func(m madmin.SRBucketInfo) time.Time { return m.PolicyUpdatedAt }, true},
+		{"tags", bucketTaggingConfig, madmin.SRBucketMeta{Type: madmin.SRBucketMetaTypeTags, Tags: enc(`<Tagging><TagSet><Tag><Key>key</Key><Value>old</Value></Tag></TagSet></Tagging>`)}, func(m BucketMetadata) []byte { return m.TaggingConfigXML }, func(m BucketMetadata) time.Time { return m.TaggingConfigUpdatedAt }, func(m madmin.SRBucketInfo) time.Time { return m.TagConfigUpdatedAt }, true},
+		{"sse", bucketSSEConfig, madmin.SRBucketMeta{Type: madmin.SRBucketMetaTypeSSEConfig, SSEConfig: enc(`<ServerSideEncryptionConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault></Rule></ServerSideEncryptionConfiguration>`)}, func(m BucketMetadata) []byte { return m.EncryptionConfigXML }, func(m BucketMetadata) time.Time { return m.EncryptionConfigUpdatedAt }, func(m madmin.SRBucketInfo) time.Time { return m.SSEConfigUpdatedAt }, true},
+		{"quota", bucketQuotaConfigFile, madmin.SRBucketMeta{Type: madmin.SRBucketMetaTypeQuotaConfig, Quota: quotaJSON}, func(m BucketMetadata) []byte { return m.QuotaConfigJSON }, func(m BucketMetadata) time.Time { return m.QuotaConfigUpdatedAt }, func(m madmin.SRBucketInfo) time.Time { return m.QuotaConfigUpdatedAt }, true},
+		{"versioning", bucketVersioningConfig, madmin.SRBucketMeta{Type: madmin.SRBucketMetaTypeVersionConfig, Versioning: enc(`<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>Enabled</Status></VersioningConfiguration>`)}, func(m BucketMetadata) []byte { return m.VersioningConfigXML }, func(m BucketMetadata) time.Time { return m.VersioningConfigUpdatedAt }, nil, false},
+		{"objectlock", objectLockConfig, newSRBucketObjectLockMeta(bucket, enc(`<ObjectLockConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><ObjectLockEnabled>Enabled</ObjectLockEnabled><Rule><DefaultRetention><Mode>GOVERNANCE</Mode><Days>30</Days></DefaultRetention></Rule></ObjectLockConfiguration>`), putAt), func(m BucketMetadata) []byte { return m.ObjectLockConfigXML }, func(m BucketMetadata) time.Time { return m.ObjectLockConfigUpdatedAt }, nil, false},
+	}
+	exporter := &SiteReplicationSys{enabled: true}
+	for _, tc := range cases {
+		t.Run(backend+"/"+tc.name, func(t *testing.T) {
+			if err := globalBucketMetadataSys.save(ctx, base); err != nil {
+				t.Fatal(err)
+			}
+			item := tc.put
+			item.Bucket, item.UpdatedAt = bucket, putAt
+			apply := func(item madmin.SRBucketMeta) {
+				t.Helper()
+				rec := applySRBucketMetaViaAdmin(t, cred, item)
+				if rec.Code != http.StatusOK {
+					t.Fatalf("admin apply returned %d: %s", rec.Code, rec.Body.String())
+				}
+			}
+			read := func() BucketMetadata {
+				t.Helper()
+				m, err := loadBucketMetadata(ctx, obj, bucket)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return m
+			}
+			apply(item)
+			put := read()
+			if len(tc.value(put)) == 0 {
+				t.Fatal("PUT did not establish live config")
+			}
+			if !tc.stamp(put).Equal(putAt) {
+				t.Errorf("SOURCE_TIME: persisted %s, want source %s", tc.stamp(put), putAt)
+			}
+			apply(madmin.SRBucketMeta{Type: item.Type, Bucket: bucket, UpdatedAt: delAt})
+			after := read()
+			if !tc.deletable {
+				if !bytes.Equal(tc.value(put), tc.value(after)) || !tc.stamp(put).Equal(tc.stamp(after)) {
+					t.Error("NIL_NOOP: update-only config changed")
+				}
+				t.Log("nil payload is correctly a no-op")
+				return
+			}
+			if len(tc.value(after)) != 0 {
+				t.Error("NEWER_DELETE: HTTP 200, but live config remained after newer source DELETE")
+			}
+			if _, err := globalBucketMetadataSys.Delete(ctx, bucket, tc.file); err != nil {
+				t.Fatal(err)
+			}
+			tombstone := read()
+			if len(tc.value(tombstone)) != 0 {
+				t.Fatal("local DELETE failed to establish tombstone")
+			}
+			info, err := exporter.SiteReplicationMetaInfo(ctx, obj, madmin.SRStatusOptions{Entity: madmin.SRBucketEntity, EntityValue: bucket})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !tc.exported(info.Buckets[bucket]).Equal(tc.stamp(tombstone)) {
+				t.Errorf("TOMBSTONE_EXPORT: got %s, want %s", tc.exported(info.Buckets[bucket]), tc.stamp(tombstone))
+			}
+			apply(item)
+			after = read()
+			if len(tc.value(after)) != 0 {
+				t.Error("STALE_RESURRECTION: older source PUT resurrected a locally deleted config")
+			} else {
+				t.Log("older source PUT did not resurrect config")
+			}
+		})
+	}
+}
+
+func TestIssue77CurrentBulkApplyOrdering(t *testing.T) {
+	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{t: t, objAPITest: func(obj ObjectLayer, backend, bucket string, _ http.Handler, cred auth.Credentials, t *testing.T) {
+		t.Run(backend, func(t *testing.T) {
+			ctx := t.Context()
+			meta, err := loadBucketMetadata(ctx, obj, bucket)
+			if err != nil {
+				t.Fatal(err)
+			}
+			newAt := meta.Created.Add(time.Hour)
+			newXML := `<Tagging><TagSet><Tag><Key>key</Key><Value>new</Value></Tag></TagSet></Tagging>`
+			meta.TaggingConfigXML, meta.TaggingConfigUpdatedAt = []byte(newXML), newAt
+			if err := globalBucketMetadataSys.save(ctx, meta); err != nil {
+				t.Fatal(err)
+			}
+			oldXML := base64.StdEncoding.EncodeToString([]byte(`<Tagging><TagSet><Tag><Key>key</Key><Value>old</Value></Tag></TagSet></Tagging>`))
+			item := madmin.SRBucketMeta{Bucket: bucket, Tags: &oldXML, UpdatedAt: newAt.Add(-time.Minute)}
+			rec := applySRBucketMetaViaAdmin(t, cred, item)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("bulk apply returned %d: %s", rec.Code, rec.Body.String())
+			}
+			after, err := loadBucketMetadata(ctx, obj, bucket)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(after.TaggingConfigXML, []byte(newXML)) || !after.TaggingConfigUpdatedAt.Equal(newAt) {
+				t.Errorf("BULK_STALE_OVERWRITE: older bulk event overwrote newer config, value=%q time=%s", after.TaggingConfigXML, after.TaggingConfigUpdatedAt)
+			}
+		})
+	}})
+}

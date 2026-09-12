@@ -1,0 +1,28 @@
+{"command": ["go", "run", ".issue77-evidence/twosite/main.go", "$LAB_VOLUME/runtime-reviewed", ".issue77-evidence/silo-reviewed", ".issue77-evidence/silo-before"], "cwd": "$SILO_WORKTREE", "head": "fcbb93e8957275bfa7ad4e6154e93f4d7b0a7025", "started_at": "2026-09-12T09:12:41.365111+00:00", "environment": {"TMPDIR": "$LAB_VOLUME/tmp"}}
+2026-09-12T09:12:42Z site-a ready gate=on
+2026-09-12T09:12:43Z site-b ready gate=on
+2026-09-12T09:12:44Z historical bucket prepared: six live fields at Created
+2026-09-12T09:12:44Z baseline-initial-sync: waiting for ordinary 30-second heal
+2026-09-12T09:12:44Z baseline-initial-sync: six field states equal
+2026-09-12T09:12:44Z initial sync preserved six historical Created timestamps
+2026-09-12T09:12:44Z real local PUT outgoing replication RPC dropped by partition
+2026-09-12T09:12:45Z live-reconnect: waiting for ordinary 30-second heal
+2026-09-12T09:13:13Z live-reconnect: six field states equal
+2026-09-12T09:13:13Z live-steady: observing two heal intervals
+2026-09-12T09:14:18Z live-steady: zero metadata RPCs across 65 seconds
+2026-09-12T09:14:18Z six duplicate/out-of-order events rejected without clock changes
+2026-09-12T09:14:19Z real local DELETE outgoing replication RPC dropped by partition
+2026-09-12T09:14:20Z site-a ready gate=on
+2026-09-12T09:14:20Z four tombstones survived process restart
+2026-09-12T09:14:20Z delete-reconnect: waiting for ordinary 30-second heal
+2026-09-12T09:14:44Z delete-reconnect: six field states equal
+2026-09-12T09:14:44Z delete-steady: observing two heal intervals
+2026-09-12T09:15:49Z delete-steady: zero metadata RPCs across 65 seconds
+2026-09-12T09:15:49Z 40 exceptional events produced exactly one log per reason
+2026-09-12T09:15:49Z starting fixed/previous-server rolling-upgrade smoke with gate off
+2026-09-12T09:15:50Z site-a ready gate=off
+2026-09-12T09:15:51Z site-b ready gate=off
+2026-09-12T09:15:51Z mixed-version ordinary PUT/DELETE and off tombstone visibility passed
+2026-09-12T09:15:51Z PASS: isolated two-site implementation acceptance
+
+EXIT=0

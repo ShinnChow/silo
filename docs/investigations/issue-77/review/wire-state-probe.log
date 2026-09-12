@@ -1,0 +1,10 @@
+wire={"bucket":"b"}
+Policy nil=true bytes=""; Quota nil=true bytes=""
+wire={"bucket":"b","policy":null,"quota":null}
+Policy nil=false bytes="null"; Quota nil=false bytes="null"
+wire={"bucket":"b","policy":{"Version":"2012-10-17","Statement":[]},"quota":{}}
+Policy nil=false bytes="{\"Version\":\"2012-10-17\",\"Statement\":[]}"; Quota nil=false bytes="{}"
+Policy parses successfully, IsEmpty=true
+encoded raw="" -> {"type":"","bucket":"b","updatedAt":"0001-01-01T00:00:00Z","expiryUpdatedAt":"0001-01-01T00:00:00Z"}
+encoded raw="" -> {"type":"","bucket":"b","updatedAt":"0001-01-01T00:00:00Z","expiryUpdatedAt":"0001-01-01T00:00:00Z"}
+encoded raw="null" -> {"type":"","bucket":"b","policy":null,"updatedAt":"0001-01-01T00:00:00Z","expiryUpdatedAt":"0001-01-01T00:00:00Z"}

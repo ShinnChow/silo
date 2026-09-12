@@ -1,0 +1,53 @@
+diff --git a/cmd/site-replication-metadata-gate_test.go b/cmd/site-replication-metadata-gate_test.go
+index 49818b548..de9a37bb6 100644
+--- a/cmd/site-replication-metadata-gate_test.go
++++ b/cmd/site-replication-metadata-gate_test.go
+@@ -279,8 +279,10 @@ func TestBucketMetadataInitialSyncPhysicalCreated(t *testing.T) {
+ 			defer peer.Close()
+ 			// Exercise the complete outgoing sync sequence with real source
+ 			// storage. This peer acknowledges RPCs; it is not a second ObjectLayer.
+-			c := &SiteReplicationSys{enabled: true, state: srState{ServiceAccountAccessKey: serviceCred.AccessKey,
+-				Peers: map[string]madmin.PeerInfo{"initial-peer": {DeploymentID: "initial-peer", Endpoint: peer.URL}}}}
++			c := &SiteReplicationSys{enabled: true, state: srState{
++				ServiceAccountAccessKey: serviceCred.AccessKey,
++				Peers:                   map[string]madmin.PeerInfo{"initial-peer": {DeploymentID: "initial-peer", Endpoint: peer.URL}},
++			}}
+ 			if err := c.syncToAllPeers(ctx, madmin.SRAddOptions{}); err != nil {
+ 				t.Fatal(err)
+ 			}
+diff --git a/cmd/site-replication-metadata-heal_test.go b/cmd/site-replication-metadata-heal_test.go
+index bedb3ea5e..6c00fb8c1 100644
+--- a/cmd/site-replication-metadata-heal_test.go
++++ b/cmd/site-replication-metadata-heal_test.go
+@@ -89,11 +89,12 @@ func TestHealBucketConfigDiagnostics(t *testing.T) {
+ 			defer capture.mu.Unlock()
+ 			var unreachable, peerError int
+ 			for _, line := range capture.lines {
+-				if strings.Contains(line, "bucket metadata replication: unreachable") {
++				switch {
++				case strings.Contains(line, "bucket metadata replication: unreachable"):
+ 					unreachable++
+-				} else if strings.Contains(line, "bucket metadata replication: peer-error") {
++				case strings.Contains(line, "bucket metadata replication: peer-error"):
+ 					peerError++
+-				} else {
++				default:
+ 					t.Fatalf("unexpected diagnostic: %s", line)
+ 				}
+ 				if !strings.HasPrefix(line, "WARNING:") {
+@@ -135,11 +136,13 @@ func TestHealBucketConfigWithoutSourceDiagnostics(t *testing.T) {
+ 					// and neither local storage nor the recording peer may be written.
+ 					name := bucket + "-" + tc.name
+ 					local := globalDeploymentID()
+-					info := srStatusInfo{Sites: map[string]madmin.PeerInfo{local: {}, "metadata-peer": {}, "unreachable": {}},
++					info := srStatusInfo{
++						Sites: map[string]madmin.PeerInfo{local: {}, "metadata-peer": {}, "unreachable": {}},
+ 						BucketStats: map[string]map[string]srBucketStatsSummary{name: {
+ 							local:           bucketConfigTestInfo(name, bucketTaggingConfig, tc.data, tc.at, tc.created),
+ 							"metadata-peer": {},
+-						}}}
++						}},
++					}
+ 					for range 2 {
+ 						if err := globalSiteReplicationSys.healBucketConfig(t.Context(), name, bucketTaggingConfig, info); err != nil {
+ 							t.Fatal(err)

@@ -1,0 +1,22 @@
+{
+  "command": [
+    "go",
+    "test",
+    "-race",
+    "./cmd/",
+    "-run",
+    "^(TestBucketMetadataInitialSyncPhysicalCreated|TestPeerBucketMetadataPhysicalCreatedBoundary|TestPeerBucketMetadataUnknownCreated|TestPeerBucketAdoptionRebasesOnlyDefaults|TestHealBucketConfigDiagnostics|TestHealBucketConfigWithoutSourceDiagnostics|TestBucketMetadataPhysicalCreatedRecovery|TestBucketPolicyReplicationStatusLegacyOrder|TestHealBucketConfigSourceAndQuiescence|TestLatestBucketConfigCandidates|Test.*Cors.*|Test.*CORS.*)$",
+    "-count=1",
+    "-timeout",
+    "15m"
+  ],
+  "cwd": "$SILO_WORKTREE",
+  "head": "fcbb93e8957275bfa7ad4e6154e93f4d7b0a7025",
+  "started_at": "2026-09-12T09:11:30.873027+00:00",
+  "environment": {
+    "TMPDIR": "$LAB_VOLUME/tmp",
+    "CGO_ENABLED": "1"
+  },
+  "exit_code": 0,
+  "duration_seconds": 90.202
+}

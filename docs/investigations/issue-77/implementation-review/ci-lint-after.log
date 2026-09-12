@@ -1,0 +1,13 @@
+Installing golangci-lint v2.13.1
+golangci/golangci-lint info checking GitHub for tag 'v2.13.1'
+golangci/golangci-lint info found version: 2.13.1 for v2.13.1/darwin/arm64
+golangci/golangci-lint info installed .bin/golangci/v2.13.1/golangci-lint
+Running lint check
+0 issues.
+typos binary is not found.. skipping..
+LINT_EXIT=0
+compatibility manifest: imports=119 env=438 metrics=19 headers=87 routes=223 roots=1 grid=3 storage=15 policy=58 brand=181 sha256=db0d00c26360412a5388be1eb87c2dd763633ae243c558015f7b3ae86c80baaf
+Silo rebrand compatibility baseline is unchanged
+Silo delivery and runtime rebrand checks passed
+docker entrypoint argv compatibility tests passed
+REBRAND_EXIT=0

@@ -1,0 +1,57 @@
+--- FAIL: TestBucketMetadataPhysicalCreatedRecovery (0.57s)
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/ErasureSD/object-lock.xml/missing=false (0.00s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update object-lock.xml: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/ErasureSD/versioning.xml/missing=false (0.00s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update versioning.xml: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/ErasureSD/policy.json/missing=false (0.00s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update policy.json: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/ErasureSD/tagging.xml/missing=false (0.00s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update tagging.xml: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/ErasureSD/bucket-encryption.xml/missing=false (0.00s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update bucket-encryption.xml: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/ErasureSD/quota.json/missing=false (0.00s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update quota.json: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/ErasureSD/object-lock.xml/missing=true (0.00s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update object-lock.xml: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/ErasureSD/versioning.xml/missing=true (0.00s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update versioning.xml: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/ErasureSD/policy.json/missing=true (0.00s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update policy.json: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/ErasureSD/tagging.xml/missing=true (0.00s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update tagging.xml: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/ErasureSD/bucket-encryption.xml/missing=true (0.00s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update bucket-encryption.xml: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/ErasureSD/quota.json/missing=true (0.00s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update quota.json: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/Erasure/object-lock.xml/missing=false (0.02s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update object-lock.xml: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/Erasure/versioning.xml/missing=false (0.02s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update versioning.xml: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/Erasure/policy.json/missing=false (0.02s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update policy.json: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/Erasure/tagging.xml/missing=false (0.02s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update tagging.xml: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/Erasure/bucket-encryption.xml/missing=false (0.06s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update bucket-encryption.xml: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/Erasure/quota.json/missing=false (0.02s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update quota.json: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/Erasure/object-lock.xml/missing=true (0.04s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update object-lock.xml: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/Erasure/versioning.xml/missing=true (0.02s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update versioning.xml: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/Erasure/policy.json/missing=true (0.02s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update policy.json: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/Erasure/tagging.xml/missing=true (0.01s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update tagging.xml: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/Erasure/bucket-encryption.xml/missing=true (0.02s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update bucket-encryption.xml: bucket metadata creation time is unknown
+    --- FAIL: TestBucketMetadataPhysicalCreatedRecovery/Erasure/quota.json/missing=true (0.02s)
+        site-replication-metadata-gate_test.go:227: bucket without a recorded creation time cannot update quota.json: bucket metadata creation time is unknown
+--- FAIL: TestBucketPolicyReplicationStatusLegacyOrder (0.31s)
+    --- FAIL: TestBucketPolicyReplicationStatusLegacyOrder/ErasureSD (0.01s)
+        site-replication-metadata_test.go:348: equivalent legacy and received policy reported as permanently mismatched
+    --- FAIL: TestBucketPolicyReplicationStatusLegacyOrder/Erasure (0.06s)
+        site-replication-metadata_test.go:348: equivalent legacy and received policy reported as permanently mismatched
+FAIL
+FAIL	github.com/minio/minio/cmd	2.940s
+FAIL

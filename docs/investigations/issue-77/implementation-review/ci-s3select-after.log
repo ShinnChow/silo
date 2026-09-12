@@ -1,0 +1,7 @@
+ok  	github.com/minio/minio/internal/s3select	2.150s
+ok  	github.com/minio/minio/internal/s3select/csv	3.612s
+ok  	github.com/minio/minio/internal/s3select/json	2.105s
+ok  	github.com/minio/minio/internal/s3select/jstream	2.937s
+?   	github.com/minio/minio/internal/s3select/parquet	[no test files]
+?   	github.com/minio/minio/internal/s3select/simdj	[no test files]
+ok  	github.com/minio/minio/internal/s3select/sql	2.620s

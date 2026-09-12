@@ -1,0 +1,8 @@
+--- FAIL: TestHealBucketConfigDiagnostics (0.29s)
+    --- FAIL: TestHealBucketConfigDiagnostics/ErasureSD (0.00s)
+        site-replication-metadata-heal_test.go:80: empty baselines produced diagnostics
+    --- FAIL: TestHealBucketConfigDiagnostics/Erasure (0.01s)
+        site-replication-metadata-heal_test.go:80: empty baselines produced diagnostics
+FAIL
+FAIL	github.com/minio/minio/cmd	2.721s
+FAIL

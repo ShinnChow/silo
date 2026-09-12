@@ -1,0 +1,24 @@
+{
+  "command": [
+    "make",
+    "check"
+  ],
+  "cwd": "$DOCS_WORKTREE",
+  "exit_code": 0,
+  "checked_content_commit": "9fa6248a0323838df5aed678b42c4679a7a6f8a4",
+  "committed_after_check": true,
+  "recorded_at": "2026-09-12T09:30:37.223220+00:00",
+  "files_sha256": {
+    "content/blog/design/bucket-metadata-convergence.zh.md": "26807bf8db555c3f0feef5c933b3d5a2da48fc7fd5a65da00d2c9b93ce7b4b21",
+    "content/blog/design/bucket-metadata-convergence.md": "36bc5c7f2310d96447b8130db0f34a99e900d8f7fc6f33d90630b89085769eec"
+  },
+  "rendered_pages": {
+    "en": 1207,
+    "zh": 1219
+  },
+  "checks": [
+    "go mod verify",
+    "strict Hugo build",
+    "internal links"
+  ]
+}

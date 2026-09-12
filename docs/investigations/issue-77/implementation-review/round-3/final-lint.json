@@ -1,0 +1,14 @@
+{
+  "command": [
+    "make",
+    "lint"
+  ],
+  "cwd": "$SILO_WORKTREE",
+  "head": "461e9a721047c63e1a95f54ad4b533a6b89def30",
+  "started_at": "2026-09-12T09:17:19.334284+00:00",
+  "environment": {
+    "TMPDIR": "$TMPDIR"
+  },
+  "exit_code": 0,
+  "duration_seconds": 79.064
+}

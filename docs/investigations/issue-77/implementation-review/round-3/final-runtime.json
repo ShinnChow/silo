@@ -1,0 +1,18 @@
+{
+  "command": [
+    "go",
+    "run",
+    ".issue77-evidence/twosite/main.go",
+    "$LAB_VOLUME/runtime-reviewed",
+    ".issue77-evidence/silo-reviewed",
+    ".issue77-evidence/silo-before"
+  ],
+  "cwd": "$SILO_WORKTREE",
+  "head": "fcbb93e8957275bfa7ad4e6154e93f4d7b0a7025",
+  "started_at": "2026-09-12T09:12:41.365111+00:00",
+  "environment": {
+    "TMPDIR": "$LAB_VOLUME/tmp"
+  },
+  "exit_code": 0,
+  "duration_seconds": 190.476
+}
