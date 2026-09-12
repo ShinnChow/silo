@@ -126,19 +126,38 @@ func (sys *BucketMetadataSys) Set(bucket string, meta BucketMetadata) {
 	}
 }
 
-func (sys *BucketMetadataSys) updateAndParse(ctx context.Context, bucket string, configFile string, configData []byte, parse, lifecycleDelete bool) (updatedAt time.Time, err error) {
+type bucketMetadataUpdate struct {
+	meta      BucketMetadata
+	updatedAt time.Time
+	changed   bool
+}
+
+func (sys *BucketMetadataSys) updateAndParse(ctx context.Context, bucket, configFile string, configData []byte, parse, lifecycleDelete bool) (time.Time, error) {
+	result, err := sys.updateAndParseMetadata(ctx, bucket, configFile, configData, parse, lifecycleDelete, nil)
+	return result.updatedAt, err
+}
+
+func (sys *BucketMetadataSys) updateAndParseMetadata(ctx context.Context, bucket string, configFile string, configData []byte, parse, lifecycleDelete bool, sourceTime *time.Time) (result bucketMetadataUpdate, err error) {
 	objAPI := newObjectLayerFn()
 	if objAPI == nil {
-		return updatedAt, errServerNotInitialized
+		return result, errServerNotInitialized
 	}
 
 	if isMinioMetaBucketName(bucket) {
-		return updatedAt, errInvalidArgument
+		return result, errInvalidArgument
+	}
+	// Load deletions without parsed caches (notably quota), and compare the
+	// six replicated fields against the raw document under the same lock.
+	if data, _ := replicatedBucketConfig(&result.meta, configFile); data != nil {
+		parse = false
+		if bucketConfigUpdateOnly(configFile) && len(configData) == 0 {
+			return result, nil
+		}
 	}
 	notifyCtx := ctx
 	ctx, unlock, err := lockBucketMetadata(ctx, objAPI, bucket)
 	if err != nil {
-		return updatedAt, err
+		return result, err
 	}
 
 	err = func() error {
@@ -158,55 +177,61 @@ func (sys *BucketMetadataSys) updateAndParse(ctx context.Context, bucket string,
 				return err
 			}
 		}
-		updatedAt = UTCNow()
-		switch configFile {
-		case bucketPolicyConfig:
-			meta.PolicyConfigJSON = configData
-			meta.PolicyConfigUpdatedAt = updatedAt
-		case bucketNotificationConfig:
-			meta.NotificationConfigXML = configData
-			meta.NotificationConfigUpdatedAt = updatedAt
-		case bucketLifecycleConfig:
-			meta.LifecycleConfigXML = configData
-			meta.LifecycleConfigUpdatedAt = updatedAt
-		case bucketSSEConfig:
-			meta.EncryptionConfigXML = configData
-			meta.EncryptionConfigUpdatedAt = updatedAt
-		case bucketTaggingConfig:
-			meta.TaggingConfigXML = configData
-			meta.TaggingConfigUpdatedAt = updatedAt
-		case bucketQuotaConfigFile:
-			meta.QuotaConfigJSON = configData
-			meta.QuotaConfigUpdatedAt = updatedAt
-		case objectLockConfig:
-			meta.ObjectLockConfigXML = configData
-			meta.ObjectLockConfigUpdatedAt = updatedAt
-		case bucketVersioningConfig:
-			meta.VersioningConfigXML = configData
-			meta.VersioningConfigUpdatedAt = updatedAt
-		case bucketReplicationConfig:
-			meta.ReplicationConfigXML = configData
-			meta.ReplicationConfigUpdatedAt = updatedAt
-		case bucketTargetsFile:
-			meta.BucketTargetsConfigJSON, meta.BucketTargetsConfigMetaJSON, err = encryptBucketMetadata(ctx, meta.Name, configData, kms.Context{
-				bucket:            meta.Name,
-				bucketTargetsFile: bucketTargetsFile,
-			})
-			if err != nil {
-				return fmt.Errorf("Error encrypting bucket target metadata %w", err)
+		updatedAt := UTCNow()
+		if data, _ := replicatedBucketConfig(&meta, configFile); data != nil {
+			if err := ensureBucketMetadataCreated(ctx, objAPI, &meta); err != nil {
+				return err
 			}
-			meta.BucketTargetsConfigUpdatedAt = updatedAt
-			meta.BucketTargetsConfigMetaUpdatedAt = updatedAt
-		default:
-			return fmt.Errorf("Unknown bucket %s metadata update requested %s", bucket, configFile)
+			if sourceTime == nil || sourceTime.IsZero() {
+				updatedAt = localBucketConfigUpdatedAt(meta, configFile, updatedAt)
+			} else {
+				updatedAt = sourceTime.UTC()
+			}
+			changed, err := applyBucketConfig(&meta, configFile, configData, updatedAt)
+			if err != nil {
+				return err
+			}
+			if !changed {
+				return nil
+			}
+		} else {
+			switch configFile {
+			case bucketNotificationConfig:
+				meta.NotificationConfigXML = configData
+				meta.NotificationConfigUpdatedAt = updatedAt
+			case bucketLifecycleConfig:
+				meta.LifecycleConfigXML = configData
+				meta.LifecycleConfigUpdatedAt = updatedAt
+			case bucketReplicationConfig:
+				meta.ReplicationConfigXML = configData
+				meta.ReplicationConfigUpdatedAt = updatedAt
+			case bucketTargetsFile:
+				meta.BucketTargetsConfigJSON, meta.BucketTargetsConfigMetaJSON, err = encryptBucketMetadata(ctx, meta.Name, configData, kms.Context{
+					bucket:            meta.Name,
+					bucketTargetsFile: bucketTargetsFile,
+				})
+				if err != nil {
+					return fmt.Errorf("Error encrypting bucket target metadata %w", err)
+				}
+				meta.BucketTargetsConfigUpdatedAt = updatedAt
+				meta.BucketTargetsConfigMetaUpdatedAt = updatedAt
+			default:
+				return fmt.Errorf("Unknown bucket %s metadata update requested %s", bucket, configFile)
+			}
 		}
-		return sys.saveMetadata(ctx, objAPI, meta)
+		if err := sys.saveMetadata(ctx, objAPI, &meta); err != nil {
+			return err
+		}
+		result = bucketMetadataUpdate{meta: meta, updatedAt: updatedAt, changed: true}
+		return nil
 	}()
 	if err != nil {
-		return updatedAt, err
+		return result, err
 	}
-	globalNotificationSys.LoadBucketMetadata(bgContext(notifyCtx), bucket) // Do not use caller context here
-	return updatedAt, nil
+	if result.changed {
+		globalNotificationSys.LoadBucketMetadata(bgContext(notifyCtx), bucket)
+	}
+	return result, nil
 }
 
 func (sys *BucketMetadataSys) save(ctx context.Context, meta BucketMetadata) error {
@@ -219,7 +244,7 @@ func (sys *BucketMetadataSys) save(ctx context.Context, meta BucketMetadata) err
 		return errInvalidArgument
 	}
 
-	if err := sys.saveMetadata(ctx, objAPI, meta); err != nil {
+	if err := sys.saveMetadata(ctx, objAPI, &meta); err != nil {
 		return err
 	}
 
@@ -229,7 +254,7 @@ func (sys *BucketMetadataSys) save(ctx context.Context, meta BucketMetadata) err
 
 // saveMetadata persists and publishes metadata locally. Callers performing a
 // read-modify-write must hold metadata.lock and release it before peer fan-out.
-func (sys *BucketMetadataSys) saveMetadata(ctx context.Context, objAPI ObjectLayer, meta BucketMetadata) error {
+func (sys *BucketMetadataSys) saveMetadata(ctx context.Context, objAPI ObjectLayer, meta *BucketMetadata) error {
 	// A writer may have queued for metadata.lock before DeleteBucket completed.
 	// Recheck the physical bucket under that lock, before recreating metadata.
 	if _, err := objAPI.GetBucketInfo(ctx, meta.Name, BucketOptions{NoMetadata: true}); err != nil {
@@ -238,7 +263,7 @@ func (sys *BucketMetadataSys) saveMetadata(ctx context.Context, objAPI ObjectLay
 	if err := meta.Save(ctx, objAPI); err != nil {
 		return err
 	}
-	sys.Set(meta.Name, meta)
+	sys.Set(meta.Name, *meta)
 	return nil
 }
 
@@ -351,7 +376,7 @@ func (sys *BucketMetadataSys) UpdateExpiryLCConfig(ctx context.Context, bucket s
 		}
 		meta.LifecycleConfigXML = configData
 		meta.LifecycleConfigUpdatedAt = UTCNow()
-		return sys.saveMetadata(ctx, objAPI, meta)
+		return sys.saveMetadata(ctx, objAPI, &meta)
 	}()
 	if err != nil {
 		return err

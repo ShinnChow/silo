@@ -906,7 +906,7 @@ func enablePeerBucketVersioning(meta *BucketMetadata, lockEnabled bool) error {
 	config, err := versioning.ParseConfig(bytes.NewReader(meta.VersioningConfigXML))
 	if err != nil || (lockEnabled && (config.Suspended() || config.PrefixesExcluded())) {
 		meta.VersioningConfigXML = enabledBucketVersioningConfig
-		meta.VersioningConfigUpdatedAt = UTCNow()
+		meta.VersioningConfigUpdatedAt = localBucketConfigUpdatedAt(*meta, bucketVersioningConfig, UTCNow())
 		return nil
 	}
 	if config.Enabled() {
@@ -917,7 +917,7 @@ func enablePeerBucketVersioning(meta *BucketMetadata, lockEnabled bool) error {
 	if err != nil {
 		return err
 	}
-	meta.VersioningConfigUpdatedAt = UTCNow()
+	meta.VersioningConfigUpdatedAt = localBucketConfigUpdatedAt(*meta, bucketVersioningConfig, UTCNow())
 	return nil
 }
 
@@ -947,7 +947,9 @@ func (c *SiteReplicationSys) PeerBucketMakeWithVersioningHandler(ctx context.Con
 		if err != nil {
 			return err
 		}
+		oldCreated := meta.Created
 		meta.SetCreatedAt(opts.CreatedAt)
+		rebaseBucketConfigDefaults(&meta, oldCreated)
 
 		if err = enablePeerBucketVersioning(&meta, opts.LockEnabled || len(meta.ObjectLockConfigXML) != 0); err != nil {
 			return err
@@ -958,7 +960,7 @@ func (c *SiteReplicationSys) PeerBucketMakeWithVersioningHandler(ctx context.Con
 				meta.ObjectLockConfigUpdatedAt = meta.Created
 			}
 		}
-		return globalBucketMetadataSys.saveMetadata(bgContext(ctx), objAPI, meta)
+		return globalBucketMetadataSys.saveMetadata(bgContext(ctx), objAPI, &meta)
 	}()
 	if err != nil {
 		return wrapSRErr(c.annotateErr(makeBucketWithVersion, err))
@@ -1583,24 +1585,18 @@ func (c *SiteReplicationSys) BucketMetaHook(ctx context.Context, item madmin.SRB
 
 // PeerBucketVersioningHandler - updates versioning config to local cluster.
 func (c *SiteReplicationSys) PeerBucketVersioningHandler(ctx context.Context, bucket string, versioning *string, updatedAt time.Time) error {
+	var data []byte
 	if versioning != nil {
-		// skip overwrite if local update is newer than peer update.
-		if !updatedAt.IsZero() {
-			if _, updateTm, err := globalBucketMetadataSys.GetVersioningConfig(bucket); err == nil && updateTm.After(updatedAt) {
-				return nil
-			}
-		}
-		configData, err := base64.StdEncoding.DecodeString(*versioning)
+		var err error
+		data, err = base64.StdEncoding.DecodeString(*versioning)
 		if err != nil {
 			return wrapSRErr(err)
 		}
-		_, err = globalBucketMetadataSys.Update(ctx, bucket, bucketVersioningConfig, configData)
-		if err != nil {
-			return wrapSRErr(err)
-		}
-		return nil
 	}
-
+	_, err := globalBucketMetadataSys.updateAndParseMetadata(ctx, bucket, bucketVersioningConfig, data, false, false, &updatedAt)
+	if err != nil {
+		return wrapSRErr(err)
+	}
 	return nil
 }
 
@@ -1650,50 +1646,43 @@ func (c *SiteReplicationSys) PeerBucketMetadataUpdateHandler(ctx context.Context
 		return nil
 	}
 
-	if item.Policy != nil {
-		meta.PolicyConfigJSON = item.Policy
-		meta.PolicyConfigUpdatedAt = item.UpdatedAt
+	// Presence is separate from content: omitted RawMessage is not a delete;
+	// explicit JSON null still goes through the existing policy/quota parser.
+	updates := make(map[string][]byte, len(replicatedBucketConfigs))
+	if len(item.Policy) != 0 {
+		updates[bucketPolicyConfig] = item.Policy
 	}
-
-	if item.Versioning != nil {
-		configData, err := base64.StdEncoding.DecodeString(*item.Versioning)
+	if len(item.Quota) != 0 {
+		updates[bucketQuotaConfigFile] = item.Quota
+	}
+	for file, payload := range map[string]*string{
+		objectLockConfig: item.ObjectLockConfig, bucketVersioningConfig: item.Versioning,
+		bucketTaggingConfig: item.Tags, bucketSSEConfig: item.SSEConfig,
+	} {
+		if payload != nil {
+			data, err := base64.StdEncoding.DecodeString(*payload)
+			if err != nil {
+				return wrapSRErr(err)
+			}
+			updates[file] = data
+		}
+	}
+	if len(updates) != 0 {
+		if err := ensureBucketMetadataCreated(ctx, objectAPI, &meta); err != nil {
+			return wrapSRErr(err)
+		}
+	}
+	changed := false
+	for _, file := range replicatedBucketConfigs {
+		data, supplied := updates[file]
+		if !supplied {
+			continue
+		}
+		applied, err := applyBucketConfig(&meta, file, data, item.UpdatedAt)
 		if err != nil {
 			return wrapSRErr(err)
 		}
-		meta.VersioningConfigXML = configData
-		meta.VersioningConfigUpdatedAt = item.UpdatedAt
-	}
-
-	if item.Tags != nil {
-		configData, err := base64.StdEncoding.DecodeString(*item.Tags)
-		if err != nil {
-			return wrapSRErr(err)
-		}
-		meta.TaggingConfigXML = configData
-		meta.TaggingConfigUpdatedAt = item.UpdatedAt
-	}
-
-	if item.ObjectLockConfig != nil {
-		configData, err := base64.StdEncoding.DecodeString(*item.ObjectLockConfig)
-		if err != nil {
-			return wrapSRErr(err)
-		}
-		meta.ObjectLockConfigXML = configData
-		meta.ObjectLockConfigUpdatedAt = item.UpdatedAt
-	}
-
-	if item.SSEConfig != nil {
-		configData, err := base64.StdEncoding.DecodeString(*item.SSEConfig)
-		if err != nil {
-			return wrapSRErr(err)
-		}
-		meta.EncryptionConfigXML = configData
-		meta.EncryptionConfigUpdatedAt = item.UpdatedAt
-	}
-
-	if item.Quota != nil {
-		meta.QuotaConfigJSON = item.Quota
-		meta.QuotaConfigUpdatedAt = item.UpdatedAt
+		changed = changed || applied
 	}
 
 	if item.Cors != nil {
@@ -1702,10 +1691,14 @@ func (c *SiteReplicationSys) PeerBucketMetadataUpdateHandler(ctx context.Context
 		if compareCORSReplicationStates(localState, incoming) < 0 {
 			meta.CorsConfigXML = bytes.Clone(corsConfigData)
 			meta.CorsConfigUpdatedAt = item.UpdatedAt
+			changed = true
 		}
 	}
 
-	if err = globalBucketMetadataSys.saveMetadata(ctx, objectAPI, meta); err != nil {
+	if !changed {
+		return nil
+	}
+	if err = globalBucketMetadataSys.saveMetadata(ctx, objectAPI, &meta); err != nil {
 		return err
 	}
 	unlock()
@@ -1716,62 +1709,35 @@ func (c *SiteReplicationSys) PeerBucketMetadataUpdateHandler(ctx context.Context
 
 // PeerBucketPolicyHandler - copies/deletes policy to local cluster.
 func (c *SiteReplicationSys) PeerBucketPolicyHandler(ctx context.Context, bucket string, policy *policy.BucketPolicy, updatedAt time.Time) error {
-	// skip overwrite if local update is newer than peer update.
-	if !updatedAt.IsZero() {
-		if _, updateTm, err := globalBucketMetadataSys.GetPolicyConfig(bucket); err == nil && updateTm.After(updatedAt) {
-			return nil
-		}
-	}
-
+	var data []byte
 	if policy != nil {
-		configData, err := json.Marshal(policy)
+		var err error
+		data, err = canonicalBucketPolicy(policy)
 		if err != nil {
 			return wrapSRErr(err)
 		}
-
-		_, err = globalBucketMetadataSys.Update(ctx, bucket, bucketPolicyConfig, configData)
-		if err != nil {
-			return wrapSRErr(err)
-		}
-		return nil
 	}
-
-	// Delete the bucket policy
-	_, err := globalBucketMetadataSys.Delete(ctx, bucket, bucketPolicyConfig)
+	_, err := globalBucketMetadataSys.updateAndParseMetadata(ctx, bucket, bucketPolicyConfig, data, false, false, &updatedAt)
 	if err != nil {
 		return wrapSRErr(err)
 	}
-
 	return nil
 }
 
 // PeerBucketTaggingHandler - copies/deletes tags to local cluster.
 func (c *SiteReplicationSys) PeerBucketTaggingHandler(ctx context.Context, bucket string, tags *string, updatedAt time.Time) error {
-	// skip overwrite if local update is newer than peer update.
-	if !updatedAt.IsZero() {
-		if _, updateTm, err := globalBucketMetadataSys.GetTaggingConfig(bucket); err == nil && updateTm.After(updatedAt) {
-			return nil
-		}
-	}
-
+	var data []byte
 	if tags != nil {
-		configData, err := base64.StdEncoding.DecodeString(*tags)
+		var err error
+		data, err = base64.StdEncoding.DecodeString(*tags)
 		if err != nil {
 			return wrapSRErr(err)
 		}
-		_, err = globalBucketMetadataSys.Update(ctx, bucket, bucketTaggingConfig, configData)
-		if err != nil {
-			return wrapSRErr(err)
-		}
-		return nil
 	}
-
-	// Delete the tags
-	_, err := globalBucketMetadataSys.Delete(ctx, bucket, bucketTaggingConfig)
+	_, err := globalBucketMetadataSys.updateAndParseMetadata(ctx, bucket, bucketTaggingConfig, data, false, false, &updatedAt)
 	if err != nil {
 		return wrapSRErr(err)
 	}
-
 	return nil
 }
 
@@ -1797,51 +1763,32 @@ func (c *SiteReplicationSys) peerBucketObjectLockConfigItem(ctx context.Context,
 
 // PeerBucketObjectLockConfigHandler - sets object lock on local bucket.
 func (c *SiteReplicationSys) PeerBucketObjectLockConfigHandler(ctx context.Context, bucket string, objectLockData *string, updatedAt time.Time) error {
+	var data []byte
 	if objectLockData != nil {
-		// skip overwrite if local update is newer than peer update.
-		if !updatedAt.IsZero() {
-			if _, updateTm, err := globalBucketMetadataSys.GetObjectLockConfig(bucket); err == nil && updateTm.After(updatedAt) {
-				return nil
-			}
-		}
-
-		configData, err := base64.StdEncoding.DecodeString(*objectLockData)
+		var err error
+		data, err = base64.StdEncoding.DecodeString(*objectLockData)
 		if err != nil {
 			return wrapSRErr(err)
 		}
-		_, err = globalBucketMetadataSys.Update(ctx, bucket, objectLockConfig, configData)
-		if err != nil {
-			return wrapSRErr(err)
-		}
-		return nil
 	}
-
+	_, err := globalBucketMetadataSys.updateAndParseMetadata(ctx, bucket, objectLockConfig, data, false, false, &updatedAt)
+	if err != nil {
+		return wrapSRErr(err)
+	}
 	return nil
 }
 
 // PeerBucketSSEConfigHandler - copies/deletes SSE config to local cluster.
 func (c *SiteReplicationSys) PeerBucketSSEConfigHandler(ctx context.Context, bucket string, sseConfig *string, updatedAt time.Time) error {
-	// skip overwrite if local update is newer than peer update.
-	if !updatedAt.IsZero() {
-		if _, updateTm, err := globalBucketMetadataSys.GetSSEConfig(bucket); err == nil && updateTm.After(updatedAt) {
-			return nil
-		}
-	}
-
+	var data []byte
 	if sseConfig != nil {
-		configData, err := base64.StdEncoding.DecodeString(*sseConfig)
+		var err error
+		data, err = base64.StdEncoding.DecodeString(*sseConfig)
 		if err != nil {
 			return wrapSRErr(err)
 		}
-		_, err = globalBucketMetadataSys.Update(ctx, bucket, bucketSSEConfig, configData)
-		if err != nil {
-			return wrapSRErr(err)
-		}
-		return nil
 	}
-
-	// Delete sse config
-	_, err := globalBucketMetadataSys.Delete(ctx, bucket, bucketSSEConfig)
+	_, err := globalBucketMetadataSys.updateAndParseMetadata(ctx, bucket, bucketSSEConfig, data, false, false, &updatedAt)
 	if err != nil {
 		return wrapSRErr(err)
 	}
@@ -2046,7 +1993,7 @@ func applyBucketCORSMetadata(ctx context.Context, objectAPI ObjectLayer, bucket 
 
 	meta.CorsConfigXML = bytes.Clone(configData)
 	meta.CorsConfigUpdatedAt = updatedAt
-	if err = globalBucketMetadataSys.saveMetadata(ctx, objectAPI, meta); err != nil {
+	if err = globalBucketMetadataSys.saveMetadata(ctx, objectAPI, &meta); err != nil {
 		return time.Time{}, err
 	}
 	unlock()
@@ -2078,32 +2025,18 @@ func (c *SiteReplicationSys) PeerBucketCorsConfigHandler(ctx context.Context, bu
 
 // PeerBucketQuotaConfigHandler - copies/deletes policy to local cluster.
 func (c *SiteReplicationSys) PeerBucketQuotaConfigHandler(ctx context.Context, bucket string, quota *madmin.BucketQuota, updatedAt time.Time) error {
-	// skip overwrite if local update is newer than peer update.
-	if !updatedAt.IsZero() {
-		if _, updateTm, err := globalBucketMetadataSys.GetQuotaConfig(ctx, bucket); err == nil && updateTm.After(updatedAt) {
-			return nil
-		}
-	}
-
+	var data []byte
 	if quota != nil {
-		quotaData, err := json.Marshal(quota)
+		var err error
+		data, err = json.Marshal(quota)
 		if err != nil {
 			return wrapSRErr(err)
 		}
-
-		if _, err = globalBucketMetadataSys.Update(ctx, bucket, bucketQuotaConfigFile, quotaData); err != nil {
-			return wrapSRErr(err)
-		}
-
-		return nil
 	}
-
-	// Delete the bucket policy
-	_, err := globalBucketMetadataSys.Delete(ctx, bucket, bucketQuotaConfigFile)
+	_, err := globalBucketMetadataSys.updateAndParseMetadata(ctx, bucket, bucketQuotaConfigFile, data, false, false, &updatedAt)
 	if err != nil {
 		return wrapSRErr(err)
 	}
-
 	return nil
 }
 
