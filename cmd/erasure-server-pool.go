@@ -2276,6 +2276,11 @@ func (z *erasureServerPools) GetBucketInfo(ctx context.Context, bucket string, o
 	if err != nil {
 		return bucketInfo, toObjectErr(err, bucket)
 	}
+	// Physical existence/creation probes must not be overwritten by cached
+	// metadata, which can legitimately lack Created on an unmigrated bucket.
+	if opts.NoMetadata {
+		return bucketInfo, nil
+	}
 
 	meta, err := globalBucketMetadataSys.Get(bucket)
 	if err == nil {

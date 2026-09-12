@@ -33,6 +33,7 @@ import (
 
 	"github.com/minio/madmin-go/v3"
 	"github.com/minio/minio/internal/auth"
+	"github.com/pgsty/silo-pkg/v3/policy"
 )
 
 func TestPeerBucketMetadataSourceTimeAndDeletion(t *testing.T) {
@@ -311,6 +312,56 @@ func TestBucketPolicyReplicationKey(t *testing.T) {
 	}
 }
 
+func TestBucketPolicyReplicationStatusLegacyOrder(t *testing.T) {
+	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{t: t, objAPITest: func(obj ObjectLayer, backend, bucket string, _ http.Handler, cred auth.Credentials, t *testing.T) {
+		t.Run(backend, func(t *testing.T) {
+			ctx := t.Context()
+			// Statement order here is the reverse of the canonical encoder's,
+			// which is what an upgraded peer stores: the permutation must not
+			// be reported as a permanent mismatch.
+			legacy := []byte(fmt.Sprintf(`{"Version":"2012-10-17","Statement":[{"Sid":"allow","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":"arn:aws:s3:::%s/*"},{"Sid":"deny","Effect":"Deny","Principal":"*","Action":"s3:DeleteObject","Resource":"arn:aws:s3:::%s/*"}]}`, bucket, bucket))
+			source, err := policy.ParseBucketPolicyConfig(bytes.NewReader(legacy), bucket)
+			if err != nil {
+				t.Fatal(err)
+			}
+			meta := newBucketMetadata(bucket)
+			meta.Created = UTCNow().Add(-time.Hour)
+			meta.PolicyConfigJSON = legacy
+			meta.PolicyConfigUpdatedAt = meta.Created.Add(time.Minute)
+			event, send, err := initialBucketConfigReplicationEvent(meta, bucketPolicyConfig)
+			if err != nil || !send {
+				t.Fatalf("legacy initial event: %v send=%v", err, send)
+			}
+			target := newBucketMetadata(bucket)
+			target.Created = meta.Created
+			if err := globalBucketMetadataSys.save(ctx, target); err != nil {
+				t.Fatal(err)
+			}
+			if rec := applySRBucketMetaViaAdmin(t, cred, event); rec.Code != http.StatusOK {
+				t.Fatalf("peer apply: %d %s", rec.Code, rec.Body.String())
+			}
+			received, _, err := globalBucketMetadataSys.GetPolicyConfig(bucket)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !isBktPolicyReplicated(2, []*policy.BucketPolicy{source, received}) {
+				t.Fatal("equivalent legacy and received policy reported as permanently mismatched")
+			}
+			changed, err := policy.ParseBucketPolicyConfig(bytes.NewReader(legacy), bucket)
+			if err != nil {
+				t.Fatal(err)
+			}
+			changed.Statements[0].SID = "different"
+			if isBktPolicyReplicated(2, []*policy.BucketPolicy{source, changed}) {
+				t.Fatal("distinct policy state reported as replicated")
+			}
+			if isBktPolicyReplicated(2, []*policy.BucketPolicy{source, nil}) || !isBktPolicyReplicated(2, []*policy.BucketPolicy{nil, nil}) {
+				t.Fatal("per-site presence accounting changed")
+			}
+		})
+	}})
+}
+
 func TestPeerBucketMetadataWireAtomicity(t *testing.T) {
 	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{t: t, objAPITest: func(obj ObjectLayer, backend, bucket string, _ http.Handler, cred auth.Credentials, t *testing.T) {
 		t.Run(backend, func(t *testing.T) {
@@ -393,7 +444,7 @@ func TestPeerBucketMetadataWireAtomicity(t *testing.T) {
 
 func TestPeerBucketAdoptionRebasesOnlyDefaults(t *testing.T) {
 	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{t: t, objAPITest: func(obj ObjectLayer, backend, bucket string, _ http.Handler, _ auth.Credentials, t *testing.T) {
-		for _, shift := range []time.Duration{-time.Hour, 0, time.Hour} {
+		for _, shift := range []time.Duration{-time.Hour, 0, time.Hour, 3 * time.Hour} {
 			t.Run(fmt.Sprintf("%s/%s", backend, shift), func(t *testing.T) {
 				created := UTCNow().Add(-3 * time.Hour)
 				meta := newBucketMetadata(bucket)
@@ -418,6 +469,17 @@ func TestPeerBucketAdoptionRebasesOnlyDefaults(t *testing.T) {
 				}
 				if !got.TaggingConfigUpdatedAt.Equal(meta.TaggingConfigUpdatedAt) || !got.EncryptionConfigUpdatedAt.Equal(meta.EncryptionConfigUpdatedAt) || !bytes.Equal(got.EncryptionConfigXML, meta.EncryptionConfigXML) {
 					t.Fatal("actual state changed during adoption")
+				}
+				if shift > 2*time.Hour {
+					// Preserve history, but do not promote state from an earlier
+					// bucket generation to a new valid source by retimestamping it.
+					for _, file := range []string{bucketTaggingConfig, bucketSSEConfig} {
+						data, at := replicatedBucketConfig(&got, file)
+						state, err := newBucketConfigState(bucket, file, *data, *at, got.Created, false)
+						if err != nil || state.candidate() {
+							t.Fatalf("pre-generation history became a source: %s %v", file, err)
+						}
+					}
 				}
 			})
 		}

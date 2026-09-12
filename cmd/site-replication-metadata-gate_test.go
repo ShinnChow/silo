@@ -18,9 +18,10 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"net/http"
+	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -144,7 +145,6 @@ func TestPeerBucketMetadataLegacyAndGeneration(t *testing.T) {
 
 type bucketMetadataCreatedObjectLayer struct {
 	ObjectLayer
-	created time.Time
 	missing bool
 }
 
@@ -153,7 +153,8 @@ func (o bucketMetadataCreatedObjectLayer) GetBucketInfo(ctx context.Context, buc
 		if o.missing {
 			return BucketInfo{}, BucketNotFound{Bucket: bucket}
 		}
-		return BucketInfo{Name: bucket, Created: o.created}, nil
+		// A physical bucket that reports no creation time either.
+		return BucketInfo{Name: bucket}, nil
 	}
 	return o.ObjectLayer.GetBucketInfo(ctx, bucket, opts)
 }
@@ -163,37 +164,74 @@ func TestPeerBucketMetadataUnknownCreated(t *testing.T) {
 		t.Run(backend, func(t *testing.T) {
 			defer setObjectLayer(obj)
 			data := bucketConfigTestData(bucket)[bucketTaggingConfig]
-			for _, mode := range []string{"unknown", "missing", "physical-created"} {
+			for _, mode := range []string{"unknown", "missing"} {
 				t.Run(mode, func(t *testing.T) {
-					meta := newBucketMetadata(bucket)
 					setObjectLayer(obj)
-					if err := globalBucketMetadataSys.save(t.Context(), meta); err != nil {
+					if err := globalBucketMetadataSys.save(t.Context(), newBucketMetadata(bucket)); err != nil {
 						t.Fatal(err)
 					}
-					created := UTCNow().Add(-time.Hour)
-					physical := bucketMetadataCreatedObjectLayer{ObjectLayer: obj, missing: mode == "missing"}
-					if mode == "physical-created" {
-						physical.created = created
-					}
-					counter := &bucketConfigWriteCounter{ObjectLayer: physical}
+					counter := &bucketConfigWriteCounter{ObjectLayer: bucketMetadataCreatedObjectLayer{ObjectLayer: obj, missing: mode == "missing"}}
 					setObjectLayer(counter)
-					stamp := created.Add(time.Minute)
+					stamp := UTCNow()
 					_, err := globalBucketMetadataSys.updateAndParseMetadata(t.Context(), bucket, bucketTaggingConfig, data, false, false, &stamp)
-					if mode != "physical-created" {
-						if err == nil || counter.writes.Load() != 0 {
-							t.Fatalf("unknown generation was invented: %v writes=%d", err, counter.writes.Load())
-						}
-					} else {
-						if err != nil {
-							t.Fatal(err)
-						}
-						got, err := readBucketMetadata(t.Context(), obj, bucket)
-						if err != nil || !got.Created.Equal(created) || !got.TaggingConfigUpdatedAt.Equal(stamp) || !bytes.Equal(got.TaggingConfigXML, data) {
-							t.Fatalf("physical creation recovery: %v", err)
-						}
+					if err == nil || counter.writes.Load() != 0 {
+						t.Fatalf("unknown generation was invented: %v writes=%d", err, counter.writes.Load())
 					}
 				})
 			}
 		})
+	}})
+}
+
+// setPhysicalBucketCreated stamps the bucket directory on every local drive,
+// which is what StatVol reports as the physical creation time.
+func setPhysicalBucketCreated(t *testing.T, bucket string, at time.Time) {
+	t.Helper()
+	globalLocalDrivesMu.RLock()
+	drives := cloneDrives(globalLocalDrivesMap)
+	globalLocalDrivesMu.RUnlock()
+	if len(drives) == 0 {
+		t.Fatal("no local drives registered")
+	}
+	for _, drive := range drives {
+		if err := os.Chtimes(pathJoin(drive.Endpoint().Path, bucket), at, at); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// Recovery has to run against the real ObjectLayer: a stub GetBucketInfo
+// returning the expected time would hide the cached zero creation time
+// overwriting it, which is what a bucket that never held a configuration has.
+func TestBucketMetadataPhysicalCreatedRecovery(t *testing.T) {
+	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{t: t, objAPITest: func(obj ObjectLayer, backend, bucket string, _ http.Handler, _ auth.Credentials, t *testing.T) {
+		// One known time on every drive, so the recovered value can be neither
+		// confused with UTCNow() nor dependent on which drive answers first.
+		physical := UTCNow().Add(-3 * time.Hour).Truncate(time.Second)
+		for _, missing := range []bool{false, true} {
+			for _, file := range replicatedBucketConfigs {
+				t.Run(backend+"/"+file+"/missing="+strconv.FormatBool(missing), func(t *testing.T) {
+					ctx := t.Context()
+					setPhysicalBucketCreated(t, bucket, physical)
+					if err := globalBucketMetadataSys.save(ctx, newBucketMetadata(bucket)); err != nil {
+						t.Fatal(err)
+					}
+					if missing {
+						if err := deleteConfig(ctx, obj, pathJoin(bucketMetaPrefix, bucket, bucketMetadataFile)); err != nil {
+							t.Fatal(err)
+						}
+					}
+					data := bucketConfigTestData(bucket)[file]
+					at, err := globalBucketMetadataSys.Update(ctx, bucket, file, data)
+					if err != nil {
+						t.Fatalf("bucket without a recorded creation time cannot update %s: %v", file, err)
+					}
+					got, err := readBucketMetadata(ctx, obj, bucket)
+					if err != nil || !got.Created.Equal(physical) || !at.After(physical) {
+						t.Fatalf("physical creation not persisted: created=%v physical=%v updated=%v err=%v", got.Created, physical, at, err)
+					}
+				})
+			}
+		}
 	}})
 }

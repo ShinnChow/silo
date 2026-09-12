@@ -126,6 +126,10 @@ func (sys *BucketMetadataSys) Set(bucket string, meta BucketMetadata) {
 	}
 }
 
+// bucketMetadataUpdate returns the committed snapshot to the caller. meta and
+// updatedAt hold the saved state only when changed is true. Local writes always
+// change state, because localBucketConfigUpdatedAt is strictly greater than the
+// current field time, so their handlers can broadcast meta without rechecking.
 type bucketMetadataUpdate struct {
 	meta      BucketMetadata
 	updatedAt time.Time
@@ -148,7 +152,7 @@ func (sys *BucketMetadataSys) updateAndParseMetadata(ctx context.Context, bucket
 	}
 	// Load deletions without parsed caches (notably quota), and compare the
 	// six replicated fields against the raw document under the same lock.
-	if data, _ := replicatedBucketConfig(&result.meta, configFile); data != nil {
+	if isReplicatedBucketConfig(configFile) {
 		parse = false
 		if bucketConfigUpdateOnly(configFile) && len(configData) == 0 {
 			return result, nil
@@ -178,7 +182,7 @@ func (sys *BucketMetadataSys) updateAndParseMetadata(ctx context.Context, bucket
 			}
 		}
 		updatedAt := UTCNow()
-		if data, _ := replicatedBucketConfig(&meta, configFile); data != nil {
+		if isReplicatedBucketConfig(configFile) {
 			if err := ensureBucketMetadataCreated(ctx, objAPI, &meta); err != nil {
 				logBucketConfigReplication(ctx, bucket, configFile, "indeterminate", time.Time{}, meta.Created, err.Error())
 				return err

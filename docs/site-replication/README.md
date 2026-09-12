@@ -103,12 +103,20 @@ bucket identity conflicts first, then resubmit the intended configuration or
 delete at the authoritative site. A local write advances beyond an existing
 future field timestamp. Source times before the target bucket's creation are
 ignored; an unknown creation time is recovered from the physical bucket, or the
-operation fails without writing.
+operation fails without writing. That recovery happens on the write path. While
+a bucket's stored metadata still carries no creation time, site status reports
+it that way and periodic healing skips that bucket in both directions; the first
+configuration write on it, local or replicated, records the physical time and
+returns the bucket to the normal path.
 
-The server emits bounded diagnostics for `legacy-zero`, `before-created` and
-`indeterminate`. Keys and error messages remain stable for each bucket/field/
-reason; timestamps and peer details are log attributes. Existing hourly logger
-cleanup applies. Normal duplicates, older events and resolved ties are quiet.
+The server emits bounded warnings for `legacy-zero`, `before-created`,
+`indeterminate`, `unreachable` and `peer-error`. Each reason keeps its own log
+key, so a peer that did not report cannot hide an unusable peer state or a real
+heal RPC failure for the same bucket and field. A peer that simply does not
+have the bucket yet is a normal transient and is not reported here. Keys and
+error messages remain stable for each bucket/field/reason; timestamps and peer
+details are log attributes. Existing hourly logger cleanup applies. Normal
+duplicates, older events and resolved ties are quiet.
 
 A local PUT of a policy whose parsed statements are empty now consistently
 means deletion: PUT succeeds and GET returns the existing NotFound response.
@@ -117,3 +125,10 @@ JSON (`{}`, `null`, or a valid zero quota document) remains a live document;
 it is not silently sent as a deletion. Bulk omission preserves a field,
 whereas an explicit Policy JSON `null` deletes it. These rules use the existing
 wire fields and on-disk metadata format.
+
+Policy GET and admin export use the same validated encoder as replication.
+Statement and set arrays may appear in a different order from older output;
+policy evaluation is unchanged. This also makes policies using the parser's
+existing NotAction/NotResource alternatives writable and readable. Public
+replication status compares the same stable policy key as heal, so a peer's
+equivalent legacy statement order does not remain a false mismatch.

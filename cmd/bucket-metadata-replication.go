@@ -33,7 +33,8 @@ import (
 )
 
 // Only these fields share the site-replication source-time ordering contract.
-// Object Lock is applied before Versioning, whose effective document depends on it.
+// Bulk apply/import process Object Lock before Versioning, whose effective
+// document depends on it. Periodic heal retains its existing type order.
 var replicatedBucketConfigs = [...]string{
 	objectLockConfig, bucketVersioningConfig, bucketPolicyConfig,
 	bucketTaggingConfig, bucketSSEConfig, bucketQuotaConfigFile,
@@ -55,6 +56,17 @@ func replicatedBucketConfig(meta *BucketMetadata, file string) (*[]byte, *time.T
 		return &meta.ObjectLockConfigXML, &meta.ObjectLockConfigUpdatedAt
 	}
 	return nil, nil
+}
+
+// Callers that only need to know whether a file is under the contract must not
+// probe replicatedBucketConfig with a throwaway BucketMetadata.
+func isReplicatedBucketConfig(file string) bool {
+	for _, replicated := range replicatedBucketConfigs {
+		if replicated == file {
+			return true
+		}
+	}
+	return false
 }
 
 func bucketConfigUpdateOnly(file string) bool {

@@ -819,6 +819,9 @@ func (c *SiteReplicationSys) MakeBucketHook(ctx context.Context, bucket string, 
 		optsMap["forceCreate"] = "true"
 	}
 	createdAt, _ := globalBucketMetadataSys.CreatedAt(bucket)
+	if createdAt.IsZero() {
+		createdAt = opts.CreatedAt
+	}
 	optsMap["createdAt"] = createdAt.UTC().Format(time.RFC3339Nano)
 	opts.CreatedAt = createdAt
 
@@ -2139,10 +2142,14 @@ func (c *SiteReplicationSys) syncToAllPeers(ctx context.Context, addOpts madmin.
 		if err != nil && !errors.Is(err, errConfigNotFound) {
 			return errSRBackendIssue(err)
 		}
+		if err := ensureBucketMetadataCreated(ctx, objAPI, &meta); err != nil {
+			logBucketConfigReplication(ctx, bucket, "initial-sync", "indeterminate", time.Time{}, meta.Created, err.Error())
+			return errSRBackendIssue(err)
+		}
 
 		opts := MakeBucketOptions{
 			LockEnabled: meta.ObjectLocking(),
-			CreatedAt:   bucketInfo.Created.UTC(),
+			CreatedAt:   meta.Created.UTC(),
 		}
 
 		// Now call the MakeBucketHook on existing bucket - this will
@@ -3784,18 +3791,19 @@ func isBktPolicyReplicated(total int, policies []*policy.BucketPolicy) bool {
 		return false
 	}
 	// check if policies match between sites
-	var prev *policy.BucketPolicy
-	for i, p := range policies {
+	var prev []byte
+	first := true
+	for _, p := range policies {
 		if p == nil {
 			continue
 		}
-		if i == 0 {
-			prev = p
-			continue
-		}
-		if !prev.Equals(*p) {
+		// Heal treats statement/set permutations as the same effective state.
+		// Status must agree even when an upgraded peer retains legacy bytes.
+		key, err := canonicalBucketPolicy(p)
+		if err != nil || !first && !bytes.Equal(prev, key) {
 			return false
 		}
+		prev, first = key, false
 	}
 	return true
 }

@@ -39,7 +39,7 @@ func logBucketConfigReplication(ctx context.Context, bucket, file, reason string
 	req.AppendTags("created", created.UTC().Format(time.RFC3339Nano))
 	req.AppendTags("detail", detail)
 	replLogOnceIf(logger.SetReqInfo(ctx, req), errors.New("bucket metadata replication: "+reason),
-		"bucket-metadata/"+bucket+"/"+file+"/"+reason)
+		"bucket-metadata/"+bucket+"/"+file+"/"+reason, logger.WarningKind)
 }
 
 func initialBucketConfigReplicationEvent(meta BucketMetadata, file string) (madmin.SRBucketMeta, bool, error) {
@@ -131,27 +131,32 @@ func (c *SiteReplicationSys) healBucketConfig(ctx context.Context, bucket, file 
 	if !c.enabled {
 		return nil
 	}
-	for id := range info.Sites {
-		if _, present := info.BucketStats[bucket][id]; !present {
-			logBucketConfigReplication(ctx, bucket, file, "indeterminate", time.Time{}, time.Time{}, "missing peer "+id)
-		}
-	}
-	for id, status := range info.BucketStats[bucket] {
-		state, err := bucketConfigStateFromInfo(bucket, file, status.meta.SRBucketInfo)
-		_, known := info.Sites[id]
-		if !known || id == "" || err != nil || !state.valid {
-			logBucketConfigReplication(ctx, bucket, file, "indeterminate", state.at, status.meta.CreatedAt, "unusable peer "+id)
-		}
-	}
 	latest, found := latestBucketConfig(bucket, file, info)
 	if !found {
+		// No site holds a state worth propagating for this field, so a peer
+		// that did not report or cannot be ordered is not actionable either.
 		return nil
+	}
+	// Every reason keeps its own log key, so a site that did not report cannot
+	// deduplicate away an unusable peer state or a real heal RPC failure for
+	// the same bucket and field.
+	for id := range info.Sites {
+		if _, present := info.BucketStats[bucket][id]; !present {
+			logBucketConfigReplication(ctx, bucket, file, "unreachable", latest.at, time.Time{}, "peer "+id+" did not report")
+		}
 	}
 	for id, status := range info.BucketStats[bucket] {
 		if _, known := info.Sites[id]; !known || id == "" {
 			continue
 		}
 		target := status.meta.SRBucketInfo
+		current, currentErr := bucketConfigStateFromInfo(bucket, file, target)
+		// A peer without the bucket reports neither a field nor a creation
+		// time; bucket healing covers that normal transient. Report only a
+		// state that exists and still cannot be ordered.
+		if currentErr != nil || (!current.valid && (len(current.data) != 0 || !current.at.IsZero())) {
+			logBucketConfigReplication(ctx, bucket, file, "indeterminate", current.at, target.CreatedAt, "unusable peer "+id)
+		}
 		if target.CreatedAt.IsZero() {
 			continue
 		}
@@ -166,8 +171,7 @@ func (c *SiteReplicationSys) healBucketConfig(ctx context.Context, bucket, file 
 		if err != nil || !incoming.candidate() {
 			continue
 		}
-		current, err := bucketConfigStateFromInfo(bucket, file, target)
-		if err == nil && compareBucketConfigStates(incoming, current) <= 0 {
+		if currentErr == nil && compareBucketConfigStates(incoming, current) <= 0 {
 			continue
 		}
 		if id == globalDeploymentID() {
@@ -182,7 +186,7 @@ func (c *SiteReplicationSys) healBucketConfig(ctx context.Context, bucket, file 
 		if err != nil {
 			// A missing credential or unreachable peer must not abandon the other
 			// targets simply because it happened to be visited first in this map.
-			logBucketConfigReplication(ctx, bucket, file, "indeterminate", latest.at, target.CreatedAt, "peer "+id+": "+err.Error())
+			logBucketConfigReplication(ctx, bucket, file, "peer-error", latest.at, target.CreatedAt, "peer "+id+": "+err.Error())
 		}
 	}
 	return nil
