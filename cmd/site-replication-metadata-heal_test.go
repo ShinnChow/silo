@@ -22,11 +22,15 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/minio/madmin-go/v3"
 	"github.com/minio/minio/internal/auth"
+	"github.com/minio/minio/internal/logger"
+	"github.com/minio/minio/internal/logger/target/testlogger"
 )
 
 func bucketConfigTestData(bucket string) map[string][]byte {
@@ -38,6 +42,130 @@ func bucketConfigTestData(bucket string) map[string][]byte {
 		bucketVersioningConfig: enabledBucketVersioningConfig,
 		objectLockConfig:       enabledBucketObjectLockConfig,
 	}
+}
+
+type bucketConfigLogCapture struct {
+	testing.TB
+	mu    sync.Mutex
+	lines []string
+}
+
+func (c *bucketConfigLogCapture) Logf(format string, args ...any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.lines = append(c.lines, fmt.Sprintf(format, args...))
+}
+
+func TestHealBucketConfigDiagnostics(t *testing.T) {
+	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{t: t, objAPITest: func(obj ObjectLayer, backend, bucket string, _ http.Handler, cred auth.Credentials, t *testing.T) {
+		t.Run(backend, func(t *testing.T) {
+			recordBucketConfigPeer(t, cred)
+			capture := &bucketConfigLogCapture{TB: t}
+			defer testlogger.T.SetLogTB(capture)()
+			disabled := logger.DisableLog
+			logger.DisableLog = false
+			defer func() { logger.DisableLog = disabled }()
+			created := UTCNow().Add(-time.Hour)
+			local := globalDeploymentID()
+			bs := map[string]srBucketStatsSummary{
+				local:            bucketConfigTestInfo(bucket, bucketTaggingConfig, nil, created, created),
+				"missing-bucket": {},
+				"broken-rpc":     bucketConfigTestInfo(bucket, bucketTaggingConfig, nil, created, created),
+			}
+			info := srStatusInfo{Sites: map[string]madmin.PeerInfo{local: {}, "missing-bucket": {}, "unreachable": {}, "broken-rpc": {}}, BucketStats: map[string]map[string]srBucketStatsSummary{bucket: bs}}
+			if err := globalSiteReplicationSys.healBucketConfig(t.Context(), bucket, bucketTaggingConfig, info); err != nil {
+				t.Fatal(err)
+			}
+			if len(capture.lines) != 0 {
+				t.Fatal("empty baselines produced diagnostics")
+			}
+			bs[local] = bucketConfigTestInfo(bucket, bucketTaggingConfig, bucketConfigTestData(bucket)[bucketTaggingConfig], created.Add(time.Minute), created)
+			for range 2 {
+				if err := globalSiteReplicationSys.healBucketConfig(t.Context(), bucket, bucketTaggingConfig, info); err != nil {
+					t.Fatal(err)
+				}
+			}
+			capture.mu.Lock()
+			defer capture.mu.Unlock()
+			var unreachable, peerError int
+			for _, line := range capture.lines {
+				if strings.Contains(line, "bucket metadata replication: unreachable") {
+					unreachable++
+				} else if strings.Contains(line, "bucket metadata replication: peer-error") {
+					peerError++
+				} else {
+					t.Fatalf("unexpected diagnostic: %s", line)
+				}
+				if !strings.HasPrefix(line, "WARNING:") {
+					t.Fatalf("diagnostic is not a warning: %s", line)
+				}
+			}
+			if unreachable != 1 || peerError != 1 {
+				t.Fatalf("distinct reasons were lost or not deduplicated: unreachable=%d peer-error=%d", unreachable, peerError)
+			}
+		})
+	}})
+}
+
+func TestHealBucketConfigWithoutSourceDiagnostics(t *testing.T) {
+	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{t: t, objAPITest: func(obj ObjectLayer, backend, bucket string, _ http.Handler, cred auth.Credentials, t *testing.T) {
+		t.Run(backend, func(t *testing.T) {
+			events := recordBucketConfigPeer(t, cred)
+			disabled := logger.DisableLog
+			logger.DisableLog = false
+			defer func() { logger.DisableLog = disabled }()
+			created := UTCNow().Add(-time.Hour)
+			data := bucketConfigTestData(bucket)[bucketTaggingConfig]
+			for _, tc := range []struct {
+				name    string
+				data    []byte
+				at      time.Time
+				created time.Time
+				wantLog bool
+			}{
+				{"unknown-created", data, created.Add(time.Minute), time.Time{}, true},
+				{"malformed", []byte("<Tagging>"), created.Add(time.Minute), created, true},
+				{"before-created", data, created.Add(-time.Minute), created, true},
+				{"empty-baseline", nil, created, created, false},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					capture := &bucketConfigLogCapture{TB: t}
+					defer testlogger.T.SetLogTB(capture)()
+					// Each case has its own diagnostic key; no source can be selected
+					// and neither local storage nor the recording peer may be written.
+					name := bucket + "-" + tc.name
+					local := globalDeploymentID()
+					info := srStatusInfo{Sites: map[string]madmin.PeerInfo{local: {}, "metadata-peer": {}, "unreachable": {}},
+						BucketStats: map[string]map[string]srBucketStatsSummary{name: {
+							local:           bucketConfigTestInfo(name, bucketTaggingConfig, tc.data, tc.at, tc.created),
+							"metadata-peer": {},
+						}}}
+					for range 2 {
+						if err := globalSiteReplicationSys.healBucketConfig(t.Context(), name, bucketTaggingConfig, info); err != nil {
+							t.Fatal(err)
+						}
+					}
+					capture.mu.Lock()
+					defer capture.mu.Unlock()
+					want := 0
+					if tc.wantLog {
+						want = 1
+					}
+					if len(capture.lines) != want {
+						t.Fatalf("got %d diagnostics, want %d: %v", len(capture.lines), want, capture.lines)
+					}
+					for _, line := range capture.lines {
+						if !strings.HasPrefix(line, "WARNING:") || !strings.Contains(line, "bucket metadata replication: indeterminate") {
+							t.Fatalf("unexpected diagnostic: %s", line)
+						}
+					}
+					if len(events()) != 0 {
+						t.Fatal("healing without a source sent a metadata RPC")
+					}
+				})
+			}
+		})
+	}})
 }
 
 // Construct independent wire fixtures, including timestamps hidden by legacy

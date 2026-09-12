@@ -184,7 +184,11 @@ func (sys *BucketMetadataSys) updateAndParseMetadata(ctx context.Context, bucket
 		updatedAt := UTCNow()
 		if isReplicatedBucketConfig(configFile) {
 			if err := ensureBucketMetadataCreated(ctx, objAPI, &meta); err != nil {
-				logBucketConfigReplication(ctx, bucket, configFile, "indeterminate", time.Time{}, meta.Created, err.Error())
+				var at time.Time
+				if sourceTime != nil {
+					at = *sourceTime
+				}
+				logBucketConfigReplication(ctx, bucket, configFile, "indeterminate", at, meta.Created, err.Error())
 				return err
 			}
 			if sourceTime == nil || sourceTime.IsZero() {

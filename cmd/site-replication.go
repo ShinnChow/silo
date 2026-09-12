@@ -5169,17 +5169,6 @@ func (c *SiteReplicationSys) healBucketReplicationConfig(ctx context.Context, ob
 	return nil
 }
 
-func isBucketMetadataEqual(one, two *string) bool {
-	switch {
-	case one == nil && two == nil:
-		return true
-	case one == nil || two == nil:
-		return false
-	default:
-		return *one == *two
-	}
-}
-
 func (c *SiteReplicationSys) healIAMSystem(ctx context.Context, objAPI ObjectLayer) error {
 	info, err := c.siteReplicationStatus(ctx, objAPI, madmin.SRStatusOptions{
 		Users:    true,

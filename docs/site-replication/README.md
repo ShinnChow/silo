@@ -103,11 +103,15 @@ bucket identity conflicts first, then resubmit the intended configuration or
 delete at the authoritative site. A local write advances beyond an existing
 future field timestamp. Source times before the target bucket's creation are
 ignored; an unknown creation time is recovered from the physical bucket, or the
-operation fails without writing. That recovery happens on the write path. While
+operation fails without writing. Recovery uses a physical approximation (the
+bucket directory's modification time), which can differ across drives and be
+later than the real creation time. A source event older than this recovered
+value is still ignored; its timestamp is not used to invent an earlier bucket
+identity. Recovery happens on the write path and during initial site sync. While
 a bucket's stored metadata still carries no creation time, site status reports
 it that way and periodic healing skips that bucket in both directions; the first
-configuration write on it, local or replicated, records the physical time and
-returns the bucket to the normal path.
+successful configuration write on it, local or replicated, or initial site sync
+records the physical time and returns the bucket to the normal path.
 
 The server emits bounded warnings for `legacy-zero`, `before-created`,
 `indeterminate`, `unreachable` and `peer-error`. Each reason keeps its own log
@@ -116,7 +120,9 @@ heal RPC failure for the same bucket and field. A peer that simply does not
 have the bucket yet is a normal transient and is not reported here. Keys and
 error messages remain stable for each bucket/field/reason; timestamps and peer
 details are log attributes. Existing hourly logger cleanup applies. Normal
-duplicates, older events and resolved ties are quiet.
+duplicates, older events and resolved ties are quiet. Invalid existing field
+states emit `indeterminate` even when no valid source can be selected; empty
+baselines alone remain quiet and do not cause a heal RPC.
 
 A local PUT of a policy whose parsed statements are empty now consistently
 means deletion: PUT succeeds and GET returns the existing NotFound response.

@@ -18,10 +18,16 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strconv"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -233,5 +239,97 @@ func TestBucketMetadataPhysicalCreatedRecovery(t *testing.T) {
 				})
 			}
 		}
+	}})
+}
+
+func TestBucketMetadataInitialSyncPhysicalCreated(t *testing.T) {
+	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{t: t, objAPITest: func(obj ObjectLayer, backend, bucket string, _ http.Handler, cred auth.Credentials, t *testing.T) {
+		t.Run(backend, func(t *testing.T) {
+			ctx := t.Context()
+			serviceCred, _, err := globalIAMSys.NewServiceAccount(ctx, cred.AccessKey, nil, newServiceAccountOpts{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { globalIAMSys.DeleteServiceAccount(context.Background(), serviceCred.AccessKey, false) })
+			physical := UTCNow().Add(-3 * time.Hour).Truncate(time.Second)
+			setPhysicalBucketCreated(t, bucket, physical)
+			meta := newBucketMetadata(bucket)
+			meta.TaggingConfigXML = bucketConfigTestData(bucket)[bucketTaggingConfig]
+			if err := globalBucketMetadataSys.save(ctx, meta); err != nil {
+				t.Fatal(err)
+			}
+			var mu sync.Mutex
+			var createdAt string
+			var events []madmin.SRBucketMeta
+			peer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				mu.Lock()
+				defer mu.Unlock()
+				if r.URL.Query().Get("operation") == string(madmin.MakeWithVersioningBktOp) {
+					createdAt = r.URL.Query().Get("createdAt")
+				}
+				if strings.HasSuffix(r.URL.Path, "/bucket-meta") {
+					var event madmin.SRBucketMeta
+					if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
+						t.Error(err)
+					}
+					events = append(events, event)
+				}
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer peer.Close()
+			// Exercise the complete outgoing sync sequence with real source
+			// storage. This peer acknowledges RPCs; it is not a second ObjectLayer.
+			c := &SiteReplicationSys{enabled: true, state: srState{ServiceAccountAccessKey: serviceCred.AccessKey,
+				Peers: map[string]madmin.PeerInfo{"initial-peer": {DeploymentID: "initial-peer", Endpoint: peer.URL}}}}
+			if err := c.syncToAllPeers(ctx, madmin.SRAddOptions{}); err != nil {
+				t.Fatal(err)
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			if createdAt != physical.Format(time.RFC3339Nano) {
+				t.Fatalf("peer creation time %q, want physical time %s", createdAt, physical)
+			}
+			for _, event := range events {
+				if event.Bucket == bucket && event.Type == madmin.SRBucketMetaTypeTags {
+					if event.Tags == nil || *event.Tags != base64.StdEncoding.EncodeToString(meta.TaggingConfigXML) || !event.UpdatedAt.Equal(physical) {
+						t.Fatalf("historical tags lost baseline: %+v", event)
+					}
+					return
+				}
+			}
+			t.Fatal("initial sync silently skipped historical tags")
+		})
+	}})
+}
+
+func TestPeerBucketMetadataPhysicalCreatedBoundary(t *testing.T) {
+	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{t: t, objAPITest: func(obj ObjectLayer, backend, bucket string, _ http.Handler, _ auth.Credentials, t *testing.T) {
+		t.Run(backend, func(t *testing.T) {
+			ctx := t.Context()
+			physical := UTCNow().Truncate(time.Second)
+			setPhysicalBucketCreated(t, bucket, physical)
+			if err := globalBucketMetadataSys.save(ctx, newBucketMetadata(bucket)); err != nil {
+				t.Fatal(err)
+			}
+			counter := &bucketConfigWriteCounter{ObjectLayer: obj}
+			setObjectLayer(counter)
+			defer setObjectLayer(obj)
+			data := bucketConfigTestData(bucket)[bucketTaggingConfig]
+			at := physical.Add(-time.Hour)
+			_, err := globalBucketMetadataSys.updateAndParseMetadata(ctx, bucket, bucketTaggingConfig, data, false, false, &at)
+			if err != nil || counter.writes.Load() != 0 {
+				t.Fatalf("event before recovered creation must be skipped: err=%v writes=%d", err, counter.writes.Load())
+			}
+			// Physical mtime is only an approximation. A local correction can
+			// establish it; an earlier peer event cannot lower the bucket identity.
+			at, err = globalBucketMetadataSys.Update(ctx, bucket, bucketTaggingConfig, data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := readBucketMetadata(ctx, obj, bucket)
+			if err != nil || !got.Created.Equal(physical) || !at.After(physical) || !bytes.Equal(got.TaggingConfigXML, data) {
+				t.Fatalf("local correction did not establish physical creation: %+v %v", got, err)
+			}
+		})
 	}})
 }

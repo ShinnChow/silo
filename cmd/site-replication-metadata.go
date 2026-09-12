@@ -132,17 +132,14 @@ func (c *SiteReplicationSys) healBucketConfig(ctx context.Context, bucket, file 
 		return nil
 	}
 	latest, found := latestBucketConfig(bucket, file, info)
-	if !found {
-		// No site holds a state worth propagating for this field, so a peer
-		// that did not report or cannot be ordered is not actionable either.
-		return nil
-	}
 	// Every reason keeps its own log key, so a site that did not report cannot
 	// deduplicate away an unusable peer state or a real heal RPC failure for
 	// the same bucket and field.
-	for id := range info.Sites {
-		if _, present := info.BucketStats[bucket][id]; !present {
-			logBucketConfigReplication(ctx, bucket, file, "unreachable", latest.at, time.Time{}, "peer "+id+" did not report")
+	if found {
+		for id := range info.Sites {
+			if _, present := info.BucketStats[bucket][id]; !present {
+				logBucketConfigReplication(ctx, bucket, file, "unreachable", latest.at, time.Time{}, "peer "+id+" did not report")
+			}
 		}
 	}
 	for id, status := range info.BucketStats[bucket] {
@@ -157,7 +154,9 @@ func (c *SiteReplicationSys) healBucketConfig(ctx context.Context, bucket, file 
 		if currentErr != nil || (!current.valid && (len(current.data) != 0 || !current.at.IsZero())) {
 			logBucketConfigReplication(ctx, bucket, file, "indeterminate", current.at, target.CreatedAt, "unusable peer "+id)
 		}
-		if target.CreatedAt.IsZero() {
+		// Invalid existing state still needs a diagnosis when no source can
+		// be selected. Only propagation depends on having a valid source.
+		if !found || target.CreatedAt.IsZero() {
 			continue
 		}
 		if latest.at.Before(target.CreatedAt) {

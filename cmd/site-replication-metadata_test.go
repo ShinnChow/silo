@@ -479,6 +479,15 @@ func TestPeerBucketAdoptionRebasesOnlyDefaults(t *testing.T) {
 						if err != nil || state.candidate() {
 							t.Fatalf("pre-generation history became a source: %s %v", file, err)
 						}
+						// As a target, that invalid history must yield to a valid
+						// state from the adopted generation, including a live tag
+						// replacing the preserved earlier-generation deletion.
+						incoming := bucketConfigTestData(bucket)[file]
+						incomingAt := got.Created.Add(time.Minute)
+						changed, err := applyBucketConfig(&got, file, incoming, incomingAt)
+						if err != nil || !changed || !at.Equal(incomingAt) || !bytes.Equal(*data, incoming) {
+							t.Fatalf("adopted generation did not replace invalid target: %s %v", file, err)
+						}
 					}
 				}
 			})
