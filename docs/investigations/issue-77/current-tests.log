@@ -1,0 +1,129 @@
+=== RUN   TestQueuedMetadataUpdateAfterDelete
+=== RUN   TestQueuedMetadataUpdateAfterDelete/expiry=false
+=== RUN   TestQueuedMetadataUpdateAfterDelete/expiry=true
+--- PASS: TestQueuedMetadataUpdateAfterDelete (0.43s)
+    --- PASS: TestQueuedMetadataUpdateAfterDelete/expiry=false (0.22s)
+    --- PASS: TestQueuedMetadataUpdateAfterDelete/expiry=true (0.21s)
+=== RUN   TestIssue77CurrentHealInputs
+=== RUN   TestIssue77CurrentHealInputs/ErasureSD/quota-tombstone-cache
+    issue77_heal_review_test.go:58: QUOTA_CACHE: disk has no quota, cache still enforces 1024
+=== RUN   TestIssue77CurrentHealInputs/ErasureSD/same-payload-time-barrier
+    issue77_heal_review_test.go:79: BARRIER_NOT_HEALED: same payload remains at 2026-09-12 06:59:55.50105 +0800 CST, latest is 2026-09-11 23:00:55.50105 +0000 UTC
+=== RUN   TestIssue77CurrentHealInputs/ErasureSD/creation-default-selection
+    issue77_heal_review_test.go:105: DEFAULT_SELECTED: creation-default erased valid policy in 5/32 heal rounds
+=== RUN   TestIssue77CurrentHealInputs/ErasureSD/tag-remote-source-time
+    issue77_heal_review_test.go:144: TAG_WIRE_TIME: sent 0001-01-01 00:00:00 +0000 UTC, want 2026-09-11 23:00:55.50105 +0000 UTC
+=== RUN   TestIssue77CurrentHealInputs/Erasure/quota-tombstone-cache
+    issue77_heal_review_test.go:58: QUOTA_CACHE: disk has no quota, cache still enforces 1024
+=== RUN   TestIssue77CurrentHealInputs/Erasure/same-payload-time-barrier
+    issue77_heal_review_test.go:79: BARRIER_NOT_HEALED: same payload remains at 2026-09-12 06:59:55.71847 +0800 CST, latest is 2026-09-11 23:00:55.71847 +0000 UTC
+=== RUN   TestIssue77CurrentHealInputs/Erasure/creation-default-selection
+    issue77_heal_review_test.go:105: DEFAULT_SELECTED: creation-default erased valid policy in 2/32 heal rounds
+=== RUN   TestIssue77CurrentHealInputs/Erasure/tag-remote-source-time
+    issue77_heal_review_test.go:144: TAG_WIRE_TIME: sent 0001-01-01 00:00:00 +0000 UTC, want 2026-09-11 23:00:55.71847 +0000 UTC
+--- FAIL: TestIssue77CurrentHealInputs (1.21s)
+    --- FAIL: TestIssue77CurrentHealInputs/ErasureSD/quota-tombstone-cache (0.01s)
+    --- FAIL: TestIssue77CurrentHealInputs/ErasureSD/same-payload-time-barrier (0.00s)
+    --- FAIL: TestIssue77CurrentHealInputs/ErasureSD/creation-default-selection (0.08s)
+    --- FAIL: TestIssue77CurrentHealInputs/ErasureSD/tag-remote-source-time (0.00s)
+    --- FAIL: TestIssue77CurrentHealInputs/Erasure/quota-tombstone-cache (0.04s)
+    --- FAIL: TestIssue77CurrentHealInputs/Erasure/same-payload-time-barrier (0.02s)
+    --- FAIL: TestIssue77CurrentHealInputs/Erasure/creation-default-selection (0.83s)
+    --- FAIL: TestIssue77CurrentHealInputs/Erasure/tag-remote-source-time (0.02s)
+=== RUN   TestIssue77CurrentPeerCheckBeforeLock
+=== RUN   TestIssue77CurrentPeerCheckBeforeLock/ErasureSD
+    issue77_heal_review_test.go:209: CHECK_OUTSIDE_LOCK: queued older event replaced newer committed tags with "<Tagging><TagSet><Tag><Key>key</Key><Value>older</Value></Tag></TagSet></Tagging>"
+=== RUN   TestIssue77CurrentPeerCheckBeforeLock/Erasure
+    issue77_heal_review_test.go:209: CHECK_OUTSIDE_LOCK: queued older event replaced newer committed tags with "<Tagging><TagSet><Tag><Key>key</Key><Value>older</Value></Tag></TagSet></Tagging>"
+--- FAIL: TestIssue77CurrentPeerCheckBeforeLock (0.30s)
+    --- FAIL: TestIssue77CurrentPeerCheckBeforeLock/ErasureSD (0.01s)
+    --- FAIL: TestIssue77CurrentPeerCheckBeforeLock/Erasure (0.07s)
+=== RUN   TestIssue77CurrentSourceTimeAndDeletion
+=== RUN   TestIssue77CurrentSourceTimeAndDeletion/ErasureSD/policy
+    issue77_review_test.go:79: SOURCE_TIME: persisted 2026-09-12 07:49:57.017159 +0800 CST, want source 2026-09-11 22:59:57.012479 +0000 UTC
+    issue77_review_test.go:91: NEWER_DELETE: HTTP 200, but live config remained after newer source DELETE
+    issue77_review_test.go:110: STALE_RESURRECTION: older source PUT resurrected a locally deleted config
+=== RUN   TestIssue77CurrentSourceTimeAndDeletion/ErasureSD/tags
+    issue77_review_test.go:79: SOURCE_TIME: persisted 2026-09-12 07:49:57.029759 +0800 CST, want source 2026-09-11 22:59:57.012479 +0000 UTC
+    issue77_review_test.go:91: NEWER_DELETE: HTTP 200, but live config remained after newer source DELETE
+    issue77_review_test.go:105: TOMBSTONE_EXPORT: got 0001-01-01 00:00:00 +0000 UTC, want 2026-09-12 07:49:57.03401 +0800 CST
+    issue77_review_test.go:110: STALE_RESURRECTION: older source PUT resurrected a locally deleted config
+=== RUN   TestIssue77CurrentSourceTimeAndDeletion/ErasureSD/sse
+    issue77_review_test.go:79: SOURCE_TIME: persisted 2026-09-12 07:49:57.04395 +0800 CST, want source 2026-09-11 22:59:57.012479 +0000 UTC
+    issue77_review_test.go:91: NEWER_DELETE: HTTP 200, but live config remained after newer source DELETE
+    issue77_review_test.go:105: TOMBSTONE_EXPORT: got 0001-01-01 00:00:00 +0000 UTC, want 2026-09-12 07:49:57.048028 +0800 CST
+    issue77_review_test.go:110: STALE_RESURRECTION: older source PUT resurrected a locally deleted config
+=== RUN   TestIssue77CurrentSourceTimeAndDeletion/ErasureSD/quota
+    issue77_review_test.go:79: SOURCE_TIME: persisted 2026-09-12 07:49:57.057746 +0800 CST, want source 2026-09-11 22:59:57.012479 +0000 UTC
+    issue77_review_test.go:91: NEWER_DELETE: HTTP 200, but live config remained after newer source DELETE
+    issue77_review_test.go:105: TOMBSTONE_EXPORT: got 0001-01-01 00:00:00 +0000 UTC, want 2026-09-12 07:49:57.061453 +0800 CST
+    issue77_review_test.go:112: older source PUT did not resurrect config
+=== RUN   TestIssue77CurrentSourceTimeAndDeletion/ErasureSD/versioning
+    issue77_review_test.go:79: SOURCE_TIME: persisted 2026-09-12 07:49:57.069105 +0800 CST, want source 2026-09-11 22:59:57.012479 +0000 UTC
+    issue77_review_test.go:87: nil payload is correctly a no-op
+=== RUN   TestIssue77CurrentSourceTimeAndDeletion/ErasureSD/objectlock
+    issue77_review_test.go:79: SOURCE_TIME: persisted 2026-09-12 07:49:57.077601 +0800 CST, want source 2026-09-11 22:59:57.012479 +0000 UTC
+    issue77_review_test.go:87: nil payload is correctly a no-op
+=== RUN   TestIssue77CurrentSourceTimeAndDeletion/Erasure/policy
+    issue77_review_test.go:79: SOURCE_TIME: persisted 2026-09-12 07:49:57.247526 +0800 CST, want source 2026-09-11 22:59:57.221624 +0000 UTC
+    issue77_review_test.go:91: NEWER_DELETE: HTTP 200, but live config remained after newer source DELETE
+    issue77_review_test.go:110: STALE_RESURRECTION: older source PUT resurrected a locally deleted config
+=== RUN   TestIssue77CurrentSourceTimeAndDeletion/Erasure/tags
+    issue77_review_test.go:79: SOURCE_TIME: persisted 2026-09-12 07:49:57.369557 +0800 CST, want source 2026-09-11 22:59:57.221624 +0000 UTC
+    issue77_review_test.go:91: NEWER_DELETE: HTTP 200, but live config remained after newer source DELETE
+    issue77_review_test.go:105: TOMBSTONE_EXPORT: got 0001-01-01 00:00:00 +0000 UTC, want 2026-09-12 07:49:57.394147 +0800 CST
+    issue77_review_test.go:110: STALE_RESURRECTION: older source PUT resurrected a locally deleted config
+=== RUN   TestIssue77CurrentSourceTimeAndDeletion/Erasure/sse
+    issue77_review_test.go:79: SOURCE_TIME: persisted 2026-09-12 07:49:57.466111 +0800 CST, want source 2026-09-11 22:59:57.221624 +0000 UTC
+    issue77_review_test.go:91: NEWER_DELETE: HTTP 200, but live config remained after newer source DELETE
+    issue77_review_test.go:105: TOMBSTONE_EXPORT: got 0001-01-01 00:00:00 +0000 UTC, want 2026-09-12 07:49:57.489771 +0800 CST
+    issue77_review_test.go:110: STALE_RESURRECTION: older source PUT resurrected a locally deleted config
+=== RUN   TestIssue77CurrentSourceTimeAndDeletion/Erasure/quota
+    issue77_review_test.go:79: SOURCE_TIME: persisted 2026-09-12 07:49:57.562629 +0800 CST, want source 2026-09-11 22:59:57.221624 +0000 UTC
+    issue77_review_test.go:91: NEWER_DELETE: HTTP 200, but live config remained after newer source DELETE
+    issue77_review_test.go:105: TOMBSTONE_EXPORT: got 0001-01-01 00:00:00 +0000 UTC, want 2026-09-12 07:49:57.590096 +0800 CST
+    issue77_review_test.go:112: older source PUT did not resurrect config
+=== RUN   TestIssue77CurrentSourceTimeAndDeletion/Erasure/versioning
+    issue77_review_test.go:79: SOURCE_TIME: persisted 2026-09-12 07:49:57.640941 +0800 CST, want source 2026-09-11 22:59:57.221624 +0000 UTC
+    issue77_review_test.go:87: nil payload is correctly a no-op
+=== RUN   TestIssue77CurrentSourceTimeAndDeletion/Erasure/objectlock
+    issue77_review_test.go:79: SOURCE_TIME: persisted 2026-09-12 07:49:57.690024 +0800 CST, want source 2026-09-11 22:59:57.221624 +0000 UTC
+    issue77_review_test.go:87: nil payload is correctly a no-op
+--- FAIL: TestIssue77CurrentSourceTimeAndDeletion (0.78s)
+    --- FAIL: TestIssue77CurrentSourceTimeAndDeletion/ErasureSD/policy (0.01s)
+    --- FAIL: TestIssue77CurrentSourceTimeAndDeletion/ErasureSD/tags (0.01s)
+    --- FAIL: TestIssue77CurrentSourceTimeAndDeletion/ErasureSD/sse (0.01s)
+    --- FAIL: TestIssue77CurrentSourceTimeAndDeletion/ErasureSD/quota (0.01s)
+    --- FAIL: TestIssue77CurrentSourceTimeAndDeletion/ErasureSD/versioning (0.01s)
+    --- FAIL: TestIssue77CurrentSourceTimeAndDeletion/ErasureSD/objectlock (0.01s)
+    --- FAIL: TestIssue77CurrentSourceTimeAndDeletion/Erasure/policy (0.12s)
+    --- FAIL: TestIssue77CurrentSourceTimeAndDeletion/Erasure/tags (0.10s)
+    --- FAIL: TestIssue77CurrentSourceTimeAndDeletion/Erasure/sse (0.10s)
+    --- FAIL: TestIssue77CurrentSourceTimeAndDeletion/Erasure/quota (0.08s)
+    --- FAIL: TestIssue77CurrentSourceTimeAndDeletion/Erasure/versioning (0.05s)
+    --- FAIL: TestIssue77CurrentSourceTimeAndDeletion/Erasure/objectlock (0.05s)
+=== RUN   TestIssue77CurrentBulkApplyOrdering
+=== RUN   TestIssue77CurrentBulkApplyOrdering/ErasureSD
+    issue77_review_test.go:143: BULK_STALE_OVERWRITE: older bulk event overwrote newer config, value="<Tagging><TagSet><Tag><Key>key</Key><Value>old</Value></Tag></TagSet></Tagging>" time=2026-09-12 08:48:57.792608 +0800 CST
+=== RUN   TestIssue77CurrentBulkApplyOrdering/Erasure
+    issue77_review_test.go:143: BULK_STALE_OVERWRITE: older bulk event overwrote newer config, value="<Tagging><TagSet><Tag><Key>key</Key><Value>old</Value></Tag></TagSet></Tagging>" time=2026-09-12 08:48:57.880379 +0800 CST
+--- FAIL: TestIssue77CurrentBulkApplyOrdering (0.27s)
+    --- FAIL: TestIssue77CurrentBulkApplyOrdering/ErasureSD (0.01s)
+    --- FAIL: TestIssue77CurrentBulkApplyOrdering/Erasure (0.05s)
+=== RUN   TestPeerBucketAdoptionPreservesLockAndVersioningConfigs
+--- PASS: TestPeerBucketAdoptionPreservesLockAndVersioningConfigs (0.30s)
+=== RUN   TestPeerBucketAdoptionBootstrapsMissingConfigs
+--- PASS: TestPeerBucketAdoptionBootstrapsMissingConfigs (0.24s)
+=== RUN   TestPeerBucketAdoptionNormalizesVersioningWhenEnablingLock
+--- PASS: TestPeerBucketAdoptionNormalizesVersioningWhenEnablingLock (0.28s)
+=== RUN   TestPeerBucketAdoptionEnablesSuspendedVersioning
+--- PASS: TestPeerBucketAdoptionEnablesSuspendedVersioning (0.27s)
+=== RUN   TestPeerBucketObjectLockMetadataCurrentAndLegacyPayloads
+--- PASS: TestPeerBucketObjectLockMetadataCurrentAndLegacyPayloads (0.30s)
+=== RUN   TestPeerBucketObjectLockMetadataWithoutLockEnabled
+--- PASS: TestPeerBucketObjectLockMetadataWithoutLockEnabled (0.24s)
+=== RUN   TestSiteReplicationStatusAccountsPerSiteAndSurvivesMalformedConfig
+--- PASS: TestSiteReplicationStatusAccountsPerSiteAndSurvivesMalformedConfig (0.52s)
+FAIL
+FAIL	github.com/minio/minio/cmd	7.167s
+FAIL

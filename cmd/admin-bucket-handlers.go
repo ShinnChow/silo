@@ -76,7 +76,7 @@ func (a adminAPIHandlers) PutBucketQuotaConfigHandler(w http.ResponseWriter, r *
 		return
 	}
 
-	quotaConfig, err := parseBucketQuota(bucket, data)
+	_, err = parseBucketQuota(bucket, data)
 	if err != nil {
 		writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
 		return
@@ -93,9 +93,6 @@ func (a adminAPIHandlers) PutBucketQuotaConfigHandler(w http.ResponseWriter, r *
 		Bucket:    bucket,
 		Quota:     data,
 		UpdatedAt: updatedAt,
-	}
-	if quotaConfig.Size == 0 && quotaConfig.Quota == 0 {
-		bucketMeta.Quota = nil
 	}
 
 	// Call site replication hook.
@@ -438,7 +435,7 @@ func (a adminAPIHandlers) ExportBucketMetadataHandler(w http.ResponseWriter, r *
 					writeErrorResponse(ctx, w, exportError(ctx, err, cfgFile, bucket), r.URL)
 					return
 				}
-				configData, err := json.Marshal(config)
+				configData, err := canonicalBucketPolicy(config)
 				if err != nil {
 					writeErrorResponse(ctx, w, exportError(ctx, err, cfgFile, bucket), r.URL)
 					return
@@ -922,7 +919,7 @@ func (a adminAPIHandlers) ImportBucketMetadataHandler(w http.ResponseWriter, r *
 				continue
 			}
 
-			configData, err := json.Marshal(bucketPolicy)
+			configData, err := canonicalBucketPolicy(bucketPolicy)
 			if err != nil {
 				rpt.SetStatus(bucket, fileName, err)
 				continue
@@ -1081,18 +1078,39 @@ func (a adminAPIHandlers) ImportBucketMetadataHandler(w http.ResponseWriter, r *
 			continue
 		}
 		var merged BucketMetadata
+		var commitAt time.Time
 		err := func() error {
 			lockCtx, unlock, err := lockBucketMetadata(ctx, objectAPI, bucket)
 			if err != nil {
 				return err
 			}
 			defer unlock()
-			merged, err = loadBucketMetadataParse(lockCtx, objectAPI, bucket, true)
+			merged, err = loadBucketMetadataParse(lockCtx, objectAPI, bucket, false)
 			if err != nil {
 				return err
 			}
+			if err := ensureBucketMetadataCreated(lockCtx, objectAPI, &merged); err != nil {
+				return err
+			}
+			commitAt = UTCNow()
+			for _, file := range replicatedBucketConfigs {
+				if _, ok := fields[file]; ok {
+					commitAt = localBucketConfigUpdatedAt(merged, file, commitAt)
+				}
+			}
 			applyImportedBucketMetadata(&merged, *meta, fields)
-			return globalBucketMetadataSys.saveMetadata(lockCtx, objectAPI, merged)
+			for _, file := range replicatedBucketConfigs {
+				if _, ok := fields[file]; !ok {
+					continue
+				}
+				data, at := replicatedBucketConfig(&merged, file)
+				payload, _, err := bucketConfigPayload(bucket, file, *data, len(merged.ObjectLockConfigXML) != 0)
+				if err != nil {
+					return err
+				}
+				*data, *at = payload, commitAt
+			}
+			return globalBucketMetadataSys.saveMetadata(lockCtx, objectAPI, &merged)
 		}()
 		if err != nil {
 			rpt.SetStatus(bucket, "", err)
@@ -1100,7 +1118,7 @@ func (a adminAPIHandlers) ImportBucketMetadataHandler(w http.ResponseWriter, r *
 		}
 		*meta = merged
 		globalNotificationSys.LoadBucketMetadata(bgContext(ctx), bucket)
-		hook := madmin.SRBucketMeta{Bucket: bucket, UpdatedAt: updatedAt}
+		hook := madmin.SRBucketMeta{Bucket: bucket, UpdatedAt: commitAt}
 		var hookNeeded bool
 		if _, ok := fields[bucketQuotaConfigFile]; ok {
 			hook.Quota = meta.QuotaConfigJSON
@@ -1108,7 +1126,7 @@ func (a adminAPIHandlers) ImportBucketMetadataHandler(w http.ResponseWriter, r *
 		}
 		if _, ok := fields[bucketPolicyConfig]; ok {
 			hook.Policy = meta.PolicyConfigJSON
-			hookNeeded = true
+			hookNeeded = hookNeeded || len(hook.Policy) != 0
 		}
 		if _, ok := fields[bucketVersioningConfig]; ok {
 			hook.Versioning = enc(meta.VersioningConfigXML)
@@ -1128,6 +1146,12 @@ func (a adminAPIHandlers) ImportBucketMetadataHandler(w http.ResponseWriter, r *
 		}
 		if hookNeeded {
 			err = globalSiteReplicationSys.BucketMetaHook(ctx, hook)
+		}
+		if _, ok := fields[bucketPolicyConfig]; ok && len(meta.PolicyConfigJSON) == 0 {
+			// An omitted bulk Policy cannot express deletion.
+			err = errors.Join(err, globalSiteReplicationSys.BucketMetaHook(ctx, madmin.SRBucketMeta{
+				Type: madmin.SRBucketMetaTypePolicy, Bucket: bucket, UpdatedAt: commitAt,
+			}))
 		}
 		if _, ok := fields[bucketCorsConfig]; ok {
 			// CORS carries its own timestamp, so it replicates through the

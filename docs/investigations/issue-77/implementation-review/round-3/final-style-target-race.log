@@ -1,0 +1,4 @@
+{"command": ["go", "test", "-race", "./cmd/", "-run", "^(TestBucketMetadataInitialSyncPhysicalCreated|TestHealBucketConfigDiagnostics|TestHealBucketConfigWithoutSourceDiagnostics)$", "-count=1", "-timeout", "10m"], "cwd": "$SILO_WORKTREE", "head": "461e9a721047c63e1a95f54ad4b533a6b89def30", "started_at": "2026-09-12T09:18:02.407600+00:00", "environment": {"TMPDIR": "$LAB_VOLUME/tmp", "CGO_ENABLED": "1"}}
+ok  	github.com/minio/minio/cmd	4.540s
+
+EXIT=0

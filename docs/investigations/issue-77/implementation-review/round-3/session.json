@@ -1,0 +1,49 @@
+{
+  "requested_model": "claude-opus-5",
+  "requested_effort": "max",
+  "head": "fcbb93e8957275bfa7ad4e6154e93f4d7b0a7025",
+  "base": "62cf066ff529c7d281703daa365f555cebba717a",
+  "status": "completed",
+  "started_at": "2026-09-12T09:10:48.496423+00:00",
+  "command": [
+    "/opt/homebrew/bin/claude",
+    "--print",
+    "--model",
+    "claude-opus-5",
+    "--effort",
+    "max",
+    "--safe-mode",
+    "--permission-mode",
+    "plan",
+    "--tools",
+    "Read,Grep,Glob",
+    "--strict-mcp-config",
+    "--no-session-persistence",
+    "--add-dir",
+    "$LOCAL_EVIDENCE",
+    "--add-dir",
+    "$DOCS_WORKTREE/content/blog/design",
+    "--output-format",
+    "stream-json",
+    "--verbose"
+  ],
+  "completed_at": "2026-09-12T09:25:59.617894+00:00",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 777403,
+  "num_turns": 61,
+  "assistant_models": [
+    "claude-opus-5"
+  ],
+  "used_tools": {
+    "Read": 33,
+    "Grep": 23,
+    "Glob": 4
+  },
+  "stream_sha256": "a9a8784005abe5f02c1847e6d2a42890a309dbf34604a3756c456f1fc29c612a",
+  "review_sha256": "9106938a7a34cfbc6a11d372dd5ffb71ae7417a77a56d10bbed178f539de8fba",
+  "auxiliary_model_note": "CLI model_usage may include auxiliary calls. assistant_models identifies the actual review message model. max was explicitly passed in the recorded command.",
+  "archive_note": "Workstation paths normalized; billing data and raw model traces omitted. Original hashes are retained in archive-manifest.json.",
+  "session_id": "3b2ce46c-226b-4c52-b004-c727303c4a9b",
+  "session_id_source": "system init event in the stream identified by stream_sha256"
+}

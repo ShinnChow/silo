@@ -1,0 +1,20 @@
+go mod verify
+all modules verified
+hugo build --minify --cleanDestinationDir --printPathWarnings --printI18nWarnings --panicOnWarning
+Start building sites …
+hugo v0.165.0+extended+withdeploy darwin/arm64 BuildDate=2026-08-12T14:26:28Z VendorInfo=Homebrew
+
+
+                  │  EN  │  ZH
+──────────────────┼──────┼──────
+ Pages            │ 1207 │ 1219
+ Paginator pages  │    2 │    2
+ Non-page files   │   26 │    0
+ Static files     │  740 │  740
+ Processed images │    8 │    0
+ Aliases          │   45 │   45
+ Cleaned          │    0 │    0
+
+Total in 19619 ms
+python3 bin/check_internal_links.py public
+internal link check passed: 485471 rendered internal references across 1429 HTML files

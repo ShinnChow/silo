@@ -1,0 +1,24 @@
+package main
+import (
+ "bytes"
+ "encoding/json"
+ "fmt"
+ "github.com/minio/madmin-go/v3"
+ "github.com/pgsty/silo-pkg/v3/policy"
+)
+func main() {
+ for _, raw := range []string{`{"bucket":"b"}`, `{"bucket":"b","policy":null,"quota":null}`, `{"bucket":"b","policy":{"Version":"2012-10-17","Statement":[]},"quota":{}}`} {
+  var x madmin.SRBucketMeta
+  if err:=json.Unmarshal([]byte(raw),&x);err!=nil{panic(err)}
+  fmt.Printf("wire=%s\nPolicy nil=%t bytes=%q; Quota nil=%t bytes=%q\n",raw,x.Policy==nil,[]byte(x.Policy),x.Quota==nil,[]byte(x.Quota))
+  if len(x.Policy)>0 && !bytes.Equal(x.Policy,[]byte("null")) {
+   p,err:=policy.ParseBucketPolicyConfig(bytes.NewReader(x.Policy),"b")
+   if err!=nil{panic(err)}
+   fmt.Printf("Policy parses successfully, IsEmpty=%t\n",p.IsEmpty())
+  }
+ }
+ for _, v := range []json.RawMessage{nil,{},[]byte("null")} {
+  b,err:=json.Marshal(madmin.SRBucketMeta{Bucket:"b",Policy:v});if err!=nil{panic(err)}
+  fmt.Printf("encoded raw=%q -> %s\n",[]byte(v),b)
+ }
+}

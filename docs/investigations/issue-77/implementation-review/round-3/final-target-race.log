@@ -1,0 +1,4 @@
+{"command": ["go", "test", "-race", "./cmd/", "-run", "^(TestBucketMetadataInitialSyncPhysicalCreated|TestPeerBucketMetadataPhysicalCreatedBoundary|TestPeerBucketMetadataUnknownCreated|TestPeerBucketAdoptionRebasesOnlyDefaults|TestHealBucketConfigDiagnostics|TestHealBucketConfigWithoutSourceDiagnostics|TestBucketMetadataPhysicalCreatedRecovery|TestBucketPolicyReplicationStatusLegacyOrder|TestHealBucketConfigSourceAndQuiescence|TestLatestBucketConfigCandidates|Test.*Cors.*|Test.*CORS.*)$", "-count=1", "-timeout", "15m"], "cwd": "$SILO_WORKTREE", "head": "fcbb93e8957275bfa7ad4e6154e93f4d7b0a7025", "started_at": "2026-09-12T09:11:30.873027+00:00", "environment": {"TMPDIR": "$LAB_VOLUME/tmp", "CGO_ENABLED": "1"}}
+ok  	github.com/minio/minio/cmd	20.903s
+
+EXIT=0

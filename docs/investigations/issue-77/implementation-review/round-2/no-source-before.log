@@ -1,0 +1,18 @@
+--- FAIL: TestHealBucketConfigWithoutSourceDiagnostics (0.36s)
+    --- FAIL: TestHealBucketConfigWithoutSourceDiagnostics/ErasureSD (0.00s)
+        --- FAIL: TestHealBucketConfigWithoutSourceDiagnostics/ErasureSD/unknown-created (0.00s)
+            site-replication-metadata-heal_test.go:155: got 0 diagnostics, want 1: []
+        --- FAIL: TestHealBucketConfigWithoutSourceDiagnostics/ErasureSD/malformed (0.00s)
+            site-replication-metadata-heal_test.go:155: got 0 diagnostics, want 1: []
+        --- FAIL: TestHealBucketConfigWithoutSourceDiagnostics/ErasureSD/before-created (0.00s)
+            site-replication-metadata-heal_test.go:155: got 0 diagnostics, want 1: []
+    --- FAIL: TestHealBucketConfigWithoutSourceDiagnostics/Erasure (0.01s)
+        --- FAIL: TestHealBucketConfigWithoutSourceDiagnostics/Erasure/unknown-created (0.00s)
+            site-replication-metadata-heal_test.go:155: got 0 diagnostics, want 1: []
+        --- FAIL: TestHealBucketConfigWithoutSourceDiagnostics/Erasure/malformed (0.00s)
+            site-replication-metadata-heal_test.go:155: got 0 diagnostics, want 1: []
+        --- FAIL: TestHealBucketConfigWithoutSourceDiagnostics/Erasure/before-created (0.00s)
+            site-replication-metadata-heal_test.go:155: got 0 diagnostics, want 1: []
+FAIL
+FAIL	github.com/minio/minio/cmd	2.430s
+FAIL

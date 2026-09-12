@@ -1,0 +1,10 @@
+{
+  "reviewed_production_head": "fcbb93e8957275bfa7ad4e6154e93f4d7b0a7025",
+  "final_head": "461e9a721047c63e1a95f54ad4b533a6b89def30",
+  "changed_files": [
+    "cmd/site-replication-metadata-gate_test.go",
+    "cmd/site-replication-metadata-heal_test.go"
+  ],
+  "difference": "Test-only gofumpt formatting and equivalent if-chain to switch; no production or server documentation changes",
+  "patch": "test-style.diff"
+}

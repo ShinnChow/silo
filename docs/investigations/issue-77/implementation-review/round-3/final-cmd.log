@@ -1,0 +1,4 @@
+{"command": ["go", "test", "./cmd/", "-count=1", "-timeout", "30m"], "cwd": "$SILO_WORKTREE", "head": "fcbb93e8957275bfa7ad4e6154e93f4d7b0a7025", "started_at": "2026-09-12T09:11:30.892660+00:00", "environment": {"TMPDIR": "$LAB_VOLUME/tmp", "CGO_ENABLED": "0", "MINIO_API_REQUESTS_MAX": "10000"}}
+ok  	github.com/minio/minio/cmd	492.776s
+
+EXIT=0

@@ -1,0 +1,43 @@
+{
+  "reviewer": "Claude Code",
+  "cli_version": "2.1.258",
+  "requested_model": "claude-opus-5",
+  "requested_effort": "max",
+  "source_commit": "5c576581631561c446f30ae5b566f0aa793adc1c",
+  "permission_mode": "plan",
+  "tools": [
+    "Read",
+    "Grep",
+    "Glob"
+  ],
+  "round": 3,
+  "plan_snapshot": "plan-v3.md",
+  "plan_sha256": "8c4ab51a397246a07bb1cc967df3377d26ac084b7928191eb8fecacf6e7c3aed",
+  "command": "claude --print --model claude-opus-5 --effort max --safe-mode --permission-mode plan --tools Read,Grep,Glob --strict-mcp-config --no-session-persistence --output-format stream-json --verbose",
+  "status": "completed",
+  "observed_model": "claude-opus-5",
+  "session_id": "3ae0c14b-58cf-415d-8d2d-3a388d322534",
+  "observed_tools": [
+    "Glob",
+    "Grep",
+    "Read"
+  ],
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 181195,
+  "num_turns": 4,
+  "collected_at_utc": "2026-09-12T01:50:13.403953+00:00",
+  "stream_sha256": "728542385eb75e02050c17a389b49d2b4dfacdf1c54801fc6792694f91f08cff",
+  "review_sha256": "557ef70288a9a3939842a2f76d63694e2c103a8bfcaa99b7c161ee89e1f58061",
+  "assistant_models": [
+    "claude-opus-5"
+  ],
+  "used_tools": [
+    "Read"
+  ],
+  "auxiliary_model_note": "CLI may report small auxiliary model calls in model_usage; assistant_models lists the actual recorded review message models. max was explicitly supplied in the CLI command.",
+  "verdict": "GO_WITH_NONBLOCKING_NOTES",
+  "blocking_findings": 0,
+  "temporary_review_worktree_removed": true,
+  "archive_note": "Workstation paths normalized; billing data and raw model traces omitted. Original hashes are retained in archive-manifest.json."
+}

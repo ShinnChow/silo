@@ -1,0 +1,78 @@
+ok  	github.com/minio/minio/internal/amztime	5.149s
+ok  	github.com/minio/minio/internal/arn	13.830s
+ok  	github.com/minio/minio/internal/auth	5.472s
+ok  	github.com/minio/minio/internal/bpool	13.244s
+ok  	github.com/minio/minio/internal/bucket/bandwidth	12.671s
+ok  	github.com/minio/minio/internal/bucket/cors	2.705s
+ok  	github.com/minio/minio/internal/bucket/encryption	12.228s
+ok  	github.com/minio/minio/internal/bucket/lifecycle	3.223s
+ok  	github.com/minio/minio/internal/bucket/object/lock	11.599s
+ok  	github.com/minio/minio/internal/bucket/replication	12.817s
+ok  	github.com/minio/minio/internal/bucket/versioning	13.157s
+ok  	github.com/minio/minio/internal/cachevalue	18.526s
+?   	github.com/minio/minio/internal/color	[no test files]
+ok  	github.com/minio/minio/internal/config	14.365s
+?   	github.com/minio/minio/internal/config/api	[no test files]
+?   	github.com/minio/minio/internal/config/batch	[no test files]
+?   	github.com/minio/minio/internal/config/browser	[no test files]
+?   	github.com/minio/minio/internal/config/callhome	[no test files]
+ok  	github.com/minio/minio/internal/config/compress	15.754s
+ok  	github.com/minio/minio/internal/config/dns	17.351s
+?   	github.com/minio/minio/internal/config/drive	[no test files]
+ok  	github.com/minio/minio/internal/config/etcd	18.460s
+?   	github.com/minio/minio/internal/config/heal	[no test files]
+ok  	github.com/minio/minio/internal/config/identity/ldap	19.132s
+ok  	github.com/minio/minio/internal/config/identity/openid	19.829s
+?   	github.com/minio/minio/internal/config/identity/openid/provider	[no test files]
+?   	github.com/minio/minio/internal/config/identity/plugin	[no test files]
+?   	github.com/minio/minio/internal/config/identity/tls	[no test files]
+ok  	github.com/minio/minio/internal/config/ilm	19.256s
+?   	github.com/minio/minio/internal/config/lambda	[no test files]
+ok  	github.com/minio/minio/internal/config/lambda/event	18.225s
+?   	github.com/minio/minio/internal/config/lambda/target	[no test files]
+ok  	github.com/minio/minio/internal/config/notify	17.465s
+?   	github.com/minio/minio/internal/config/policy/opa	[no test files]
+?   	github.com/minio/minio/internal/config/policy/plugin	[no test files]
+?   	github.com/minio/minio/internal/config/scanner	[no test files]
+ok  	github.com/minio/minio/internal/config/storageclass	17.289s
+ok  	github.com/minio/minio/internal/config/subnet	17.168s
+ok  	github.com/minio/minio/internal/crypto	18.081s
+ok  	github.com/minio/minio/internal/deadlineconn	21.703s
+ok  	github.com/minio/minio/internal/disk	17.514s
+ok  	github.com/minio/minio/internal/dsync	154.956s
+ok  	github.com/minio/minio/internal/etag	17.755s
+ok  	github.com/minio/minio/internal/event	17.598s
+ok  	github.com/minio/minio/internal/event/target	16.108s
+ok  	github.com/minio/minio/internal/grid	22.027s
+ok  	github.com/minio/minio/internal/handlers	14.030s
+ok  	github.com/minio/minio/internal/hash	14.016s
+?   	github.com/minio/minio/internal/hash/sha256	[no test files]
+ok  	github.com/minio/minio/internal/http	13.661s
+?   	github.com/minio/minio/internal/init	[no test files]
+ok  	github.com/minio/minio/internal/ioutil	14.637s
+ok  	github.com/minio/minio/internal/jwt	13.120s
+ok  	github.com/minio/minio/internal/kms	12.536s
+ok  	github.com/minio/minio/internal/lock	13.029s
+ok  	github.com/minio/minio/internal/logger	12.231s
+?   	github.com/minio/minio/internal/logger/message/audit	[no test files]
+?   	github.com/minio/minio/internal/logger/target/console	[no test files]
+?   	github.com/minio/minio/internal/logger/target/http	[no test files]
+?   	github.com/minio/minio/internal/logger/target/kafka	[no test files]
+?   	github.com/minio/minio/internal/logger/target/loggertypes	[no test files]
+?   	github.com/minio/minio/internal/logger/target/testlogger	[no test files]
+ok  	github.com/minio/minio/internal/lsync	22.092s
+?   	github.com/minio/minio/internal/mcontext	[no test files]
+?   	github.com/minio/minio/internal/mountinfo	[no test files]
+?   	github.com/minio/minio/internal/net	[no test files]
+?   	github.com/minio/minio/internal/once	[no test files]
+ok  	github.com/minio/minio/internal/pubsub	11.507s
+ok  	github.com/minio/minio/internal/rest	10.318s
+ok  	github.com/minio/minio/internal/ringbuffer	10.927s
+ok  	github.com/minio/minio/internal/s3select	8.665s
+ok  	github.com/minio/minio/internal/s3select/csv	8.862s
+ok  	github.com/minio/minio/internal/s3select/json	8.547s
+ok  	github.com/minio/minio/internal/s3select/jstream	8.936s
+?   	github.com/minio/minio/internal/s3select/parquet	[no test files]
+?   	github.com/minio/minio/internal/s3select/simdj	[no test files]
+ok  	github.com/minio/minio/internal/s3select/sql	8.637s
+ok  	github.com/minio/minio/internal/store	9.594s

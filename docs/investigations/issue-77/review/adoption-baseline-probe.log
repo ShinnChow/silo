@@ -1,0 +1,6 @@
+=== RUN   TestIssue77PlanAdoptionBaseline
+    issue77_plan_adoption_test.go:17: ErasureSD ADOPTION_BASELINE: previous Created=2026-09-12T09:49:46.959131+08:00 field=2026-09-12T09:49:46.959131+08:00; after Created=2026-09-12T08:49:46.959131+08:00 field=2026-09-12T09:49:46.959131+08:00; nil with field>Created=true
+    issue77_plan_adoption_test.go:17: Erasure ADOPTION_BASELINE: previous Created=2026-09-12T09:49:47.012956+08:00 field=2026-09-12T09:49:47.012956+08:00; after Created=2026-09-12T08:49:47.012956+08:00 field=2026-09-12T09:49:47.012956+08:00; nil with field>Created=true
+--- PASS: TestIssue77PlanAdoptionBaseline (0.13s)
+PASS
+ok  	github.com/minio/minio/cmd	1.458s

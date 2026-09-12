@@ -1,0 +1,10 @@
+{
+  "worktree": "$TMPDIR",
+  "source_commit": "5c576581631561c446f30ae5b566f0aa793adc1c",
+  "scope": "diagnostic of existing code only; no product implementation",
+  "command": "GOWORK=off go test ./cmd -run '^TestIssue77PlanAdoptionBaseline$' -count=1 -v",
+  "exit_code": 0,
+  "outcome": "Both ObjectLayers reproduced a nil default state becoming an apparent tombstone after Created moved earlier; no product fix implemented.",
+  "temporary_worktree_removed": true,
+  "archive_note": "Workstation paths normalized; billing data and raw model traces omitted. Original hashes are retained in archive-manifest.json."
+}

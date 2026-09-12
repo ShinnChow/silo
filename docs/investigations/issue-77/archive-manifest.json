@@ -1,0 +1,437 @@
+{
+  "archived_at": "2026-09-12",
+  "issue": "https://github.com/pgsty/silo/issues/77",
+  "base": "5c576581631561c446f30ae5b566f0aa793adc1c",
+  "tested_source_head": "461e9a721047c63e1a95f54ad4b533a6b89def30",
+  "reviewed_production_head": "fcbb93e8957275bfa7ad4e6154e93f4d7b0a7025",
+  "source_sha256": {
+    "buildscripts/rebrand-guard/compat-baseline.json": "7ea6485008dd998373144ebded82483fe2c33ae60712abcf2fba973a7506b3e1",
+    "cmd/admin-bucket-handlers.go": "3aa8fc80cb8f2c4725acb8fbec026d47cd71a60ad58d06f905aa013540b30db7",
+    "cmd/bucket-cors-site-replication_test.go": "2cff52d3857e912526aaae40736b077e6b8bd640e098934b8af0ec76354f3747",
+    "cmd/bucket-metadata-replication.go": "07730f6a19b78a9b51dd9d56696812299b3aedce1a779b23178643e2684ba686",
+    "cmd/bucket-metadata-sys.go": "6d0936f537f104bdae1c460554c5ef6f34e6f057d8eb16569a23f012a9498d60",
+    "cmd/bucket-metadata.go": "2b692e42df36373fb98a74792098e1251ae886f5e2759add91a00909b596d04c",
+    "cmd/bucket-policy-handlers.go": "1ac487ef97f63ab19358212f1d582659b4d6fbd17888f5bb21cd5e5028e783e9",
+    "cmd/bucket-versioning-handler.go": "23ec85d45bacf687ada30ea6a06cb5e6d5d5dd32a81865a24aa52a030759e3ce",
+    "cmd/common-main.go": "c06df6c3051ceb264f7ddbdddea33ebe38a59e0c113b5c4c44906c1c2e08a01b",
+    "cmd/erasure-server-pool.go": "1ebb616ac971a22bd736d1b381845c0011cbc95b18dc273e4a946eec8244c80d",
+    "cmd/site-replication-metadata-gate_test.go": "1f170b84d2d25d67a4386451ce26597a752f96c9215155f3156ac1fd140ead86",
+    "cmd/site-replication-metadata-heal_test.go": "37191261f643dae88fbe5be44da8f08b2c52455245d5c61a2df564ecb7c8bffd",
+    "cmd/site-replication-metadata.go": "5756a5495723a2d9456b1c3ed7875cec789298eefb8230ea57126f9de83c4287",
+    "cmd/site-replication-metadata_test.go": "2898c88d48d9693d1c974ee7fd6846b86fe354f378caa630eac2ad0d9b9edfe8",
+    "cmd/site-replication.go": "5015550411bd4d82119cdb96b7f663fd082e4906baee259b30aedbaa616354c8",
+    "cmd/site-replication_test.go": "d85dd2aa991a6cce1fccfa17205e4a478f4ced00e0585fbe2aee2dbf97884b8a",
+    "docs/site-replication/README.md": "abe39529bf5a864dc7c945fd368b647f3fa2121fb324cea1cf63373eff9683a7"
+  },
+  "original_review_head": "4089113e3edbd21a29be8e6af74662462bcc22af",
+  "equivalent_signed_commit": "1ee64a8d895f0876580d5e27d0ce6facf41c347e",
+  "reviewed_tree": "0d18c940c6dec380dffc977cb5720b4e2384e46a",
+  "environment": "go version go1.27.1 darwin/arm64",
+  "scope": "Historical analysis and plan, final review reports and invocation metadata, selected executed test logs, source/binary identity, and rerunnable loopback lab. Excludes model reasoning streams, binaries, temporary volumes and invalid fixture logs. Paths, historical document links and trailing console whitespace were normalized; JSON billing fields and build-info dependency lists were omitted. Original and archived hashes distinguish these editorial transformations.",
+  "final_verdict": "GO_WITH_NONBLOCKING_NOTES",
+  "blocking_findings": 0,
+  "records": [
+    {
+      "file": "issue-77-current.md",
+      "source_record": "issue-77-current.md",
+      "original_sha256": "702f9fe93703c8d4b79a3e2c4709e7f49614dc20211ed5221f3adbd5e3809e2d",
+      "archived_sha256": "b22b50e584de73cfe2f101d35bb912d314feb7f0e0ce48018e1b4a48dc4cf5c5"
+    },
+    {
+      "file": "issue-77-plan.md",
+      "source_record": "issue-77-plan.md",
+      "original_sha256": "2ee214694f16e5949ed58290364770149aee3748faee3614122fee189ef83add",
+      "archived_sha256": "36ae4f99bbc22827cc9a1a437b413713e61f442a568347eeef836b4245c67081"
+    },
+    {
+      "file": "issue-77/current-tests.log",
+      "source_record": "issue-77/current-tests.log",
+      "original_sha256": "d6ed0ef373a37f8254d387a0757a431c2785b6b9a30c4e06d0034688ca3a41e8",
+      "archived_sha256": "d6ed0ef373a37f8254d387a0757a431c2785b6b9a30c4e06d0034688ca3a41e8"
+    },
+    {
+      "file": "issue-77/issue77_heal_review_test.go.txt",
+      "source_record": "issue-77/issue77_heal_review_test.go.txt",
+      "original_sha256": "f1b164afff783282253660b8fa5c131b0de946a078d370cdedd95c338fa73810",
+      "archived_sha256": "f1b164afff783282253660b8fa5c131b0de946a078d370cdedd95c338fa73810"
+    },
+    {
+      "file": "issue-77/issue77_review_test.go.txt",
+      "source_record": "issue-77/issue77_review_test.go.txt",
+      "original_sha256": "77e557bd098fad1345085b6bca27ff8a733984092c68c6b26d0dc74e5fca8caa",
+      "archived_sha256": "77e557bd098fad1345085b6bca27ff8a733984092c68c6b26d0dc74e5fca8caa"
+    },
+    {
+      "file": "issue-77/review/adoption-baseline-probe.go.txt",
+      "source_record": "issue-77/review/adoption-baseline-probe.go.txt",
+      "original_sha256": "4cf7aae6763f1ae736af087244dae01e32af1c546923fa782891759967981574",
+      "archived_sha256": "4cf7aae6763f1ae736af087244dae01e32af1c546923fa782891759967981574"
+    },
+    {
+      "file": "issue-77/review/adoption-baseline-probe.log",
+      "source_record": "issue-77/review/adoption-baseline-probe.log",
+      "original_sha256": "d5ad1bfe7d4faafc7bfc6f55800dc47a7d60b7ec7124cc31ec9ed11b0154bde7",
+      "archived_sha256": "d5ad1bfe7d4faafc7bfc6f55800dc47a7d60b7ec7124cc31ec9ed11b0154bde7"
+    },
+    {
+      "file": "issue-77/review/adoption-baseline-probe.metadata.json",
+      "source_record": "issue-77/review/adoption-baseline-probe.metadata.json",
+      "original_sha256": "618e81cb5852b08fbc3029d812647b9d2dbe3560349ee2e44b860356e12cffa9",
+      "archived_sha256": "a462ad6b10cb7e2737330eed5d5e0a5f98ac0d664aa6fcf40a1f5f2f073709f6"
+    },
+    {
+      "file": "issue-77/review/author-followup-findings.md",
+      "source_record": "issue-77/review/author-followup-findings.md",
+      "original_sha256": "b6d60d813702db300313430325046aa89e45071d3cdc20083d82f061b75ab2c4",
+      "archived_sha256": "b6d60d813702db300313430325046aa89e45071d3cdc20083d82f061b75ab2c4"
+    },
+    {
+      "file": "issue-77/review/decisions-v2.md",
+      "source_record": "issue-77/review/decisions-v2.md",
+      "original_sha256": "52c85f0b45073471e96abe86aa5a182858ff00a5dfe00f290f570f2aad86c5a1",
+      "archived_sha256": "52c85f0b45073471e96abe86aa5a182858ff00a5dfe00f290f570f2aad86c5a1"
+    },
+    {
+      "file": "issue-77/review/decisions-v3.md",
+      "source_record": "issue-77/review/decisions-v3.md",
+      "original_sha256": "7325864c0a3e93689989612da0427b88f890ef8baf197f609c570636b16a2b85",
+      "archived_sha256": "7325864c0a3e93689989612da0427b88f890ef8baf197f609c570636b16a2b85"
+    },
+    {
+      "file": "issue-77/review/decisions-v4.md",
+      "source_record": "issue-77/review/decisions-v4.md",
+      "original_sha256": "982b2e802aed883f2b5e211f0e1677388571ccde8e32af878a35b4192c1f4d16",
+      "archived_sha256": "982b2e802aed883f2b5e211f0e1677388571ccde8e32af878a35b4192c1f4d16"
+    },
+    {
+      "file": "issue-77/review/final-review.md",
+      "source_record": "issue-77/review/final-review.md",
+      "original_sha256": "2410f7b92e2c74b235d54bc155b822675c6b5f9ab0b7226fccca42dc38b0a7ea",
+      "archived_sha256": "2410f7b92e2c74b235d54bc155b822675c6b5f9ab0b7226fccca42dc38b0a7ea"
+    },
+    {
+      "file": "issue-77/review/opus5-max-v1.md",
+      "source_record": "issue-77/review/opus5-max-v1.md",
+      "original_sha256": "8a3b750a261ef520acbe658395d3303cea0835b07184b96022781a2a5d0d4dcf",
+      "archived_sha256": "8a3b750a261ef520acbe658395d3303cea0835b07184b96022781a2a5d0d4dcf"
+    },
+    {
+      "file": "issue-77/review/opus5-max-v1.metadata.json",
+      "source_record": "issue-77/review/opus5-max-v1.metadata.json",
+      "original_sha256": "959a9eac3a8449ef27027fbc65aca55a32b1f46063175d7187922296ecd0a957",
+      "archived_sha256": "d5e3be5c5377adeb88fdcb444ad5b6ee338af91d095027e1c9502298eda51d6d"
+    },
+    {
+      "file": "issue-77/review/opus5-max-v2.md",
+      "source_record": "issue-77/review/opus5-max-v2.md",
+      "original_sha256": "848a476f18ce88208b72d8bf6cb49a2316b2b14dcba64ad66e636fe0a3d70595",
+      "archived_sha256": "848a476f18ce88208b72d8bf6cb49a2316b2b14dcba64ad66e636fe0a3d70595"
+    },
+    {
+      "file": "issue-77/review/opus5-max-v2.metadata.json",
+      "source_record": "issue-77/review/opus5-max-v2.metadata.json",
+      "original_sha256": "ff63843a993830ea48e1a44987390b94613dea99a796453bc91bebca2f4e119f",
+      "archived_sha256": "3cd83d43f461fb1e13bbc4f4163769fa6daf4d151d8442d8615a3e813da38853"
+    },
+    {
+      "file": "issue-77/review/opus5-max-v3.md",
+      "source_record": "issue-77/review/opus5-max-v3.md",
+      "original_sha256": "557ef70288a9a3939842a2f76d63694e2c103a8bfcaa99b7c161ee89e1f58061",
+      "archived_sha256": "557ef70288a9a3939842a2f76d63694e2c103a8bfcaa99b7c161ee89e1f58061"
+    },
+    {
+      "file": "issue-77/review/opus5-max-v3.metadata.json",
+      "source_record": "issue-77/review/opus5-max-v3.metadata.json",
+      "original_sha256": "ad488156f42e33e47ed5d0a267ee69ee82efff69881d0e6400e88cf88a09ef60",
+      "archived_sha256": "1c84da615bccc2f1d7a2aa917ef7af751b0943cc7e413b39f59164a65acc2c98"
+    },
+    {
+      "file": "issue-77/review/opus5-max-v4.md",
+      "source_record": "issue-77/review/opus5-max-v4.md",
+      "original_sha256": "cf10b9d7963ff2b7d4c0fbb1fe744a0e853549eaf7ce675a94cc000f74fe6682",
+      "archived_sha256": "cf10b9d7963ff2b7d4c0fbb1fe744a0e853549eaf7ce675a94cc000f74fe6682"
+    },
+    {
+      "file": "issue-77/review/opus5-max-v4.metadata.json",
+      "source_record": "issue-77/review/opus5-max-v4.metadata.json",
+      "original_sha256": "95bae4427322fc42974a9d94ed5dd6d272a46b6eb669f95669a2fe1ef6ee4d42",
+      "archived_sha256": "60d68b2db11557ee09d60b67748844a56d7b1f323803163ef03d420ad1cc8c42"
+    },
+    {
+      "file": "issue-77/review/plan-v1.md",
+      "source_record": "issue-77/review/plan-v1.md",
+      "original_sha256": "0218a2ca59750acd6a24dc5ece1d55a19762a863f1a2de8edc6ffc9b4ab072e0",
+      "archived_sha256": "97d88bbd010cbd19744c2e2fee0fed8d3713ca553b5d0f06161299772ea8104b"
+    },
+    {
+      "file": "issue-77/review/plan-v2.md",
+      "source_record": "issue-77/review/plan-v2.md",
+      "original_sha256": "2b2c712b17f757ca1a8501714c6c2472bd442a6be50b29d92f2d87e23c412ba8",
+      "archived_sha256": "b193ee6e47b24576f3f4d06608f1bcd0f7f2b0c27ef782ea4f74ee3706f7aa4d"
+    },
+    {
+      "file": "issue-77/review/plan-v3.md",
+      "source_record": "issue-77/review/plan-v3.md",
+      "original_sha256": "8c4ab51a397246a07bb1cc967df3377d26ac084b7928191eb8fecacf6e7c3aed",
+      "archived_sha256": "fb3b37ab9dd2f4ab12b8050293603ed589645a730f1e23c81e2f7162ca46f7d2"
+    },
+    {
+      "file": "issue-77/review/plan-v4.md",
+      "source_record": "issue-77/review/plan-v4.md",
+      "original_sha256": "fbfd37498ab32a589d06254f32182869d5d49fc97722416c46c10b41e5f77816",
+      "archived_sha256": "8624e9b86d3cb6daa497d43ac8cb50318ebabdd7eb4bb7c605e0720522a73bd9"
+    },
+    {
+      "file": "issue-77/review/policy-encoding-probe.go.txt",
+      "source_record": "issue-77/review/policy-encoding-probe.go.txt",
+      "original_sha256": "4e07cba70bdc329a0003ca0b6711886a6de22323293e8de3625cdc838ccaf537",
+      "archived_sha256": "4e07cba70bdc329a0003ca0b6711886a6de22323293e8de3625cdc838ccaf537"
+    },
+    {
+      "file": "issue-77/review/wire-state-probe.go.txt",
+      "source_record": "issue-77/review/wire-state-probe.go.txt",
+      "original_sha256": "cafc6e2d482cc8e178ae3e17651410e3070049cd60009f0edd30fbac29e1309c",
+      "archived_sha256": "cafc6e2d482cc8e178ae3e17651410e3070049cd60009f0edd30fbac29e1309c"
+    },
+    {
+      "file": "issue-77/review/wire-state-probe.log",
+      "source_record": "issue-77/review/wire-state-probe.log",
+      "original_sha256": "5077cd264a50cc05fe9dd628a6e98a3b0aaf94e04b65b712563191e11e4ca9f1",
+      "archived_sha256": "5077cd264a50cc05fe9dd628a6e98a3b0aaf94e04b65b712563191e11e4ca9f1"
+    },
+    {
+      "file": "issue-77/implementation-review/opus5-max-review.md",
+      "source_record": "implementation-review/opus5-max-review.md",
+      "original_sha256": "e40dad6e1969898e35c82b7fd24517a5ee714d603a54fe3598b9e69c20922118",
+      "archived_sha256": "e40dad6e1969898e35c82b7fd24517a5ee714d603a54fe3598b9e69c20922118"
+    },
+    {
+      "file": "issue-77/implementation-review/session.json",
+      "source_record": "implementation-review/session.json",
+      "original_sha256": "c347259a0a501242eb787319d43fe16c117d021ea4e418ce74b09b6c9c33ad08",
+      "archived_sha256": "d26e9c3a7f3d0ba3d34de54e95c64e5939b8d5da1d190bb94d80423b6ca79205"
+    },
+    {
+      "file": "issue-77/implementation-review/round-2/opus5-max-review.md",
+      "source_record": "implementation-review/round-2/opus5-max-review.md",
+      "original_sha256": "306a856010f7f9bd1cbec39aba83236978f5a811c98f7fc3f8a08217f72de111",
+      "archived_sha256": "306a856010f7f9bd1cbec39aba83236978f5a811c98f7fc3f8a08217f72de111"
+    },
+    {
+      "file": "issue-77/implementation-review/round-2/session.json",
+      "source_record": "implementation-review/round-2/session.json",
+      "original_sha256": "64113634f4e8d0525ed17dd74d092c74419d172aa94b501187daae8ebc27e279",
+      "archived_sha256": "4f4dfe9c50b43b64f15fad830c39c116a296c302655d2c718475249521a68f19"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/opus5-max-review.md",
+      "source_record": "implementation-review/round-3/opus5-max-review.md",
+      "original_sha256": "9106938a7a34cfbc6a11d372dd5ffb71ae7417a77a56d10bbed178f539de8fba",
+      "archived_sha256": "9106938a7a34cfbc6a11d372dd5ffb71ae7417a77a56d10bbed178f539de8fba"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/session.json",
+      "source_record": "implementation-review/round-3/session.json",
+      "original_sha256": "28944efc7a7b2c5451beedf0a05202ffc23b29fad2d9bd04cc89fad3d72184b9",
+      "archived_sha256": "bf31d2dbd8009f0a966c0e820dfdbd5a2820e8b36e71e615f783932fd4ecc9de"
+    },
+    {
+      "file": "issue-77/implementation-review/round-2/confirmed-before.log",
+      "source_record": "implementation-review/round-2/confirmed-before.log",
+      "original_sha256": "af2df1c296c3377edb6aae45caa9fafd5e620ffb5a09438c15ca50e3d2cb1c10",
+      "archived_sha256": "af2df1c296c3377edb6aae45caa9fafd5e620ffb5a09438c15ca50e3d2cb1c10"
+    },
+    {
+      "file": "issue-77/implementation-review/round-2/confirmed-after.log",
+      "source_record": "implementation-review/round-2/confirmed-after.log",
+      "original_sha256": "0c8be7325817049afe2bd2d3ed668e61cbde2887a443b988b8defbf12304b5bc",
+      "archived_sha256": "0c8be7325817049afe2bd2d3ed668e61cbde2887a443b988b8defbf12304b5bc"
+    },
+    {
+      "file": "issue-77/implementation-review/round-2/confirmed-after-race.log",
+      "source_record": "implementation-review/round-2/confirmed-after-race.log",
+      "original_sha256": "da2725133b6c1b41a50a92700ff6adaf6dae7e9ac9d6b5812844715fd2b70e55",
+      "archived_sha256": "da2725133b6c1b41a50a92700ff6adaf6dae7e9ac9d6b5812844715fd2b70e55"
+    },
+    {
+      "file": "issue-77/implementation-review/round-2/confirmed-diagnostics-before.log",
+      "source_record": "implementation-review/round-2/confirmed-diagnostics-before.log",
+      "original_sha256": "3d2c1325f1612c9ce79172b148d1ae02cf5443087270e9caeb46046fec1ea2c8",
+      "archived_sha256": "3d2c1325f1612c9ce79172b148d1ae02cf5443087270e9caeb46046fec1ea2c8"
+    },
+    {
+      "file": "issue-77/implementation-review/round-2/no-source-before.log",
+      "source_record": "implementation-review/round-2/no-source-before.log",
+      "original_sha256": "e6bac0d117eb195b0ff67ef55eaff302c5f7ee36abf236fdcb69486330b31185",
+      "archived_sha256": "e6bac0d117eb195b0ff67ef55eaff302c5f7ee36abf236fdcb69486330b31185"
+    },
+    {
+      "file": "issue-77/implementation-review/round-2/initial-sync-before.log",
+      "source_record": "implementation-review/round-2/initial-sync-before.log",
+      "original_sha256": "f200f9b961baf20e48f22b50cebd82525dd4647ea42203179d140b5474a28427",
+      "archived_sha256": "f200f9b961baf20e48f22b50cebd82525dd4647ea42203179d140b5474a28427"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/docs-check.json",
+      "source_record": "implementation-review/round-3/docs-check.json",
+      "original_sha256": "76747f4d197d250e6bd3aaa1eba5a7013e56b655f10d143b984faed9d22b503b",
+      "archived_sha256": "322f206ca48816c415ba29f9c67935c0eba038823eddfac8fb7e298ff50bda4a"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/docs-check.log",
+      "source_record": "implementation-review/round-3/docs-check.log",
+      "original_sha256": "af8752f3d8a072954dc6de2b8c72a4054cffbe3583aeae225a8d6623fc95e9fa",
+      "archived_sha256": "a1d67bf392e45da04af9d819a5d76cec98006d1fc78c1a4cce486eb305bdc3ac"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/final-build.json",
+      "source_record": "implementation-review/round-3/final-build.json",
+      "original_sha256": "924df2a034af81acfe8961489664fa213791096db637e962ced6b78ba7ea8388",
+      "archived_sha256": "c5de13eceee16b23886290fbe351a5269735a549723ed400ddb3e5f0bf7c88e5"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/final-build.log",
+      "source_record": "implementation-review/round-3/final-build.log",
+      "original_sha256": "d5d78e4d1a5b0dc5bc6042ae94ad64aaf2c500ff3e9091ea1dc9dbdfff04b263",
+      "archived_sha256": "b212590ec72fc2489ea00c36458b3ce900b5b23543c7b141d211ac7b4b06f07b"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/final-cmd.json",
+      "source_record": "implementation-review/round-3/final-cmd.json",
+      "original_sha256": "431f663b748e81b9c311fa1b931483fe0b1ed09dec796b0894bb5d4a37f5f6b9",
+      "archived_sha256": "39a02d590c9615721fbded8e95cc3b04ebacb32ba5c943d8e9a6f55d912c80c7"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/final-cmd.log",
+      "source_record": "implementation-review/round-3/final-cmd.log",
+      "original_sha256": "681576adac6d627140a791a22085fc520b61f4a6e04172bc7fb5d0f3967e9c40",
+      "archived_sha256": "67723bedd3472d22a2e3f043e48fdab9bc5e8a212d932c513d44d61cc13eb09d"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/final-lint.json",
+      "source_record": "implementation-review/round-3/final-lint.json",
+      "original_sha256": "1dc2b38de9c4f37983e45e11ad5f416810f0c96e2cfeeff64b25846544918751",
+      "archived_sha256": "35229aa6e418c54072abf141b4296be491a43cdba87c2f56f853076d78d66559"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/final-lint.log",
+      "source_record": "implementation-review/round-3/final-lint.log",
+      "original_sha256": "40eb5ec64ae64b73489fc7b6e145aabfea6554e0c73fa22be7b4a8201bb63d18",
+      "archived_sha256": "d4b9455691ff7bcce76a0d886f603eda2179e7fa4e408b8e3bb987d693987c3a"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/final-runtime.json",
+      "source_record": "implementation-review/round-3/final-runtime.json",
+      "original_sha256": "6f76d83dbf9749f9dde0d6386f0b8a6b52cda6677c17ef9d739f05ea9379c52f",
+      "archived_sha256": "b57c593e1023a0226e7950c142d5bd9a231832a9e7aefc7d9d584075b70b9aca"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/final-runtime.log",
+      "source_record": "implementation-review/round-3/final-runtime.log",
+      "original_sha256": "4c0137bbe554426026e1d4c8baf48e28368e2450e886c506e0055e0591cd5e5e",
+      "archived_sha256": "2b6228f3c6003e896193be17a7c94970992c1fbcbaba013b1984348bf772bc1f"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/final-style-target-race.json",
+      "source_record": "implementation-review/round-3/final-style-target-race.json",
+      "original_sha256": "09b77aeb0d720de59ea5b1c31f017e8bf32e89c8dc0d4ecc3f35704f21bc0863",
+      "archived_sha256": "075c8d7393164e5b43364d25c163f5da8675f5b69c67e7523a579943a710aaca"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/final-style-target-race.log",
+      "source_record": "implementation-review/round-3/final-style-target-race.log",
+      "original_sha256": "3089ad9a1c7283a23853a137311728598a7e1ae3bdbbf16e5f000e1149a7e12f",
+      "archived_sha256": "a2609e9a889bcc68828e58c15967bb04820a92462c3f94de86ea584e33a6660a"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/final-target-race.json",
+      "source_record": "implementation-review/round-3/final-target-race.json",
+      "original_sha256": "68dfcad5fc63d5981065f86fb00482cc466c46f275c4c340095c26ad719f079c",
+      "archived_sha256": "5fb25fa150e66478b2d170faeed3374d71325311f7e625996fe1653cfc957b66"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/final-target-race.log",
+      "source_record": "implementation-review/round-3/final-target-race.log",
+      "original_sha256": "b437b206ebd12fff304f9cdb59b39f25fd0ecf54e9f510aca98c444b0b516c89",
+      "archived_sha256": "a5b6b6337ebbcf0eca02c2ca15bb1fa562d39ab6fe29f41cd304dd2979976f59"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/final-tree-equivalence.json",
+      "source_record": "implementation-review/round-3/final-tree-equivalence.json",
+      "original_sha256": "f7d1563d2f675ae282b4bec0bcedcc9809b0a0c985332d862c61ff4b8c75a59f",
+      "archived_sha256": "f7d1563d2f675ae282b4bec0bcedcc9809b0a0c985332d862c61ff4b8c75a59f"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/final-vet.json",
+      "source_record": "implementation-review/round-3/final-vet.json",
+      "original_sha256": "934ae2812aef8b8635517f838a07cc81dc4780603d621770f9a150bf00d43561",
+      "archived_sha256": "be1b653811da4f6503f329f7e7c8b321b3426107548f0079c8560b177bc0c37f"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/final-vet.log",
+      "source_record": "implementation-review/round-3/final-vet.log",
+      "original_sha256": "f8166088e218c7c8afa25988c02cee77ec58b552f531121a07959b31bd97ebbb",
+      "archived_sha256": "012d45737551ed5ffdccc3b3535ce0be152a9e9f869f50779d5da04e965a9936"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/test-style.diff",
+      "source_record": "implementation-review/round-3/test-style.diff",
+      "original_sha256": "69a7f7efbb17d8dcdd2a0d7f91098569a48d7f1aeeecb6d2aefe04b6047a9025",
+      "archived_sha256": "69a7f7efbb17d8dcdd2a0d7f91098569a48d7f1aeeecb6d2aefe04b6047a9025"
+    },
+    {
+      "file": "issue-77/implementation-review/ci-crosscompile-after.log",
+      "source_record": "implementation-review/ci-crosscompile-after.log",
+      "original_sha256": "68ef16136fabb16babd8fa26d2e3fcf6ffddac30002f874f7b9dfdd61961e82f",
+      "archived_sha256": "68ef16136fabb16babd8fa26d2e3fcf6ffddac30002f874f7b9dfdd61961e82f"
+    },
+    {
+      "file": "issue-77/implementation-review/ci-gen-after.log",
+      "source_record": "implementation-review/ci-gen-after.log",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archived_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "issue-77/implementation-review/ci-internal-after.log",
+      "source_record": "implementation-review/ci-internal-after.log",
+      "original_sha256": "775e5b2b35fda828ffd69f47902e065f58aa2e2ecd915ace9e50f4085aa2d0c4",
+      "archived_sha256": "775e5b2b35fda828ffd69f47902e065f58aa2e2ecd915ace9e50f4085aa2d0c4"
+    },
+    {
+      "file": "issue-77/implementation-review/ci-lint-after.log",
+      "source_record": "implementation-review/ci-lint-after.log",
+      "original_sha256": "cd29668fa61e94079dda874e10920623279083c491798fa9cbdb903ebeee4d82",
+      "archived_sha256": "cd29668fa61e94079dda874e10920623279083c491798fa9cbdb903ebeee4d82"
+    },
+    {
+      "file": "issue-77/implementation-review/ci-s3select-after.log",
+      "source_record": "implementation-review/ci-s3select-after.log",
+      "original_sha256": "30fc4888ba394ef0daa6c76fa497c28086b7307ec30d195fe4f2b725badc59c9",
+      "archived_sha256": "30fc4888ba394ef0daa6c76fa497c28086b7307ec30d195fe4f2b725badc59c9"
+    },
+    {
+      "file": "issue-77/implementation-review/ci-verify-after.log",
+      "source_record": "implementation-review/ci-verify-after.log",
+      "original_sha256": "2b6860f20bdfd453bcc299f8b57a117cd698bab77d6a474913e31794c3937bd3",
+      "archived_sha256": "2b6860f20bdfd453bcc299f8b57a117cd698bab77d6a474913e31794c3937bd3"
+    },
+    {
+      "file": "issue-77/implementation-review/round-3/binary-identity.json",
+      "source_record": "implementation-review/round-3/binary-identity.json",
+      "original_sha256": "ffdb768a1931388f174eaca0980cc840015a8e0995b5509ef68718d10044f5e5",
+      "archived_sha256": "d4ea7abc1f419e834746820b5b2d2f1b3264e42114161e7c6803f4e952fcf17d"
+    },
+    {
+      "file": "issue-77/runtime/converged.json",
+      "source_record": "runtime-reviewed/converged.json",
+      "original_sha256": "d6d97bc01a12fd624af37432e9558356255b5cd9d4333eaa616e39998c2ce94f",
+      "archived_sha256": "d6d97bc01a12fd624af37432e9558356255b5cd9d4333eaa616e39998c2ce94f"
+    },
+    {
+      "file": "issue-77/runtime/main.go",
+      "source_record": "twosite/main.go",
+      "original_sha256": "ec63a5e2553907a826727af416145057215adabfb9fa2839861f0c05b7cc2a8f",
+      "archived_sha256": "023459a3873753d5a373c2ba6c078d690c9a2a18c31efa98ecd5f4976ecaba4a"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+package cmd
+import (
+ "net/http"
+ "testing"
+ "time"
+ "github.com/minio/minio/internal/auth"
+)
+func TestIssue77PlanAdoptionBaseline(t *testing.T) {
+ defer DetectTestLeak(t)()
+ ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{t:t,objAPITest:func(_ ObjectLayer, instanceType,bucket string,_ http.Handler,_ auth.Credentials,t *testing.T){
+  before,err:=globalBucketMetadataSys.GetConfigFromDisk(t.Context(),bucket);if err!=nil{t.Fatal(err)}
+  if len(before.PolicyConfigJSON)!=0 || !before.PolicyConfigUpdatedAt.Equal(before.Created) {t.Fatalf("unexpected initial state: %#v",before)}
+  olderCreated:=before.Created.Add(-time.Hour)
+  if err:=globalSiteReplicationSys.PeerBucketMakeWithVersioningHandler(t.Context(),bucket,MakeBucketOptions{CreatedAt:olderCreated});err!=nil{t.Fatal(err)}
+  after,err:=globalBucketMetadataSys.GetConfigFromDisk(t.Context(),bucket);if err!=nil{t.Fatal(err)}
+  falseTombstone:=len(after.PolicyConfigJSON)==0 && after.PolicyConfigUpdatedAt.After(after.Created)
+  t.Logf("%s ADOPTION_BASELINE: previous Created=%s field=%s; after Created=%s field=%s; nil with field>Created=%v",instanceType,before.Created.Format(time.RFC3339Nano),before.PolicyConfigUpdatedAt.Format(time.RFC3339Nano),after.Created.Format(time.RFC3339Nano),after.PolicyConfigUpdatedAt.Format(time.RFC3339Nano),falseTombstone)
+  if !falseTombstone {t.Fatal("expected to reproduce default timestamp becoming an apparent tombstone")}
+ }})
+}

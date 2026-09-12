@@ -1,0 +1,49 @@
+{
+  "requested_model": "claude-opus-5",
+  "requested_effort": "max",
+  "head": "62cf066ff529c7d281703daa365f555cebba717a",
+  "prior_review_head": "4089113e3edbd21a29be8e6af74662462bcc22af",
+  "started_at": "2026-09-12T08:46:55.400524+00:00",
+  "status": "completed",
+  "completed_at": "2026-09-12T09:07:16.313535+00:00",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 973153,
+  "num_turns": 71,
+  "assistant_models": [
+    "claude-opus-5"
+  ],
+  "used_tools": {
+    "Read": 41,
+    "Grep": 24,
+    "Glob": 5
+  },
+  "stream_sha256": "63046ccfab9fb158178f43b09c75a9809a13ed1ff2da5a626e9e3c3e96c13d37",
+  "review_sha256": "306a856010f7f9bd1cbec39aba83236978f5a811c98f7fc3f8a08217f72de111",
+  "auxiliary_model_note": "CLI model_usage may include auxiliary calls. assistant_models identifies the actual review message model. max was explicitly passed in the recorded command.",
+  "command": [
+    "/opt/homebrew/bin/claude",
+    "--print",
+    "--model",
+    "claude-opus-5",
+    "--effort",
+    "max",
+    "--safe-mode",
+    "--permission-mode",
+    "plan",
+    "--tools",
+    "Read,Grep,Glob",
+    "--strict-mcp-config",
+    "--no-session-persistence",
+    "--add-dir",
+    "$LOCAL_EVIDENCE",
+    "--add-dir",
+    "$DOCS_WORKTREE/content/blog/design",
+    "--output-format",
+    "stream-json",
+    "--verbose"
+  ],
+  "command_note": "Same explicit CLI model/effort/read-only options as recorded in the tool invocation; round-2 had its own pinned worktree and prompt.",
+  "session_id": "8743aaa3-5c06-43db-8eba-08302d504c4e",
+  "archive_note": "Workstation paths normalized; billing data and raw model traces omitted. Original hashes are retained in archive-manifest.json."
+}

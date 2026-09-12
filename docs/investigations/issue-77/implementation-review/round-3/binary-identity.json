@@ -1,0 +1,49 @@
+{
+  "head": "fcbb93e8957275bfa7ad4e6154e93f4d7b0a7025",
+  "source_clean": true,
+  "built_at": "2026-09-12T09:12:38.105913+00:00",
+  "binaries": {
+    "silo-reviewed": {
+      "sha256": "4825a801ce0ac48d636d9428ce4cd5c17a20b6cfec0b569de70a124c9c005049",
+      "version": "silo-reviewed version DEVELOPMENT.2026-09-12T09-09-34Z (commit-id=fcbb93e8957275bfa7ad4e6154e93f4d7b0a7025)\nRuntime: go1.27.1 darwin/arm64\nLicense: GNU AGPLv3 - https://www.gnu.org/licenses/agpl-3.0.html\nCopyright: 2015-2025 MinIO, Inc.\nModifications: Copyright 2025-2026 PGSTY\nSource compatibility: based on MinIO technology",
+      "build_info_sha256": "91778f5f2844ada1234ed6a97d97fce7d87dc6334fdd9ef839fbeb7ebdb995e3",
+      "build_info_identity_lines": [
+        "\tpath\tgithub.com/minio/minio",
+        "\tmod\tgithub.com/minio/minio\tv0.0.0-20260912090934-fcbb93e89572\t",
+        "\tbuild\t-buildmode=exe",
+        "\tbuild\t-compiler=gc",
+        "\tbuild\t-trimpath=true",
+        "\tbuild\tCGO_ENABLED=0",
+        "\tbuild\tGOARCH=arm64",
+        "\tbuild\tGOOS=darwin",
+        "\tbuild\tGOARM64=v8.0",
+        "\tbuild\tvcs=git",
+        "\tbuild\tvcs.revision=fcbb93e8957275bfa7ad4e6154e93f4d7b0a7025",
+        "\tbuild\tvcs.time=2026-09-12T09:09:34Z",
+        "\tbuild\tvcs.modified=false"
+      ]
+    },
+    "silo-before": {
+      "sha256": "3b07b9604f2ca9f68f33b69f7807f57e0cc9b1efb0310bbf0aa7b3997e4483b9",
+      "version": "silo-before version DEVELOPMENT.2026-09-11T18-00-57Z (commit-id=5c576581631561c446f30ae5b566f0aa793adc1c)\nRuntime: go1.27.1 darwin/arm64\nLicense: GNU AGPLv3 - https://www.gnu.org/licenses/agpl-3.0.html\nCopyright: 2015-2025 MinIO, Inc.\nModifications: Copyright 2025-2026 PGSTY\nSource compatibility: based on MinIO technology",
+      "build_info_sha256": "84fb4540758d7dd56367069e3843a97d1e2c3528905db11d490b9654a2d6205d",
+      "build_info_identity_lines": [
+        "\tpath\tgithub.com/minio/minio",
+        "\tmod\tgithub.com/minio/minio\tv0.0.0-20260911180057-5c5765816315\t",
+        "\tbuild\t-buildmode=exe",
+        "\tbuild\t-compiler=gc",
+        "\tbuild\t-tags=kqueue",
+        "\tbuild\t-trimpath=true",
+        "\tbuild\tCGO_ENABLED=0",
+        "\tbuild\tGOARCH=arm64",
+        "\tbuild\tGOOS=darwin",
+        "\tbuild\tGOARM64=v8.0",
+        "\tbuild\tvcs=git",
+        "\tbuild\tvcs.revision=5c576581631561c446f30ae5b566f0aa793adc1c",
+        "\tbuild\tvcs.time=2026-09-11T18:00:57Z",
+        "\tbuild\tvcs.modified=false"
+      ]
+    }
+  },
+  "archive_note": "Dependency listing and machine paths omitted. Actual version, module identity, build settings and original build-info hash retained. Binaries are not included."
+}

@@ -1,0 +1,14 @@
+package main
+import (
+ "encoding/json"
+ "fmt"
+ "strings"
+ "github.com/pgsty/silo-pkg/v3/policy"
+)
+func main() {
+ p,err:=policy.ParseBucketPolicyConfig(strings.NewReader(`{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":["s3:GetObject","s3:PutObject"],"Resource":["arn:aws:s3:::issue77-test/a/*","arn:aws:s3:::issue77-test/b/*"]}]}`),"issue77-test")
+ if err!=nil {panic(err)}
+ variants:=map[string]int{}
+ for i:=0;i<100;i++ {b,err:=json.Marshal(p);if err!=nil{panic(err)};variants[string(b)]++}
+ fmt.Printf("100 encodings of the same parsed BucketPolicy produced %d distinct byte sequences\n",len(variants))
+}
