@@ -57,15 +57,14 @@ func testPeerBucketMetadataSourceTimeAndDeletion(obj ObjectLayer, backend, bucke
 		put        madmin.SRBucketMeta
 		value      func(BucketMetadata) []byte
 		stamp      func(BucketMetadata) time.Time
-		exported   func(madmin.SRBucketInfo) time.Time
 		deletable  bool
 	}{
-		{"policy", bucketPolicyConfig, madmin.SRBucketMeta{Type: madmin.SRBucketMetaTypePolicy, Policy: []byte(fmt.Sprintf(`{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":"arn:aws:s3:::%s/*"}]}`, bucket))}, func(m BucketMetadata) []byte { return m.PolicyConfigJSON }, func(m BucketMetadata) time.Time { return m.PolicyConfigUpdatedAt }, func(m madmin.SRBucketInfo) time.Time { return m.PolicyUpdatedAt }, true},
-		{"tags", bucketTaggingConfig, madmin.SRBucketMeta{Type: madmin.SRBucketMetaTypeTags, Tags: enc(`<Tagging><TagSet><Tag><Key>key</Key><Value>old</Value></Tag></TagSet></Tagging>`)}, func(m BucketMetadata) []byte { return m.TaggingConfigXML }, func(m BucketMetadata) time.Time { return m.TaggingConfigUpdatedAt }, func(m madmin.SRBucketInfo) time.Time { return m.TagConfigUpdatedAt }, true},
-		{"sse", bucketSSEConfig, madmin.SRBucketMeta{Type: madmin.SRBucketMetaTypeSSEConfig, SSEConfig: enc(`<ServerSideEncryptionConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault></Rule></ServerSideEncryptionConfiguration>`)}, func(m BucketMetadata) []byte { return m.EncryptionConfigXML }, func(m BucketMetadata) time.Time { return m.EncryptionConfigUpdatedAt }, func(m madmin.SRBucketInfo) time.Time { return m.SSEConfigUpdatedAt }, true},
-		{"quota", bucketQuotaConfigFile, madmin.SRBucketMeta{Type: madmin.SRBucketMetaTypeQuotaConfig, Quota: quotaJSON}, func(m BucketMetadata) []byte { return m.QuotaConfigJSON }, func(m BucketMetadata) time.Time { return m.QuotaConfigUpdatedAt }, func(m madmin.SRBucketInfo) time.Time { return m.QuotaConfigUpdatedAt }, true},
-		{"versioning", bucketVersioningConfig, madmin.SRBucketMeta{Type: madmin.SRBucketMetaTypeVersionConfig, Versioning: enc(`<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>Enabled</Status></VersioningConfiguration>`)}, func(m BucketMetadata) []byte { return m.VersioningConfigXML }, func(m BucketMetadata) time.Time { return m.VersioningConfigUpdatedAt }, nil, false},
-		{"objectlock", objectLockConfig, newSRBucketObjectLockMeta(bucket, enc(`<ObjectLockConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><ObjectLockEnabled>Enabled</ObjectLockEnabled><Rule><DefaultRetention><Mode>GOVERNANCE</Mode><Days>30</Days></DefaultRetention></Rule></ObjectLockConfiguration>`), putAt), func(m BucketMetadata) []byte { return m.ObjectLockConfigXML }, func(m BucketMetadata) time.Time { return m.ObjectLockConfigUpdatedAt }, nil, false},
+		{"policy", bucketPolicyConfig, madmin.SRBucketMeta{Type: madmin.SRBucketMetaTypePolicy, Policy: []byte(fmt.Sprintf(`{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":"arn:aws:s3:::%s/*"}]}`, bucket))}, func(m BucketMetadata) []byte { return m.PolicyConfigJSON }, func(m BucketMetadata) time.Time { return m.PolicyConfigUpdatedAt }, true},
+		{"tags", bucketTaggingConfig, madmin.SRBucketMeta{Type: madmin.SRBucketMetaTypeTags, Tags: enc(`<Tagging><TagSet><Tag><Key>key</Key><Value>old</Value></Tag></TagSet></Tagging>`)}, func(m BucketMetadata) []byte { return m.TaggingConfigXML }, func(m BucketMetadata) time.Time { return m.TaggingConfigUpdatedAt }, true},
+		{"sse", bucketSSEConfig, madmin.SRBucketMeta{Type: madmin.SRBucketMetaTypeSSEConfig, SSEConfig: enc(`<ServerSideEncryptionConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Rule><ApplyServerSideEncryptionByDefault><SSEAlgorithm>AES256</SSEAlgorithm></ApplyServerSideEncryptionByDefault></Rule></ServerSideEncryptionConfiguration>`)}, func(m BucketMetadata) []byte { return m.EncryptionConfigXML }, func(m BucketMetadata) time.Time { return m.EncryptionConfigUpdatedAt }, true},
+		{"quota", bucketQuotaConfigFile, madmin.SRBucketMeta{Type: madmin.SRBucketMetaTypeQuotaConfig, Quota: quotaJSON}, func(m BucketMetadata) []byte { return m.QuotaConfigJSON }, func(m BucketMetadata) time.Time { return m.QuotaConfigUpdatedAt }, true},
+		{"versioning", bucketVersioningConfig, madmin.SRBucketMeta{Type: madmin.SRBucketMetaTypeVersionConfig, Versioning: enc(`<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>Enabled</Status></VersioningConfiguration>`)}, func(m BucketMetadata) []byte { return m.VersioningConfigXML }, func(m BucketMetadata) time.Time { return m.VersioningConfigUpdatedAt }, false},
+		{"objectlock", objectLockConfig, newSRBucketObjectLockMeta(bucket, enc(`<ObjectLockConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><ObjectLockEnabled>Enabled</ObjectLockEnabled><Rule><DefaultRetention><Mode>GOVERNANCE</Mode><Days>30</Days></DefaultRetention></Rule></ObjectLockConfiguration>`), putAt), func(m BucketMetadata) []byte { return m.ObjectLockConfigXML }, func(m BucketMetadata) time.Time { return m.ObjectLockConfigUpdatedAt }, false},
 	}
 	for _, tc := range cases {
 		t.Run(backend+"/"+tc.name, func(t *testing.T) {
@@ -528,6 +527,19 @@ func TestLocalBucketMetadataCommittedEvents(t *testing.T) {
 			if rec.Code != http.StatusNotFound {
 				t.Fatalf("empty policy GET: %d %s", rec.Code, rec.Body.String())
 			}
+			// Supported negative sets must survive the same serializer on PUT,
+			// peer apply, GET and export instead of failing on empty Action.
+			putPolicy([]byte(fmt.Sprintf(`{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","NotAction":["s3:DeleteObject"],"NotResource":["arn:aws:s3:::%s/private/*"]}]}`, bucket)))
+			req, err = newTestSignedRequestV4(http.MethodGet, getGetPolicyURL("", bucket), 0, nil, cred.AccessKey, cred.SecretKey, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rec = httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK || !bytes.Contains(rec.Body.Bytes(), []byte(`"NotAction"`)) || !bytes.Contains(rec.Body.Bytes(), []byte(`"NotResource"`)) {
+				t.Fatalf("negative policy set GET: %d %s", rec.Code, rec.Body.String())
+			}
+
 			corsAdminRequest(t, cred, http.MethodPut, "/set-bucket-quota?bucket="+bucket, []byte(`{}`))
 			meta, err = loadBucketMetadata(ctx, obj, bucket)
 			if err != nil {
@@ -551,9 +563,11 @@ func TestLocalBucketMetadataCommittedEvents(t *testing.T) {
 			defer setObjectLayer(obj)
 			before := len(events())
 			rec = corsAdminRequest(t, cred, http.MethodPut, "/import-bucket-metadata", corsZip(t, map[string][]byte{
-				bucket + "/" + bucketPolicyConfig:  []byte(`{"Version":"2012-10-17","Statement":[]}`),
-				bucket + "/quota.json":             []byte(`{}`),
-				bucket + "/" + bucketTaggingConfig: []byte(`<Tagging><TagSet><Tag><Key>imported</Key><Value>yes</Value></Tag></TagSet></Tagging>`),
+				bucket + "/" + bucketPolicyConfig:     []byte(`{"Version":"2012-10-17","Statement":[]}`),
+				bucket + "/quota.json":                []byte(`{}`),
+				bucket + "/" + bucketTaggingConfig:    []byte(`<Tagging><TagSet><Tag><Key>imported</Key><Value>yes</Value></Tag></TagSet></Tagging>`),
+				bucket + "/" + objectLockConfig:       enabledBucketObjectLockConfig,
+				bucket + "/" + bucketVersioningConfig: []byte(`<VersioningConfiguration><Status>Enabled</Status><ExcludeFolders>true</ExcludeFolders></VersioningConfiguration>`),
 			}))
 			report := corsImportReport(t, rec).Buckets[bucket]
 			if report.Err != "" || report.Policy.Err != "" || report.Quota.Err != "" || report.Tagging.Err != "" {
@@ -565,6 +579,9 @@ func TestLocalBucketMetadataCommittedEvents(t *testing.T) {
 			}
 			if !meta.QuotaConfigUpdatedAt.After(injectedAt) || !meta.TaggingConfigUpdatedAt.Equal(meta.QuotaConfigUpdatedAt) || !meta.PolicyConfigUpdatedAt.Equal(meta.QuotaConfigUpdatedAt) {
 				t.Fatalf("import time %v must exceed intervening %v; policy=%v tags=%v", meta.QuotaConfigUpdatedAt, injectedAt, meta.PolicyConfigUpdatedAt, meta.TaggingConfigUpdatedAt)
+			}
+			if !bytes.Equal(meta.VersioningConfigXML, enabledBucketVersioningConfig) || !meta.VersioningConfigUpdatedAt.Equal(meta.QuotaConfigUpdatedAt) || !meta.ObjectLockConfigUpdatedAt.Equal(meta.QuotaConfigUpdatedAt) {
+				t.Fatal("import normalization or common source time lost")
 			}
 			got = events()[before:]
 			if len(got) != 2 {
@@ -581,6 +598,33 @@ func TestLocalBucketMetadataCommittedEvents(t *testing.T) {
 				} else if event.Tags == nil || len(event.Quota) == 0 {
 					t.Fatalf("bulk omitted imported state: %+v", event)
 				}
+				if event.Type == "" {
+					if event.Versioning == nil || event.ObjectLockConfig == nil {
+						t.Fatal("normalized import fields omitted")
+					}
+					payload, err := base64.StdEncoding.DecodeString(*event.Versioning)
+					if err != nil || !bytes.Equal(payload, enabledBucketVersioningConfig) {
+						t.Fatal("import sent pre-normalization versioning")
+					}
+				}
+			}
+			beforeMeta, beforeEvents := meta, len(events())
+			rec = corsAdminRequest(t, cred, http.MethodPut, "/import-bucket-metadata", corsZip(t, map[string][]byte{
+				bucket + "/" + bucketTaggingConfig: []byte(`<Tagging><TagSet><Tag><Key>only</Key><Value>tags</Value></Tag></TagSet></Tagging>`),
+			}))
+			if status := corsImportReport(t, rec).Buckets[bucket]; status.Err != "" || status.Tagging.Err != "" {
+				t.Fatalf("tags-only import: %+v", status)
+			}
+			meta, err = loadBucketMetadata(ctx, obj, bucket)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(meta.PolicyConfigJSON, beforeMeta.PolicyConfigJSON) || !meta.PolicyConfigUpdatedAt.Equal(beforeMeta.PolicyConfigUpdatedAt) || !bytes.Equal(meta.QuotaConfigJSON, beforeMeta.QuotaConfigJSON) || !meta.QuotaConfigUpdatedAt.Equal(beforeMeta.QuotaConfigUpdatedAt) {
+				t.Fatal("tags-only import changed Policy or Quota")
+			}
+			got = events()[beforeEvents:]
+			if len(got) != 1 || got[0].Tags == nil || got[0].Policy != nil || got[0].Quota != nil || got[0].Versioning != nil || got[0].ObjectLockConfig != nil || !got[0].UpdatedAt.Equal(meta.TaggingConfigUpdatedAt) {
+				t.Fatalf("tags-only import hook leaked unspecified fields: %+v", got)
 			}
 		})
 	}})
@@ -618,6 +662,46 @@ func TestPeerBucketMetadataNormalizesBeforeComparison(t *testing.T) {
 			result, err := globalBucketMetadataSys.updateAndParseMetadata(t.Context(), bucket, bucketVersioningConfig, data, false, false, nil)
 			if err != nil || !bytes.Equal(result.meta.VersioningConfigXML, enabledBucketVersioningConfig) {
 				t.Fatalf("local commit snapshot: %s %v", result.meta.VersioningConfigXML, err)
+			}
+		})
+	}})
+}
+
+func TestPeerBucketMetadataEqualTimeArrivalOrders(t *testing.T) {
+	ExecObjectLayerAPITest(ExecObjectLayerAPITestArgs{t: t, objAPITest: func(obj ObjectLayer, backend, bucket string, _ http.Handler, cred auth.Credentials, t *testing.T) {
+		t.Run(backend, func(t *testing.T) {
+			created := UTCNow().Add(-time.Hour)
+			a := []byte(`<Tagging><TagSet><Tag><Key>key</Key><Value>a</Value></Tag></TagSet></Tagging>`)
+			b := bytes.ReplaceAll(a, []byte("<Value>a"), []byte("<Value>b"))
+			for _, pair := range [][2][]byte{{a, b}, {b, a}, {a, nil}, {nil, a}} {
+				meta := newBucketMetadata(bucket)
+				meta.Created = created
+				meta.defaultTimestamps()
+				if err := globalBucketMetadataSys.save(t.Context(), meta); err != nil {
+					t.Fatal(err)
+				}
+				for _, data := range pair {
+					var payload *string
+					if data != nil {
+						encoded := base64.StdEncoding.EncodeToString(data)
+						payload = &encoded
+					}
+					rec := applySRBucketMetaViaAdmin(t, cred, madmin.SRBucketMeta{Bucket: bucket, Type: madmin.SRBucketMetaTypeTags, Tags: payload, UpdatedAt: created.Add(time.Minute)})
+					if rec.Code != http.StatusOK {
+						t.Fatalf("equal time apply: %d %s", rec.Code, rec.Body.String())
+					}
+				}
+				got, err := readBucketMetadata(t.Context(), obj, bucket)
+				if err != nil {
+					t.Fatal(err)
+				}
+				want := b
+				if pair[0] == nil || pair[1] == nil {
+					want = nil
+				}
+				if !bytes.Equal(got.TaggingConfigXML, want) || !got.TaggingConfigUpdatedAt.Equal(created.Add(time.Minute)) {
+					t.Fatalf("arrival order changed winner: %q at %v", got.TaggingConfigXML, got.TaggingConfigUpdatedAt)
+				}
 			}
 		})
 	}})

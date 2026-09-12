@@ -83,9 +83,9 @@ func TestLatestBucketConfigCandidates(t *testing.T) {
 				t.Fatal("unknown source chosen")
 			}
 			liveBaseline := bucketConfigTestInfo("bucket", file, data, created, created)
-			real := bucketConfigTestInfo("bucket", file, data, created.Add(time.Hour), created)
+			modified := bucketConfigTestInfo("bucket", file, data, created.Add(time.Hour), created)
 			oldGeneration := bucketConfigTestInfo("bucket", file, data, created, created.Add(time.Second))
-			states := []srBucketStatsSummary{liveBaseline, real, oldGeneration}
+			states := []srBucketStatsSummary{liveBaseline, modified, oldGeneration}
 			for _, order := range [][3]int{{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}} {
 				bs["a"], bs["b"], bs["c"] = states[order[0]], states[order[1]], states[order[2]]
 				winner, found := latestBucketConfig("bucket", file, info)
@@ -99,7 +99,7 @@ func TestLatestBucketConfigCandidates(t *testing.T) {
 			}
 			if !bucketConfigUpdateOnly(file) {
 				// A late-created empty baseline cannot beat a real earlier write.
-				bs["a"], bs["b"], bs["c"] = real, bucketConfigTestInfo("bucket", file, nil, created.Add(2*time.Hour), created.Add(2*time.Hour)), baseline
+				bs["a"], bs["b"], bs["c"] = modified, bucketConfigTestInfo("bucket", file, nil, created.Add(2*time.Hour), created.Add(2*time.Hour)), baseline
 				if winner, found := latestBucketConfig("bucket", file, info); !found || len(winner.data) == 0 {
 					t.Fatal("default became a deletion")
 				}

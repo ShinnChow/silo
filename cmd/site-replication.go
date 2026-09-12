@@ -1643,7 +1643,7 @@ func (c *SiteReplicationSys) PeerBucketMetadataUpdateHandler(ctx context.Context
 		if item.Cors != nil {
 			replLogOnceIf(ctx, fmt.Errorf("ignoring CORS event for bucket %s from %v before bucket creation at %v", item.Bucket, item.UpdatedAt, meta.Created), "cors-event-before-bucket-creation-"+item.Bucket)
 		}
-		return nil
+		item.Cors = nil
 	}
 
 	// Presence is separate from content: omitted RawMessage is not a delete;
@@ -1669,6 +1669,7 @@ func (c *SiteReplicationSys) PeerBucketMetadataUpdateHandler(ctx context.Context
 	}
 	if len(updates) != 0 {
 		if err := ensureBucketMetadataCreated(ctx, objectAPI, &meta); err != nil {
+			logBucketConfigReplication(ctx, item.Bucket, "bulk", "indeterminate", item.UpdatedAt, meta.Created, err.Error())
 			return wrapSRErr(err)
 		}
 	}
@@ -1676,6 +1677,10 @@ func (c *SiteReplicationSys) PeerBucketMetadataUpdateHandler(ctx context.Context
 	for _, file := range replicatedBucketConfigs {
 		data, supplied := updates[file]
 		if !supplied {
+			continue
+		}
+		if item.UpdatedAt.Before(meta.Created) {
+			logBucketConfigReplication(ctx, item.Bucket, file, "before-created", item.UpdatedAt, meta.Created, "bulk event")
 			continue
 		}
 		applied, err := applyBucketConfig(&meta, file, data, item.UpdatedAt)
@@ -2146,77 +2151,23 @@ func (c *SiteReplicationSys) syncToAllPeers(ctx context.Context, addOpts madmin.
 			return errSRBucketConfigError(err)
 		}
 
-		// Replicate bucket policy if present.
-		policyJSON, tm := meta.PolicyConfigJSON, meta.PolicyConfigUpdatedAt
-		if len(policyJSON) > 0 {
-			err = c.BucketMetaHook(ctx, madmin.SRBucketMeta{
-				Type:      madmin.SRBucketMetaTypePolicy,
-				Bucket:    bucket,
-				Policy:    policyJSON,
-				UpdatedAt: tm,
-			})
+		// Versioning is bootstrapped by MakeBucketHook and then reconciled by
+		// heal. Preserve the existing initial-sync fields during rolling upgrades.
+		for _, file := range []string{bucketPolicyConfig, bucketTaggingConfig, objectLockConfig, bucketSSEConfig, bucketQuotaConfigFile} {
+			event, send, err := initialBucketConfigReplicationEvent(meta, file)
 			if err != nil {
 				return errSRBucketMetaError(err)
 			}
-		}
-
-		// Replicate bucket tags if present.
-		tagCfg, tm := meta.TaggingConfigXML, meta.TaggingConfigUpdatedAt
-		if len(tagCfg) > 0 {
-			tagCfgStr := base64.StdEncoding.EncodeToString(tagCfg)
-			err = c.BucketMetaHook(ctx, madmin.SRBucketMeta{
-				Type:      madmin.SRBucketMetaTypeTags,
-				Bucket:    bucket,
-				Tags:      &tagCfgStr,
-				UpdatedAt: tm,
-			})
-			if err != nil {
-				return errSRBucketMetaError(err)
-			}
-		}
-
-		// Replicate object-lock config if present.
-		objLockCfgData, tm := meta.ObjectLockConfigXML, meta.ObjectLockConfigUpdatedAt
-		if len(objLockCfgData) > 0 {
-			objLockStr := base64.StdEncoding.EncodeToString(objLockCfgData)
-			err = c.BucketMetaHook(ctx, newSRBucketObjectLockMeta(bucket, &objLockStr, tm))
-			if err != nil {
-				return errSRBucketMetaError(err)
-			}
-		}
-
-		// Replicate existing bucket bucket encryption settings
-		sseConfigData, tm := meta.EncryptionConfigXML, meta.EncryptionConfigUpdatedAt
-		if len(sseConfigData) > 0 {
-			sseConfigStr := base64.StdEncoding.EncodeToString(sseConfigData)
-			err = c.BucketMetaHook(ctx, madmin.SRBucketMeta{
-				Type:      madmin.SRBucketMetaTypeSSEConfig,
-				Bucket:    bucket,
-				SSEConfig: &sseConfigStr,
-				UpdatedAt: tm,
-			})
-			if err != nil {
-				return errSRBucketMetaError(err)
+			if send {
+				if err := c.BucketMetaHook(ctx, event); err != nil {
+					return errSRBucketMetaError(err)
+				}
 			}
 		}
 
 		// Replicate existing bucket CORS settings
 		if corsEvent, ok := newBucketCORSReplicationEvent(bucket, meta); ok {
 			err = c.BucketMetaHook(ctx, corsEvent)
-			if err != nil {
-				return errSRBucketMetaError(err)
-			}
-		}
-
-		// Replicate existing bucket quotas settings
-		quotaConfigJSON, tm := meta.QuotaConfigJSON, meta.QuotaConfigUpdatedAt
-		if len(quotaConfigJSON) > 0 {
-			err = c.BucketMetaHook(ctx, madmin.SRBucketMeta{
-				Type:      madmin.SRBucketMetaTypeQuotaConfig,
-				Bucket:    bucket,
-				Quota:     quotaConfigJSON,
-				UpdatedAt: tm,
-			})
 			if err != nil {
 				return errSRBucketMetaError(err)
 			}
@@ -4006,6 +3957,8 @@ func (c *SiteReplicationSys) SiteReplicationMetaInfo(ctx context.Context, objAPI
 				tagCfgStr := base64.StdEncoding.EncodeToString(meta.TaggingConfigXML)
 				bms.Tags = &tagCfgStr
 				bms.TagConfigUpdatedAt = meta.TaggingConfigUpdatedAt
+			} else if globalSiteReplicationMetadataTombstones && !meta.Created.IsZero() && meta.TaggingConfigUpdatedAt.After(meta.Created) {
+				bms.TagConfigUpdatedAt = meta.TaggingConfigUpdatedAt
 			}
 
 			if len(meta.VersioningConfigXML) > 0 {
@@ -4024,11 +3977,15 @@ func (c *SiteReplicationSys) SiteReplicationMetaInfo(ctx context.Context, objAPI
 				quotaConfigStr := base64.StdEncoding.EncodeToString(meta.QuotaConfigJSON)
 				bms.QuotaConfig = &quotaConfigStr
 				bms.QuotaConfigUpdatedAt = meta.QuotaConfigUpdatedAt
+			} else if globalSiteReplicationMetadataTombstones && !meta.Created.IsZero() && meta.QuotaConfigUpdatedAt.After(meta.Created) {
+				bms.QuotaConfigUpdatedAt = meta.QuotaConfigUpdatedAt
 			}
 
 			if len(meta.EncryptionConfigXML) > 0 {
 				sseConfigStr := base64.StdEncoding.EncodeToString(meta.EncryptionConfigXML)
 				bms.SSEConfig = &sseConfigStr
+				bms.SSEConfigUpdatedAt = meta.EncryptionConfigUpdatedAt
+			} else if globalSiteReplicationMetadataTombstones && !meta.Created.IsZero() && meta.EncryptionConfigUpdatedAt.After(meta.Created) {
 				bms.SSEConfigUpdatedAt = meta.EncryptionConfigUpdatedAt
 			}
 

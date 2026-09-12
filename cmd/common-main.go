@@ -900,6 +900,7 @@ func serverHandleEnvVars() {
 	}
 
 	globalEnableSyncBoot = env.Get("MINIO_SYNC_BOOT", config.EnableOff) == config.EnableOn
+	globalSiteReplicationMetadataTombstones = env.Get("MINIO_SITE_REPLICATION_METADATA_TOMBSTONES", config.EnableOff) == config.EnableOn
 }
 
 func loadRootCredentials() auth.Credentials {

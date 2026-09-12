@@ -20,11 +20,39 @@ package cmd
 import (
 	"context"
 	"encoding/base64"
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/minio/madmin-go/v3"
+	"github.com/minio/minio/internal/logger"
 )
+
+// Read once at startup. Enable only after every participating node is fixed.
+var globalSiteReplicationMetadataTombstones bool
+
+func logBucketConfigReplication(ctx context.Context, bucket, file, reason string, at, created time.Time, detail string) {
+	// LogOnceIf compares error text as well as its key. Keep both stable; changing
+	// times and peer errors belong in ReqInfo, not in the error's message.
+	req := &logger.ReqInfo{API: "SiteReplicationMetadata", BucketName: bucket}
+	req.AppendTags("field", file)
+	req.AppendTags("sourceTime", at.UTC().Format(time.RFC3339Nano))
+	req.AppendTags("created", created.UTC().Format(time.RFC3339Nano))
+	req.AppendTags("detail", detail)
+	replLogOnceIf(logger.SetReqInfo(ctx, req), errors.New("bucket metadata replication: "+reason),
+		"bucket-metadata/"+bucket+"/"+file+"/"+reason)
+}
+
+func initialBucketConfigReplicationEvent(meta BucketMetadata, file string) (madmin.SRBucketMeta, bool, error) {
+	data, at := replicatedBucketConfig(&meta, file)
+	state, err := newBucketConfigState(meta.Name, file, *data, *at, meta.Created, len(meta.ObjectLockConfigXML) != 0)
+	if err != nil {
+		return madmin.SRBucketMeta{}, false, err
+	}
+	if !state.candidate() || (len(state.data) == 0 && !globalSiteReplicationMetadataTombstones) {
+		return madmin.SRBucketMeta{}, false, nil
+	}
+	return newBucketConfigReplicationEvent(meta.Name, file, state), true, nil
+}
 
 func bucketConfigStateFromInfo(bucket, file string, meta madmin.SRBucketInfo) (bucketConfigState, error) {
 	var payload *string
@@ -103,6 +131,18 @@ func (c *SiteReplicationSys) healBucketConfig(ctx context.Context, bucket, file 
 	if !c.enabled {
 		return nil
 	}
+	for id := range info.Sites {
+		if _, present := info.BucketStats[bucket][id]; !present {
+			logBucketConfigReplication(ctx, bucket, file, "indeterminate", time.Time{}, time.Time{}, "missing peer "+id)
+		}
+	}
+	for id, status := range info.BucketStats[bucket] {
+		state, err := bucketConfigStateFromInfo(bucket, file, status.meta.SRBucketInfo)
+		_, known := info.Sites[id]
+		if !known || id == "" || err != nil || !state.valid {
+			logBucketConfigReplication(ctx, bucket, file, "indeterminate", state.at, status.meta.CreatedAt, "unusable peer "+id)
+		}
+	}
 	latest, found := latestBucketConfig(bucket, file, info)
 	if !found {
 		return nil
@@ -112,7 +152,11 @@ func (c *SiteReplicationSys) healBucketConfig(ctx context.Context, bucket, file 
 			continue
 		}
 		target := status.meta.SRBucketInfo
-		if target.CreatedAt.IsZero() || latest.at.Before(target.CreatedAt) {
+		if target.CreatedAt.IsZero() {
+			continue
+		}
+		if latest.at.Before(target.CreatedAt) {
+			logBucketConfigReplication(ctx, bucket, file, "before-created", latest.at, target.CreatedAt, "peer "+id)
 			continue
 		}
 		// Versioning can be normalized differently until Object Lock itself has
@@ -138,7 +182,7 @@ func (c *SiteReplicationSys) healBucketConfig(ctx context.Context, bucket, file 
 		if err != nil {
 			// A missing credential or unreachable peer must not abandon the other
 			// targets simply because it happened to be visited first in this map.
-			replLogIf(ctx, fmt.Errorf("unable to heal bucket %s %s for peer %s: %w", bucket, file, info.Sites[id].Name, err))
+			logBucketConfigReplication(ctx, bucket, file, "indeterminate", latest.at, target.CreatedAt, "peer "+id+": "+err.Error())
 		}
 	}
 	return nil

@@ -213,11 +213,11 @@ func newBucketConfigState(bucket, file string, data []byte, at, created time.Tim
 		at = created
 	}
 	valid := !created.IsZero() && !at.Before(created)
-	real := valid && at.After(created)
+	modified := valid && at.After(created)
 	if bucketConfigUpdateOnly(file) && len(data) == 0 {
-		real = false
+		modified = false
 	}
-	return bucketConfigState{data: data, key: key, at: at, real: real, valid: valid}, nil
+	return bucketConfigState{data: data, key: key, at: at, real: modified, valid: valid}, nil
 }
 
 func (s bucketConfigState) candidate() bool {

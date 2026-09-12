@@ -19,7 +19,6 @@ package cmd
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 	"net/http"
 
@@ -200,7 +199,7 @@ func (api objectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *ht
 		return
 	}
 
-	configData, err := json.Marshal(config)
+	configData, err := canonicalBucketPolicy(config)
 	if err != nil {
 		writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
 		return

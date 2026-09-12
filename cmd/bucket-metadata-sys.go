@@ -180,12 +180,20 @@ func (sys *BucketMetadataSys) updateAndParseMetadata(ctx context.Context, bucket
 		updatedAt := UTCNow()
 		if data, _ := replicatedBucketConfig(&meta, configFile); data != nil {
 			if err := ensureBucketMetadataCreated(ctx, objAPI, &meta); err != nil {
+				logBucketConfigReplication(ctx, bucket, configFile, "indeterminate", time.Time{}, meta.Created, err.Error())
 				return err
 			}
 			if sourceTime == nil || sourceTime.IsZero() {
 				updatedAt = localBucketConfigUpdatedAt(meta, configFile, updatedAt)
+				if sourceTime != nil {
+					logBucketConfigReplication(ctx, bucket, configFile, "legacy-zero", *sourceTime, meta.Created, "assigned local source time")
+				}
 			} else {
 				updatedAt = sourceTime.UTC()
+			}
+			if updatedAt.Before(meta.Created) {
+				logBucketConfigReplication(ctx, bucket, configFile, "before-created", updatedAt, meta.Created, "peer event")
+				return nil
 			}
 			changed, err := applyBucketConfig(&meta, configFile, configData, updatedAt)
 			if err != nil {

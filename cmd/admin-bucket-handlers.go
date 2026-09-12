@@ -435,7 +435,7 @@ func (a adminAPIHandlers) ExportBucketMetadataHandler(w http.ResponseWriter, r *
 					writeErrorResponse(ctx, w, exportError(ctx, err, cfgFile, bucket), r.URL)
 					return
 				}
-				configData, err := json.Marshal(config)
+				configData, err := canonicalBucketPolicy(config)
 				if err != nil {
 					writeErrorResponse(ctx, w, exportError(ctx, err, cfgFile, bucket), r.URL)
 					return
