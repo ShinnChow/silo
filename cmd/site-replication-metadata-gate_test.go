@@ -279,8 +279,10 @@ func TestBucketMetadataInitialSyncPhysicalCreated(t *testing.T) {
 			defer peer.Close()
 			// Exercise the complete outgoing sync sequence with real source
 			// storage. This peer acknowledges RPCs; it is not a second ObjectLayer.
-			c := &SiteReplicationSys{enabled: true, state: srState{ServiceAccountAccessKey: serviceCred.AccessKey,
-				Peers: map[string]madmin.PeerInfo{"initial-peer": {DeploymentID: "initial-peer", Endpoint: peer.URL}}}}
+			c := &SiteReplicationSys{enabled: true, state: srState{
+				ServiceAccountAccessKey: serviceCred.AccessKey,
+				Peers:                   map[string]madmin.PeerInfo{"initial-peer": {DeploymentID: "initial-peer", Endpoint: peer.URL}},
+			}}
 			if err := c.syncToAllPeers(ctx, madmin.SRAddOptions{}); err != nil {
 				t.Fatal(err)
 			}

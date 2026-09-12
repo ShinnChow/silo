@@ -89,11 +89,12 @@ func TestHealBucketConfigDiagnostics(t *testing.T) {
 			defer capture.mu.Unlock()
 			var unreachable, peerError int
 			for _, line := range capture.lines {
-				if strings.Contains(line, "bucket metadata replication: unreachable") {
+				switch {
+				case strings.Contains(line, "bucket metadata replication: unreachable"):
 					unreachable++
-				} else if strings.Contains(line, "bucket metadata replication: peer-error") {
+				case strings.Contains(line, "bucket metadata replication: peer-error"):
 					peerError++
-				} else {
+				default:
 					t.Fatalf("unexpected diagnostic: %s", line)
 				}
 				if !strings.HasPrefix(line, "WARNING:") {
@@ -135,11 +136,13 @@ func TestHealBucketConfigWithoutSourceDiagnostics(t *testing.T) {
 					// and neither local storage nor the recording peer may be written.
 					name := bucket + "-" + tc.name
 					local := globalDeploymentID()
-					info := srStatusInfo{Sites: map[string]madmin.PeerInfo{local: {}, "metadata-peer": {}, "unreachable": {}},
+					info := srStatusInfo{
+						Sites: map[string]madmin.PeerInfo{local: {}, "metadata-peer": {}, "unreachable": {}},
 						BucketStats: map[string]map[string]srBucketStatsSummary{name: {
 							local:           bucketConfigTestInfo(name, bucketTaggingConfig, tc.data, tc.at, tc.created),
 							"metadata-peer": {},
-						}}}
+						}},
+					}
 					for range 2 {
 						if err := globalSiteReplicationSys.healBucketConfig(t.Context(), name, bucketTaggingConfig, info); err != nil {
 							t.Fatal(err)
