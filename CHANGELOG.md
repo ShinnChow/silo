@@ -22,6 +22,15 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
 
 ### Object storage and replication
 
+- Reconcile ordinary single-object version DELETE across all pools, including
+  null versions, delete markers and unqualified directory-marker DELETE. This
+  prevents movement leftovers from surviving a successful response. Unreadable
+  pools now consistently return 503 instead of depending on pool traversal
+  order; this extends the existing failure surface. Retry after recovery.
+  Cleanup failures also return an error. Batch deletion already fans out across
+  pools; replication and scanner cleanup keep their existing contracts. See
+  [scope and limitations](docs/bucket/lifecycle/access-tiering-removal.md#version-deletion-scope).
+
 - Remove the opt-in GET-frequency pool-tiering feature from PR #60, including
   its tracker, mover, scanner hooks, configuration, XML actions and metrics.
   Accept and ignore retired configuration/XML and preserve ordinary statistics

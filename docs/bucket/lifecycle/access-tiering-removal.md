@@ -25,3 +25,10 @@ The published Server 20260903 predates this feature. These instructions concern 
 
 Interrupted rebalance/decommission can leave the same version in more than one pool independently of access tiering. Removing the scheduler does not remove such existing copies. General Object Lock, conditional-delete, metadata reconciliation and shared remote-tier reference protections remain in place.
 
+## Version deletion scope
+
+Ordinary single-object `DELETE ?versionId=...` reconciles the addressed UUID, null version or delete marker across pools. Unqualified DELETE of a directory marker (a key ending in `/`) also addresses its null version and uses this path. A successful response means the addressed copies were removed; other versions remain.
+
+If a pool is unreadable, these requests can return 503 even when another pool has a readable copy. This extends an existing failure surface: previously the result could depend on whether the unreadable pool preceded the successful pool in traversal order; it now fails consistently. Retry after recovery. Cleanup failures also return an error. Ordinary unqualified DELETE retains its existing semantics. Batch `DeleteObjects` already fans out across pools.
+
+Incoming replicated deletes, lifecycle expiration, free-version cleanup and movement-internal calls retain their existing contracts. In particular, an incoming replicated version delete can leave movement duplicates in other pools; this change does not solve that separate case. Expiration scanners process their own pools and may remove duplicate expired copies in later cycles; free-version cleanup remains local to a pool. Do not treat the ordinary DELETE repair as a guarantee for every source of deletion.

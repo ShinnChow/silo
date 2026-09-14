@@ -1205,8 +1205,11 @@ func (z *erasureServerPools) DeleteObject(ctx context.Context, bucket string, ob
 		return ObjectInfo{}, z.deletePrefix(ctx, bucket, object)
 	}
 
-	if !z.SinglePool() && opts.CheckPrecondFn != nil {
-		return z.deleteObjectConditional(ctx, bucket, object, opts)
+	// Reconcile ordinary addressed-version deletes independently of pool movement.
+	reconcileVersion := opts.VersionID != "" && !opts.DataMovement &&
+		!opts.ReplicationRequest && !opts.Expiration.Expire && !opts.InclFreeVersions
+	if !z.SinglePool() && (opts.CheckPrecondFn != nil || reconcileVersion) {
+		return z.deleteObjectReconciled(ctx, bucket, object, opts)
 	}
 
 	gopts := opts
