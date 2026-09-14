@@ -1,109 +1,60 @@
-// Copyright (c) 2015-2026 MinIO, Inc.
+// Copyright (c) 2026 Feng Ruohang
+//
+// This file is part of Silo Object Storage stack
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 package ilm
 
 import (
-	"errors"
-	"reflect"
 	"testing"
-	"time"
 
 	"github.com/minio/minio/internal/config"
 )
 
-func clearAccessEnv(t *testing.T) {
-	t.Helper()
-	for _, name := range []string{
-		EnvILMAccessTiering, EnvILMAccessPools, EnvILMAccessMaxSize,
-		EnvILMAccessPromoteWatermark, EnvILMAccessBinWidth, EnvILMAccessBins,
-		EnvILMAccessFlush, EnvILMAccessMinResidency, EnvILMAccessWorkers,
-		EnvILMAccessMaxTracked,
-	} {
-		// The env helper treats an empty value as unset. t.Setenv restores the
-		// caller's exact value automatically when the test finishes.
-		t.Setenv(name, "")
+func TestLookupConfigRetiredAccessKeys(t *testing.T) {
+	t.Setenv(EnvILMTransitionWorkers, "")
+	t.Setenv(EnvILMExpirationWorkers, "")
+	kvs := config.KVS{
+		{Key: "transition_workers", Value: "37"},
+		{Key: "expiration_workers", Value: "23"},
+		{Key: "access_tiering", Value: "on"},
+		{Key: "access_pools", Value: "0,1"},
+		{Key: "access_max_size", Value: "500GiB"},
+		{Key: "access_promote_watermark", Value: "85"},
+		{Key: "access_bin_width", Value: "1m"},
+		{Key: "access_bins", Value: "12"},
+		{Key: "access_flush", Value: "1m"},
+		{Key: "access_min_residency", Value: "24h"},
+		{Key: "access_workers", Value: "10"},
+		{Key: "access_max_tracked", Value: "1000000"},
 	}
-}
-
-func TestLookupAccessDefaults(t *testing.T) {
-	clearAccessEnv(t)
-	cfg, err := LookupConfig(DefaultKVS.Clone())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cfg.AccessTiering {
-		t.Fatal("access tiering must default off")
-	}
-	if cfg.AccessBinWidth != time.Minute || cfg.AccessBins != 12 || cfg.AccessFlush != time.Minute {
-		t.Fatalf("unexpected counter defaults: width=%s bins=%d flush=%s", cfg.AccessBinWidth, cfg.AccessBins, cfg.AccessFlush)
-	}
-	if cfg.AccessWorkers != 10 || cfg.AccessMaxTracked != 1000000 {
-		t.Fatalf("unexpected worker/map defaults: %d/%d", cfg.AccessWorkers, cfg.AccessMaxTracked)
-	}
-}
-
-func TestLookupAccessEnabled(t *testing.T) {
-	clearAccessEnv(t)
-	kvs := DefaultKVS.Clone()
-	kvs.Set(accessTiering, config.EnableOn)
-	kvs.Set(accessPools, "2, 0, 1")
-	kvs.Set(accessMaxSize, "2GiB")
-	kvs.Set(accessPromoteWatermark, "90")
-	kvs.Set(accessBinWidth, "30s")
-	kvs.Set(accessBins, "20")
-	kvs.Set(accessFlush, "15s")
-	kvs.Set(accessMinResidency, "2h")
-	kvs.Set(accessWorkers, "7")
-	kvs.Set(accessMaxTracked, "1234")
-
 	cfg, err := LookupConfig(kvs)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !cfg.AccessTiering || !reflect.DeepEqual(cfg.AccessPools, []int{2, 0, 1}) {
-		t.Fatalf("unexpected topology: enabled=%v pools=%v", cfg.AccessTiering, cfg.AccessPools)
+	if cfg.TransitionWorkers != 37 || cfg.ExpirationWorkers != 23 {
+		t.Fatalf("worker settings lost: %+v", cfg)
 	}
-	if cfg.AccessMaxSize != 2<<30 || cfg.HistoryWindow() != 10*time.Minute {
-		t.Fatalf("unexpected size/history: %d/%s", cfg.AccessMaxSize, cfg.HistoryWindow())
+	// An ordinary ILM edit must keep working with stored retired keys.
+	kvs.Set("transition_workers", "41")
+	cfg, err = LookupConfig(kvs)
+	if err != nil || cfg.TransitionWorkers != 41 || cfg.ExpirationWorkers != 23 {
+		t.Fatalf("ILM edit: %+v, %v", cfg, err)
 	}
-	if hot, ok := cfg.HotPool(); !ok || hot != 2 {
-		t.Fatalf("HotPool = %d/%v", hot, ok)
-	}
-	if cold, ok := cfg.ColdPool(); !ok || cold != 1 {
-		t.Fatalf("ColdPool = %d/%v", cold, ok)
-	}
-}
-
-func TestLookupAccessRejectsInvalidValues(t *testing.T) {
-	clearAccessEnv(t)
-	tests := []struct {
-		key, value string
-		want       error
-	}{
-		{accessPools, "0,0", ErrAccessPoolsInvalid},
-		{accessPromoteWatermark, "0", ErrAccessWatermarkInvalid},
-		{accessBinWidth, "500ms", ErrAccessBinWidthInvalid},
-		{accessBins, "1", ErrAccessBinsInvalid},
-		{accessFlush, "0s", ErrAccessFlushInvalid},
-		{accessMinResidency, "-1s", ErrAccessResidencyInvalid},
-		{accessWorkers, "0", ErrAccessWorkersInvalid},
-		{accessMaxTracked, "0", ErrAccessTrackedInvalid},
-	}
-	for _, tc := range tests {
-		t.Run(tc.key, func(t *testing.T) {
-			kvs := DefaultKVS.Clone()
-			kvs.Set(tc.key, tc.value)
-			_, err := LookupConfig(kvs)
-			if !errors.Is(err, tc.want) {
-				t.Fatalf("error = %v, want %v", err, tc.want)
-			}
-		})
-	}
-
-	kvs := DefaultKVS.Clone()
-	kvs.Set(accessTiering, config.EnableOn)
-	kvs.Set(accessPools, "0")
-	if _, err := LookupConfig(kvs); !errors.Is(err, ErrAccessPoolsTooFew) {
-		t.Fatalf("error = %v, want %v", err, ErrAccessPoolsTooFew)
+	kvs.Set("access_unknown", "on")
+	if _, err := LookupConfig(kvs); err == nil {
+		t.Fatal("unrecognized key accepted")
 	}
 }

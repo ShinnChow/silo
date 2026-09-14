@@ -1,0 +1,27 @@
+# Removing access-frequency pool tiering
+
+PR #60 introduced an opt-in scheduler that moved objects between local server pools according to GET frequency. It and its feature-specific fixes have been removed. This does not remove ordinary lifecycle expiration, transitions to remote tiers, rebalance, decommission, or the general multi-pool correctness fixes from PR #178.
+
+The published Server 20260903 predates this feature. These instructions concern main/snapshot deployments that included #60; upgrading from the published version does not require access-tier configuration cleanup.
+
+## Before upgrading a build with access tiering
+
+1. Save a copy of the server ILM configuration and each affected bucket's lifecycle XML. Use an API client that preserves the nonstandard XML; do not rely on a client model that silently omits unknown elements.
+2. On the old server, set `ilm access_tiering=off` and remove or disable any access-tier environment overrides. Allow in-progress moves to finish before replacing nodes. This reduces movement intermediate states; the removal itself changes no storage RPC protocol.
+3. Remove top-level `AccessTierQuota` and rule-level `AccessTransition` elements. **Delete rules whose only action was `AccessTransition`**. For a mixed rule, retain its filter, status, ID and ordinary expiration/transition actions. An access-only rule loads harmlessly after upgrade, but becomes an actionless rule and fails validation on the next lifecycle edit. If no rules remain, delete the lifecycle configuration through the S3 API.
+4. Use a coordinated maintenance window: stop the deployment, install the same new binary on every node, then restart all nodes. The existing bootstrap check compares binary checksums; in a four-node test the first new node could not finish starting among three old nodes. Do not assume that an unchanged RPC protocol permits replacing one node at a time and waiting for it to become ready. This removal does not relax that check. Apply the same environment changes on every node: bootstrap also compares server environment settings, so removing an old override on only some nodes can block startup even with matching binaries. The check runs only during startup and is not a safety guarantee for nodes already running different binaries.
+5. After restarting, verify object reads, bucket listing, ILM worker settings and a lifecycle edit. Complete distributed upgrade acceptance for the exact binaries before production rollout.
+
+## What happens to stored state
+
+| State | Behavior after removal |
+| --- | --- |
+| Ten old ILM keys | `access_tiering`, `access_pools`, `access_max_size`, `access_promote_watermark`, `access_bin_width`, `access_bins`, `access_flush`, `access_min_residency`, `access_workers`, `access_max_tracked` are accepted but ignored. Existing transition/expiration worker settings are preserved. |
+| Admin configuration | Deprecated keys may still appear in `mcli admin config get ilm`; setting them may succeed but has no effect, even with `access_tiering=on`. Remove obsolete environment settings from deployment manifests. |
+| Lifecycle XML | `AccessTierQuota` and `AccessTransition` are ignored when read and omitted when re-encoded. The same parser handles new PUT requests, so these extensions are also silently discarded there; access-only rules still fail action validation. |
+| Data-usage cache | Both v8 and v9 caches are read, preserving ordinary counts, sizes, histograms and remote-tier statistics. The retired hot-tier byte count is discarded; subsequent writes use v8. No feature-driven full statistics rebuild is required. |
+| Objects already moved | Remain in their current pools with the same versions and timestamps. There is no bulk move-back or object metadata rewrite. |
+| Internal leftovers | `x-minio-internal-ilm-atier` and `.minio.sys/config/ilm/access/` counter objects may remain unused. They do not require a cleanup service or an object scan. |
+
+Interrupted rebalance/decommission can leave the same version in more than one pool independently of access tiering. Removing the scheduler does not remove such existing copies. General Object Lock, conditional-delete, metadata reconciliation and shared remote-tier reference protections remain in place.
+

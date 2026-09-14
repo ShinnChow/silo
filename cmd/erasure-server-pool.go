@@ -615,17 +615,7 @@ func (z *erasureServerPools) getPoolIdxExistingNoLock(ctx context.Context, bucke
 	})
 }
 
-func (z *erasureServerPools) getPoolIdxNoLock(ctx context.Context, bucket, object string, size int64, dstPoolIdx *int) (idx int, err error) {
-	if dstPoolIdx != nil {
-		if *dstPoolIdx < 0 || *dstPoolIdx >= len(z.serverPools) {
-			return -1, errInvalidArgument
-		}
-		if z.IsSuspended(*dstPoolIdx) || z.IsPoolRebalancing(*dstPoolIdx) {
-			return -1, toObjectErr(errDiskFull)
-		}
-		return *dstPoolIdx, nil
-	}
-
+func (z *erasureServerPools) getPoolIdxNoLock(ctx context.Context, bucket, object string, size int64) (idx int, err error) {
 	idx, err = z.getPoolIdxExistingNoLock(ctx, bucket, object)
 	if err != nil && !isErrObjectNotFound(err) {
 		return idx, err
@@ -644,23 +634,13 @@ func (z *erasureServerPools) getPoolIdxNoLock(ctx context.Context, bucket, objec
 // getPoolIdx returns the found previous object and its corresponding pool idx,
 // if none are found falls back to most available space pool, this function is
 // designed to be only used by PutObject, CopyObject (newObject creation) and NewMultipartUpload.
-func (z *erasureServerPools) getPoolIdx(ctx context.Context, bucket, object string, size int64, dstPoolIdx *int) (idx int, err error) {
-	return z.getWritePoolIdx(ctx, bucket, object, size, dstPoolIdx, false)
+func (z *erasureServerPools) getPoolIdx(ctx context.Context, bucket, object string, size int64) (idx int, err error) {
+	return z.getWritePoolIdx(ctx, bucket, object, size, false)
 }
 
 // getWritePoolIdx keeps the write-allocation policy when the caller already
 // holds the pools-layer object lock and must not reacquire a set read lock.
-func (z *erasureServerPools) getWritePoolIdx(ctx context.Context, bucket, object string, size int64, dstPoolIdx *int, noLock bool) (idx int, err error) {
-	if dstPoolIdx != nil {
-		if *dstPoolIdx < 0 || *dstPoolIdx >= len(z.serverPools) {
-			return -1, errInvalidArgument
-		}
-		if z.IsSuspended(*dstPoolIdx) || z.IsPoolRebalancing(*dstPoolIdx) {
-			return -1, toObjectErr(errDiskFull)
-		}
-		return *dstPoolIdx, nil
-	}
-
+func (z *erasureServerPools) getWritePoolIdx(ctx context.Context, bucket, object string, size int64, noLock bool) (idx int, err error) {
 	pinfo, _, err := z.getPoolInfoExistingWithOpts(ctx, bucket, object, ObjectOptions{
 		NoLock:             noLock,
 		SkipDecommissioned: true,
@@ -681,13 +661,6 @@ func (z *erasureServerPools) getWritePoolIdx(ctx context.Context, bucket, object
 	}
 
 	return idx, nil
-}
-
-func dataMovementDstPool(opts ObjectOptions) *int {
-	if !opts.DataMovement {
-		return nil
-	}
-	return opts.DstPoolIdx
 }
 
 func (z *erasureServerPools) Shutdown(ctx context.Context) error {
@@ -1158,15 +1131,9 @@ func (z *erasureServerPools) PutObject(ctx context.Context, bucket string, objec
 
 	object = encodeDirObject(object)
 	if z.SinglePool() {
-		idx, err := z.getPoolIdx(ctx, bucket, object, data.Size(), dataMovementDstPool(opts))
+		_, err := z.getPoolIdx(ctx, bucket, object, data.Size())
 		if err != nil {
 			return ObjectInfo{}, err
-		}
-		if dataMovementDstPool(opts) != nil && idx == opts.SrcPoolIdx {
-			return ObjectInfo{}, DataMovementOverwriteErr{
-				Bucket: bucket, Object: object, VersionID: opts.VersionID,
-				Err: errDataMovementSrcDstPoolSame,
-			}
 		}
 		return z.serverPools[0].PutObject(ctx, bucket, object, data, opts)
 	}
@@ -1182,7 +1149,7 @@ func (z *erasureServerPools) PutObject(ctx context.Context, bucket string, objec
 	}
 	opts.NoLock = true
 
-	idx, err := z.getWritePoolIdx(ctx, bucket, object, data.Size(), dataMovementDstPool(opts), true)
+	idx, err := z.getWritePoolIdx(ctx, bucket, object, data.Size(), true)
 	if err != nil {
 		return ObjectInfo{}, err
 	}
@@ -1236,28 +1203,6 @@ func (z *erasureServerPools) DeleteObject(ctx context.Context, bucket string, ob
 
 	if opts.DeletePrefix {
 		return ObjectInfo{}, z.deletePrefix(ctx, bucket, object)
-	}
-
-	// Access-tier moves must recreate delete markers on the explicitly
-	// selected destination. The regular data-movement path discovers a pool
-	// from existing object state, which is ambiguous while both source and
-	// destination temporarily contain the version stack.
-	if dstPoolIdx := dataMovementDstPool(opts); dstPoolIdx != nil {
-		if *dstPoolIdx < 0 || *dstPoolIdx >= len(z.serverPools) {
-			return ObjectInfo{}, errInvalidArgument
-		}
-		if *dstPoolIdx == opts.SrcPoolIdx {
-			return ObjectInfo{}, DataMovementOverwriteErr{
-				Bucket: bucket, Object: decodeDirObject(object), VersionID: opts.VersionID,
-				Err: errDataMovementSrcDstPoolSame,
-			}
-		}
-		if z.IsSuspended(*dstPoolIdx) || z.IsPoolRebalancing(*dstPoolIdx) {
-			return ObjectInfo{}, toObjectErr(errDiskFull)
-		}
-		objInfo, err = z.serverPools[*dstPoolIdx].DeleteObject(ctx, bucket, object, opts)
-		objInfo.Name = decodeDirObject(object)
-		return objInfo, err
 	}
 
 	if !z.SinglePool() && opts.CheckPrecondFn != nil {
@@ -1508,15 +1453,9 @@ func (z *erasureServerPools) CopyObject(ctx context.Context, srcBucket, srcObjec
 		return oi, err
 	}
 
-	poolIdx, err := z.getPoolIdxNoLock(ctx, dstBucket, dstObject, srcInfo.Size, dataMovementDstPool(dstOpts))
+	poolIdx, err := z.getPoolIdxNoLock(ctx, dstBucket, dstObject, srcInfo.Size)
 	if err != nil {
 		return objInfo, err
-	}
-	if dataMovementDstPool(dstOpts) != nil && poolIdx == dstOpts.SrcPoolIdx {
-		return ObjectInfo{}, DataMovementOverwriteErr{
-			Bucket: dstBucket, Object: dstObject, VersionID: dstOpts.VersionID,
-			Err: errDataMovementSrcDstPoolSame,
-		}
 	}
 
 	if !z.SinglePool() && dstOpts.ReplicaLockReconcile {
@@ -1977,41 +1916,29 @@ func (z *erasureServerPools) NewMultipartUpload(ctx context.Context, bucket, obj
 	}()
 
 	if z.SinglePool() {
-		idx, err := z.getPoolIdx(ctx, bucket, object, -1, dataMovementDstPool(opts))
-		if err != nil {
-			return nil, err
-		}
-		if dataMovementDstPool(opts) != nil && idx == opts.SrcPoolIdx {
-			return nil, DataMovementOverwriteErr{
-				Bucket: bucket, Object: object, VersionID: opts.VersionID,
-				Err: errDataMovementSrcDstPoolSame,
-			}
-		}
 		return z.serverPools[0].NewMultipartUpload(ctx, bucket, object, opts)
 	}
 
-	if dataMovementDstPool(opts) == nil {
-		for idx, pool := range z.serverPools {
-			if z.IsSuspended(idx) || z.IsPoolRebalancing(idx) {
-				continue
-			}
+	for idx, pool := range z.serverPools {
+		if z.IsSuspended(idx) || z.IsPoolRebalancing(idx) {
+			continue
+		}
 
-			result, err := pool.ListMultipartUploads(ctx, bucket, object, "", "", "", maxUploadsList)
-			if err != nil {
-				return nil, err
-			}
-			// If there is a multipart upload with the same bucket/object name,
-			// create the new multipart in the same pool, this will avoid
-			// creating two multiparts uploads in two different pools.
-			if len(result.Uploads) != 0 {
-				return z.serverPools[idx].NewMultipartUpload(ctx, bucket, object, opts)
-			}
+		result, err := pool.ListMultipartUploads(ctx, bucket, object, "", "", "", maxUploadsList)
+		if err != nil {
+			return nil, err
+		}
+		// If there is a multipart upload with the same bucket/object name,
+		// create the new multipart in the same pool, this will avoid
+		// creating two multiparts uploads in two different pools
+		if len(result.Uploads) != 0 {
+			return z.serverPools[idx].NewMultipartUpload(ctx, bucket, object, opts)
 		}
 	}
 
 	// any parallel writes on the object will block for this poolIdx
 	// to return since this holds a read lock on the namespace.
-	idx, err := z.getPoolIdx(ctx, bucket, object, -1, dataMovementDstPool(opts))
+	idx, err := z.getPoolIdx(ctx, bucket, object, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -2045,7 +1972,7 @@ func (z *erasureServerPools) PutObjectPart(ctx context.Context, bucket, object, 
 	}
 
 	if z.SinglePool() {
-		_, err := z.getPoolIdx(ctx, bucket, object, data.Size(), dataMovementDstPool(opts))
+		_, err := z.getPoolIdx(ctx, bucket, object, data.Size())
 		if err != nil {
 			return PartInfo{}, err
 		}
@@ -3219,7 +3146,7 @@ func (z *erasureServerPools) DecomTieredObject(ctx context.Context, bucket, obje
 		defer ns.Unlock(lkctx)
 		opts.NoLock = true
 	}
-	idx, err := z.getPoolIdxNoLock(ctx, bucket, object, fi.Size, dataMovementDstPool(opts))
+	idx, err := z.getPoolIdxNoLock(ctx, bucket, object, fi.Size)
 	if err != nil {
 		return err
 	}

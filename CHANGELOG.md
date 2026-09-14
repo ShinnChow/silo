@@ -22,10 +22,12 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
 
 ### Object storage and replication
 
-- Add GET-frequency-based movement across pools, then preserve versions and
-  isolate writes during movement. Serialize and reconcile multi-pool object
-  writes, metadata updates, healing and conditional deletion; preserve shared
-  remote-tier references until their last local owner is removed.
+- Remove the opt-in GET-frequency pool-tiering feature from PR #60, including
+  its tracker, mover, scanner hooks, configuration, XML actions and metrics.
+  Accept and ignore retired configuration/XML and preserve ordinary statistics
+  when reading v9 caches. See [migration notes](docs/bucket/lifecycle/access-tiering-removal.md).
+- Preserve the independent multi-pool write, metadata, healing and conditional
+  deletion fixes from PR #178, including shared remote-tier reference protection.
 - Enforce `If-Match` on DELETE, preserve retention and independently ordered
   Object Lock/tag updates, and correctly retransmit encrypted replicas.
 - Preserve plaintext part sizes and raw SSE-C replicas; prevent SSE-C

@@ -108,7 +108,7 @@ func TestPoolsConditionalDeleteReportsOtherPoolFailure(t *testing.T) {
 	getDisks := set.getDisks
 	faulty := append([]StorageAPI(nil), getDisks()...)
 	for i := range faulty {
-		faulty[i] = accessMoveDeleteFaultDisk{StorageAPI: faulty[i], bucket: bucket, object: object}
+		faulty[i] = consistencyDeleteFaultDisk{StorageAPI: faulty[i], bucket: bucket, object: object}
 	}
 	set.getDisks = func() []StorageAPI { return faulty }
 	defer func() { set.getDisks = getDisks }()
@@ -135,9 +135,8 @@ func testPoolsConditionalDeleteWriter(t *testing.T, multipart bool) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	reader := mustGetPutObjReader(t, bytes.NewBufferString("after"), 5, "", "")
-	destination := 1
 	write := func() error {
-		_, err := z.PutObject(ctx, bucket, object, reader, ObjectOptions{DataMovement: true, SrcPoolIdx: 0, DstPoolIdx: &destination})
+		_, err := z.PutObject(ctx, bucket, object, reader, ObjectOptions{})
 		return err
 	}
 	if multipart {
@@ -548,7 +547,7 @@ func TestPoolsReplicaCleanupFailureCanRetry(t *testing.T) {
 	getDisks := set.getDisks
 	faulty := append([]StorageAPI(nil), getDisks()...)
 	for i := range faulty {
-		faulty[i] = accessMoveDeleteFaultDisk{StorageAPI: faulty[i], bucket: bucket, object: object, version: oi.VersionID}
+		faulty[i] = consistencyDeleteFaultDisk{StorageAPI: faulty[i], bucket: bucket, object: object, version: oi.VersionID}
 	}
 	set.getDisks = func() []StorageAPI { return faulty }
 	defer func() { set.getDisks = getDisks }()
@@ -622,7 +621,7 @@ func TestPoolsRetiringCopyPreservesSharedTierObject(t *testing.T) {
 				getDisks := set.getDisks
 				faulty := append([]StorageAPI(nil), getDisks()...)
 				for i := range faulty {
-					faulty[i] = accessMoveDeleteFaultDisk{StorageAPI: faulty[i], bucket: bucket, object: object, version: oi.VersionID}
+					faulty[i] = consistencyDeleteFaultDisk{StorageAPI: faulty[i], bucket: bucket, object: object, version: oi.VersionID}
 				}
 				set.getDisks = func() []StorageAPI { return faulty }
 				defer func() { set.getDisks = getDisks }()
@@ -679,4 +678,17 @@ func TestPoolsRetiringCopyPreservesSharedTierObject(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Fault injection shared by general multi-pool regressions.
+type consistencyDeleteFaultDisk struct {
+	StorageAPI
+	bucket, object, version string
+}
+
+func (d consistencyDeleteFaultDisk) DeleteVersion(ctx context.Context, volume, path string, fi FileInfo, forceDelMarker bool, opts DeleteOptions) error {
+	if volume == d.bucket && path == d.object && fi.VersionID == d.version {
+		return errDiskFull
+	}
+	return d.StorageAPI.DeleteVersion(ctx, volume, path, fi, forceDelMarker, opts)
 }
