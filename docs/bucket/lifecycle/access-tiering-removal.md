@@ -2,6 +2,8 @@
 
 PR #60 introduced an opt-in scheduler that moved objects between local server pools according to GET frequency. It and its feature-specific fixes have been removed. This does not remove ordinary lifecycle expiration, transitions to remote tiers, rebalance, decommission, or the general multi-pool correctness fixes from PR #178.
 
+The [introduction and rollback record](../../investigations/access-tiering-revert.md) documents the commit history, scope decision, review corrections and unresolved validation findings.
+
 The published Server 20260903 predates this feature. These instructions concern main/snapshot deployments that included #60; upgrading from the published version does not require access-tier configuration cleanup.
 
 ## Before upgrading a build with access tiering
@@ -27,8 +29,8 @@ Interrupted rebalance/decommission can leave the same version in more than one p
 
 ## Version deletion scope
 
-Ordinary single-object `DELETE ?versionId=...` reconciles the addressed UUID, null version or delete marker across pools. Unqualified DELETE of a directory marker (a key ending in `/`) also addresses its null version and uses this path. A successful response means the addressed copies were removed; other versions remain.
+Ordinary single-object `DELETE ?versionId=...` reconciles the addressed UUID, null version or delete marker across pools. Unqualified DELETE of a directory marker (a key ending in `/`) also addresses its null version and uses this path. A successful request applies the deletion to every resolved pool copy under the existing per-pool quorum rules; other version IDs remain. If outbound delete replication is pending, copies retain `VersionPurgePending` until the existing replication worker completes the purge. Success does not guarantee immediate physical removal from every drive.
 
-If a pool is unreadable, these requests can return 503 even when another pool has a readable copy. This extends an existing failure surface: previously the result could depend on whether the unreadable pool preceded the successful pool in traversal order; it now fails consistently. Retry after recovery. Cleanup failures also return an error. Ordinary unqualified DELETE retains its existing semantics. Batch `DeleteObjects` already fans out across pools.
+If a pool is unreadable, these requests can return 503 even when another pool has a readable copy. Insufficient read quorum returns `503 SlowDownRead`; other failures retain their corresponding error codes. This extends an existing failure surface: previously the result could depend on whether the unreadable pool preceded the successful pool in traversal order; it now fails consistently. Retry after recovery. Cleanup failures also return an error. Ordinary unqualified DELETE retains its existing semantics. Batch `DeleteObjects` already fans out across pools.
 
 Incoming replicated deletes, lifecycle expiration, free-version cleanup and movement-internal calls retain their existing contracts. In particular, an incoming replicated version delete can leave movement duplicates in other pools; this change does not solve that separate case. Expiration scanners process their own pools and may remove duplicate expired copies in later cycles; free-version cleanup remains local to a pool. Do not treat the ordinary DELETE repair as a guarantee for every source of deletion.
