@@ -126,10 +126,9 @@ func mergedPoolObjectInfo(copies []PoolObjInfo) ObjectInfo {
 		stamp, _ := time.Parse(time.RFC3339Nano, ts)
 		if olderThan(oi.UserDefined[ReservedMetadataPrefixLower+TaggingTimestamp], stamp) {
 			oi.UserDefined[ReservedMetadataPrefixLower+TaggingTimestamp] = ts
-			oi.UserDefined[xhttp.AmzObjectTagging] = copy.ObjInfo.UserDefined[xhttp.AmzObjectTagging]
+			oi.UserTags = copy.ObjInfo.UserTags
 		}
 	}
-	oi.UserTags = oi.UserDefined[xhttp.AmzObjectTagging]
 	return oi
 }
 
@@ -190,6 +189,12 @@ func (z *erasureServerPools) updatePoolMetadata(ctx context.Context, bucket, obj
 			changes[key] = ""
 		}
 	}
+	// Metadata callbacks may explicitly replace tags in the raw write map.
+	// Otherwise retain the merged value from the ObjectInfo read model.
+	tags, ok := updated.UserDefined[xhttp.AmzObjectTagging]
+	if !ok {
+		tags = updated.UserTags
+	}
 	state := storedObjectLockState(updated.UserDefined)
 	opts.VersionID = updated.VersionID
 	if opts.VersionID == "" {
@@ -199,11 +204,13 @@ func (z *erasureServerPools) updatePoolMetadata(ctx context.Context, bucket, obj
 	opts.EvalMetadataFn = func(oi *ObjectInfo, _ error) (ReplicateDecision, error) {
 		maps.Copy(oi.UserDefined, changes)
 		replaceObjectLockMetadata(oi.UserDefined, state)
-		for _, key := range []string{xhttp.AmzObjectTagging, ReservedMetadataPrefixLower + TaggingTimestamp} {
-			value, exists := updated.UserDefined[key]
-			if exists || oi.UserDefined[key] != "" {
-				oi.UserDefined[key] = value
-			}
+		// Reassemble the tag value and its ordering timestamp for storage.
+		if tags != "" || oi.UserTags != "" {
+			oi.UserDefined[xhttp.AmzObjectTagging] = tags
+		}
+		key := ReservedMetadataPrefixLower + TaggingTimestamp
+		if value, exists := updated.UserDefined[key]; exists || oi.UserDefined[key] != "" {
+			oi.UserDefined[key] = value
 		}
 		return ReplicateDecision{}, nil
 	}
@@ -220,16 +227,18 @@ func (z *erasureServerPools) updatePoolMetadata(ctx context.Context, bucket, obj
 	return primary, nil
 }
 
-func reconcileStoredObjectTags(metadata, stored map[string]string) {
+// Pass the stored tag value explicitly: ObjectInfo.UserDefined excludes it,
+// whereas FileInfo.Metadata retains the raw storage key.
+func reconcileStoredObjectTags(metadata map[string]string, storedTags, storedTimestamp string) {
 	key := ReservedMetadataPrefixLower + TaggingTimestamp
-	stamp, err := time.Parse(time.RFC3339Nano, stored[key])
+	stamp, err := time.Parse(time.RFC3339Nano, storedTimestamp)
 	if err != nil {
 		return
 	}
 	incoming, err := time.Parse(time.RFC3339Nano, metadata[key])
 	if err != nil || !stamp.Before(incoming) {
-		metadata[key] = stored[key]
-		metadata[xhttp.AmzObjectTagging] = stored[xhttp.AmzObjectTagging]
+		metadata[key] = storedTimestamp
+		metadata[xhttp.AmzObjectTagging] = storedTags
 	}
 }
 
