@@ -1,5 +1,7 @@
 # R4 修复与本地验收
 
+这是 2026-09-15 的本地验收快照。用户后续授权的实现级复核、提交规范调整与合并流程见 [合并前复核](merge-verification.md)；以下原始测试记录及哈希保留当时状态。
+
 ## 结果
 
 在 `putOptsFromHeaders` 的 SSE-KMS 选项构造中补齐 `ReplicationSourceTaggingTimestamp`。目的端使用显式 SSE-KMS、桶默认 KMS 或自动加密时，可信复制 COPY 现在能消费来源标签时间戳，并在现有存储锁内完成排序。
