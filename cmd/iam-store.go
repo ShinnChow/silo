@@ -1814,6 +1814,52 @@ func (store *IAMStoreSys) PolicyMappingNotificationHandler(ctx context.Context, 
 	return err
 }
 
+// UserDeletionNotificationHandler refreshes all cached state affected by a
+// parent deletion. Reloading only a recreated parent would retain the older
+// children, policy, and group memberships in this node's cache.
+func (store *IAMStoreSys) UserDeletionNotificationHandler(ctx context.Context, accessKey string) error {
+	if accessKey == "" {
+		return errInvalidArgument
+	}
+	cache := store.rlock()
+	groups := cache.iamUserGroupMemberships[accessKey].ToSlice()
+	children := make(map[string]IAMUserType)
+	for key, u := range cache.iamUsersMap {
+		if u.Credentials.ParentUser == accessKey && u.Credentials.IsServiceAccount() {
+			children[key] = svcUser
+		}
+	}
+	store.runlock()
+
+	if err := store.UserNotificationHandler(ctx, accessKey, regUser); err != nil {
+		return err
+	}
+	if err := store.PolicyMappingNotificationHandler(ctx, accessKey, false, regUser); err != nil {
+		return err
+	}
+	// Temporary credentials are loaded on demand. Invalidate their cached
+	// copies; a later request must revalidate them against persisted state.
+	cache = store.lock()
+	for key, u := range cache.iamSTSAccountsMap {
+		if u.Credentials.ParentUser == accessKey {
+			delete(cache.iamSTSAccountsMap, key)
+		}
+	}
+	cache.updatedAt = time.Now()
+	store.unlock()
+	for key, userType := range children {
+		if err := store.UserNotificationHandler(ctx, key, userType); err != nil {
+			return err
+		}
+	}
+	for _, group := range groups {
+		if err := store.GroupNotificationHandler(ctx, group); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // UserNotificationHandler - handles updating a user/STS account/service account
 // from storage.
 func (store *IAMStoreSys) UserNotificationHandler(ctx context.Context, accessKey string, userType IAMUserType) error {
