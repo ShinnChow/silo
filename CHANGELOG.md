@@ -1,11 +1,11 @@
 # Changelog
 
-## Unreleased — main as of 2026-09-13
+## Unreleased
 
-The coordinated source is merged through `5d955b5b7444f8a3ab550ce92713607998f89c0d`.
+The entries below describe source changes on main since the latest published Server.
 **The latest published Server remains 20260903.** These changes are not in its
 binaries, packages or images. See the [component matrix](https://silo.pgsty.com/compatibility/versions/)
-and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-09-03T13-18-01Z...5d955b5b7444f8a3ab550ce92713607998f89c0d).
+and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-09-03T13-18-01Z...main).
 
 ### Authorization and security
 
@@ -21,6 +21,17 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
   and pkg; see [the migration guide](docs/iam/password-permissions.md).
 
 ### Object storage and replication
+
+- Evaluate conditional multipart completion against the logical current object
+  across all pools while holding the existing object lock. A stale `If-Match`
+  can no longer replace newer data in another pool, and the current ETag is no
+  longer rejected because the upload resides next to an older copy. Conditions
+  are evaluated once; a current delete marker counts as an absent object.
+  **Availability change:** if metadata cannot be read from any pool, conditional
+  completion fails even when another pool can still serve GET/HEAD. This also
+  applies when the unreadable pool may not hold the object: absence cannot be
+  verified. Retry after the pool recovers. Unconditional completion and the
+  single-pool path retain their existing behavior.
 
 - Reconcile ordinary single-object version DELETE across all pools, including
   null versions, delete markers and unqualified directory-marker DELETE. This

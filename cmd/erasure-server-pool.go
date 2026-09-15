@@ -2154,6 +2154,47 @@ func (z *erasureServerPools) CompleteMultipartUpload(ctx context.Context, bucket
 			defer lk.Unlock(lkctx)
 		}
 		opts.NoLock = true
+
+		// A conditional completion must be evaluated against the logical
+		// latest object across pools, under the object write lock held for
+		// this operation. The pool hosting the upload may only hold a stale
+		// duplicate, so its set-local check would both accept an outdated
+		// ETag and reject the current one. An unreadable pool is not
+		// absence: it may hold the newest copy, so a read that cannot be
+		// verified fails the request instead of passing the condition.
+		// Once satisfied, the callback is cleared so the set layer does not
+		// re-evaluate it against its local copy.
+		if opts.CheckPrecondFn != nil {
+			copies, lerr := z.objectPoolInfos(ctx, bucket, encodeDirObject(object), ObjectOptions{
+				// Conditions always compare the logical current object,
+				// independently of the completion's destination version.
+				VersionID:        "",
+				Versioned:        opts.Versioned,
+				VersionSuspended: opts.VersionSuspended,
+				NoAuditLog:       true,
+			})
+			var latest ObjectInfo
+			if lerr == nil {
+				latest = copies[0].ObjInfo
+				if latest.DeleteMarker {
+					// A delete-marker latest reads as an absent key, matching
+					// the set layer's getObjectInfo.
+					lerr = toObjectErr(errFileNotFound, bucket, object)
+				}
+			}
+			if lerr == nil && opts.CheckPrecondFn(latest) {
+				return ObjectInfo{}, PreConditionFailed{}
+			}
+			if lerr != nil && !isErrVersionNotFound(lerr) && !isErrObjectNotFound(lerr) {
+				return ObjectInfo{}, lerr
+			}
+			// if object doesn't exist return error for If-Match conditional requests
+			// If-None-Match should be allowed to proceed for non-existent objects
+			if lerr != nil && opts.HasIfMatch && (isErrObjectNotFound(lerr) || isErrVersionNotFound(lerr)) {
+				return ObjectInfo{}, lerr
+			}
+			opts.CheckPrecondFn = nil
+		}
 	}
 
 	// Hold write locks to verify uploaded parts, also disallows any
