@@ -303,17 +303,18 @@ func (z *erasureServerPools) deleteObjectReconciled(ctx context.Context, bucket,
 	if opts.EvalRetentionBypassFn != nil || opts.EvalMetadataFn != nil {
 		logical := primary.ObjInfo
 		var gerr error
-		if logical.DeleteMarker {
+		switch {
+		case logical.DeleteMarker:
 			// Markers can be deleted by version ID. Match the set layer's
 			// callback inputs instead of rejecting them as metadata updates.
 			gerr = toObjectErr(errMethodNotAllowed, bucket, object)
 			if opts.VersionID == "" || opts.DeleteMarker {
 				gerr = toObjectErr(errFileNotFound, bucket, object)
 			}
-		} else if opts.VersionID != "" {
+		case opts.VersionID != "":
 			// An addressed version already resolved every copy above.
 			logical = mergedPoolObjectInfo(copies)
-		} else {
+		default:
 			versions, err := z.metadataPoolInfos(ctx, bucket, object, opts)
 			if err != nil {
 				return ObjectInfo{}, err
