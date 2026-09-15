@@ -781,6 +781,18 @@ func (m caseInsensitiveMap) Lookup(key string) (string, bool) {
 	return "", false
 }
 
+// replicationTaggingTimestamp carries a recorded removal even when tags are
+// empty. Only legacy nonempty tags use ModTime; absence is not a tombstone.
+func replicationTaggingTimestamp(objInfo ObjectInfo) (time.Time, error) {
+	if stamp, ok := caseInsensitiveMap(objInfo.UserDefined).Lookup(ReservedMetadataPrefixLower + TaggingTimestamp); ok {
+		return time.Parse(time.RFC3339Nano, stamp)
+	}
+	if objInfo.UserTags != "" {
+		return objInfo.ModTime, nil
+	}
+	return time.Time{}, nil
+}
+
 func putReplicationOpts(ctx context.Context, sc string, objInfo ObjectInfo) (putOpts minio.PutObjectOptions, isMP bool, err error) {
 	meta := make(map[string]string)
 	isSSEC := crypto.SSEC.IsEncrypted(objInfo.UserDefined)
@@ -850,16 +862,11 @@ func putReplicationOpts(ctx context.Context, sc string, objInfo ObjectInfo) (put
 		tag, _ := tags.ParseObjectTags(objInfo.UserTags)
 		if tag != nil {
 			putOpts.UserTags = tag.ToMap()
-			// set tag timestamp in opts
-			tagTimestamp := objInfo.ModTime
-			if tagTmstampStr, ok := objInfo.UserDefined[ReservedMetadataPrefixLower+TaggingTimestamp]; ok {
-				tagTimestamp, err = time.Parse(time.RFC3339Nano, tagTmstampStr)
-				if err != nil {
-					return putOpts, false, err
-				}
-			}
-			putOpts.Internal.TaggingTimestamp = tagTimestamp
 		}
+	}
+	putOpts.Internal.TaggingTimestamp, err = replicationTaggingTimestamp(objInfo)
+	if err != nil {
+		return putOpts, false, err
 	}
 
 	lkMap := caseInsensitiveMap(objInfo.UserDefined)
@@ -1001,6 +1008,12 @@ func getReplicationAction(oi1 ObjectInfo, oi2 minio.ObjectInfo, opType replicati
 	oi2Map := make(map[string]string)
 	maps.Copy(oi2Map, oi2.UserTags)
 	if (oi2.UserTagCount > 0 && !reflect.DeepEqual(oi2Map, t.ToMap())) || (oi2.UserTagCount != len(t.ToMap())) {
+		return replicateMetadata
+	}
+	// HEAD does not report the tag revision. Equal values can hide a newer
+	// deletion or re-addition, so scheduled metadata/heal work must deliver it.
+	// Completed objects are still excluded by the existing scanner gates.
+	if _, ok := caseInsensitiveMap(oi1.UserDefined).Lookup(ReservedMetadataPrefixLower + TaggingTimestamp); ok {
 		return replicateMetadata
 	}
 
@@ -1268,9 +1281,6 @@ func replicateObject(ctx context.Context, ri ReplicateObjectInfo, objectAPI Obje
 					if rinfo.ResyncTimestamp != "" {
 						oi.UserDefined[targetResetHeader(rinfo.Arn)] = rinfo.ResyncTimestamp
 					}
-				}
-				if ri.UserTags != "" {
-					oi.UserDefined[xhttp.AmzObjectTagging] = ri.UserTags
 				}
 				return dsc, nil
 			},
@@ -1689,14 +1699,11 @@ applyAction:
 		if _, ok := lkMap.Lookup(xhttp.AmzObjectLockRetainUntilDate); ok {
 			dstOpts.Internal.RetentionTimestamp = objInfo.ModTime
 		}
-		if objInfo.UserTags != "" {
-			dstOpts.Internal.TaggingTimestamp = objInfo.ModTime
-		}
-		if tagTmStr, ok := lkMap.Lookup(ReservedMetadataPrefixLower + TaggingTimestamp); ok {
-			ondiskTimestamp, err := time.Parse(time.RFC3339, tagTmStr)
-			if err == nil {
-				dstOpts.Internal.TaggingTimestamp = ondiskTimestamp
-			}
+		dstOpts.Internal.TaggingTimestamp, rinfo.Err = replicationTaggingTimestamp(objInfo)
+		if rinfo.Err != nil {
+			rinfo.ReplicationStatus = replication.Failed
+			replLogIf(ctx, fmt.Errorf("invalid tagging timestamp for object %s/%s(%s): %w", bucket, object, objInfo.VersionID, rinfo.Err))
+			return rinfo
 		}
 		if retTmStr, ok := lkMap.Lookup(ReservedMetadataPrefixLower + ObjectLockRetentionTimestamp); ok {
 			ondiskTimestamp, err := time.Parse(time.RFC3339, retTmStr)

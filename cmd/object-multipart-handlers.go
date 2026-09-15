@@ -312,6 +312,10 @@ func (api objectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
 		return
 	}
+	// Completion orders the upload's persisted tag state under the object lock.
+	if opts.ReplicationRequest && !opts.ReplicationSourceTaggingTimestamp.IsZero() {
+		metadata[ReservedMetadataPrefixLower+TaggingTimestamp] = opts.ReplicationSourceTaggingTimestamp.UTC().Format(time.RFC3339Nano)
+	}
 
 	if r.Header.Get(xhttp.IfMatch) != "" {
 		opts.HasIfMatch = true

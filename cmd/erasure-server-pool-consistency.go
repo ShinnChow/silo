@@ -242,6 +242,21 @@ func reconcileStoredObjectTags(metadata map[string]string, storedTags, storedTim
 	}
 }
 
+// Local tagging mutations must advance the revision they overwrite, even when
+// a request's clock or lock acquisition order is behind the stored revision.
+// Replica writes use reconcileStoredObjectTags instead of minting a revision.
+func monotonicTaggingTimestamp(incoming, stored string) string {
+	requested, err := time.Parse(time.RFC3339Nano, incoming)
+	if err != nil {
+		return incoming
+	}
+	current, err := time.Parse(time.RFC3339Nano, stored)
+	if err != nil || requested.After(current) {
+		return incoming
+	}
+	return current.Add(time.Nanosecond).UTC().Format(time.RFC3339Nano)
+}
+
 // A restored version still owns its tier reference even while IsRemote is
 // false. Only the last copy of a reference may schedule its contents for GC.
 func sharesTierObject(oi ObjectInfo, copies []PoolObjInfo) bool {

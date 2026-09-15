@@ -240,7 +240,10 @@ func checkPreconditionsPUT(ctx context.Context, w http.ResponseWriter, r *http.R
 	// updated. The predicate is the incoming request's restored SSE-C metadata,
 	// not what the destination happens to hold.
 	ssecReplica := isReplicaTrusted(r.Context()) && crypto.SSEC.IsEncrypted(opts.UserDefined)
-	if etagMatch && vidMatch && !ssecReplica {
+	// Matching content does not imply that its tag revision was delivered.
+	// Keep client preconditions above; relax only the internal duplicate check.
+	newerTags := isReplicaTrusted(r.Context()) && olderThan(objInfo.UserDefined[ReservedMetadataPrefixLower+TaggingTimestamp], opts.ReplicationSourceTaggingTimestamp)
+	if etagMatch && vidMatch && !ssecReplica && !newerTags {
 		writeHeaders()
 		writeErrorResponse(ctx, w, errorCodes.ToAPIErr(ErrPreconditionFailed), r.URL)
 		return true

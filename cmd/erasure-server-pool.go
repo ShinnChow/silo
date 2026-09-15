@@ -3051,6 +3051,15 @@ func (z *erasureServerPools) PutObjectTags(ctx context.Context, bucket, object s
 	if err != nil {
 		return ObjectInfo{}, err
 	}
+	// Ordinary reads and replication can return any owning pool. Persist one
+	// revision beyond all copies, so the returned value and every pool agree.
+	if stamp := opts.UserDefined[ReservedMetadataPrefixLower+TaggingTimestamp]; stamp != "" {
+		for _, copy := range copies {
+			stamp = monotonicTaggingTimestamp(stamp, copy.ObjInfo.UserDefined[ReservedMetadataPrefixLower+TaggingTimestamp])
+		}
+		opts.UserDefined = cloneMSS(opts.UserDefined)
+		opts.UserDefined[ReservedMetadataPrefixLower+TaggingTimestamp] = stamp
+	}
 	opts.NoLock = true
 	opts.VersionID = copies[0].ObjInfo.VersionID
 	if opts.VersionID == "" {
