@@ -1,0 +1,175 @@
+{
+  "head": "80684fed59f556d579e268c5a855d936c1347b68",
+  "baseline": "9f3037e941a49ab4cd8a0eed7c0f01083fbe4bbe",
+  "source_sha256": {
+    "cmd/bucket-replication-utils.go": "365641c760901641e8320cc5123697ab92a46f1add612048b991ed2d1cfad43b",
+    "cmd/bucket-replication.go": "2e766c5946dcabaea79455b50a8e426f404e55c92dcbccbe28d55906e2e43843",
+    "cmd/common-main.go": "f8777fe8a07d175aceee07b4dd13792b2384449c404c004c38a06893be997843",
+    "cmd/erasure-object.go": "4bc848685ea714d88cabbd5d1b8585fbcc06f7b19c775e1a811030e783d0e1a4",
+    "cmd/erasure-server-pool-consistency.go": "d2736ef6bffbb5c5758eba8df38f8d4ecb888a838ab0de8ad3cf015c051f8ad7",
+    "cmd/erasure-server-pool.go": "87ad0b25dfa3081d0e63d0073b788614a9c88e2498a2ce0956b93f8a0a03ef53",
+    "cmd/object-handlers-common.go": "101bd7d7447072d13fed50983b69b562e4725632645e623d7fdd490f388ecdec",
+    "cmd/object-handlers.go": "61897a260f3f5f660f41edcb50956c60e914ef98f9a987da824f16d78171fde2",
+    "cmd/object-multipart-handlers.go": "d9622c69c540ab32dd23916e3f534b6886473a98370c9dd17673e69a423b2a7e",
+    "cmd/replication-delete-marker_test.go": "d967787804d558ac6266b113228fdf4a4f9fcb7cab39138a4fb07558814ccca4",
+    "cmd/replication-delete-mrf_test.go": "6fcfaf505d28f98e42dff9c0d965895be2c2d112e9e996220d424aea1f76d691",
+    "cmd/replication-delete-operation_test.go": "2e674cab5ca4dbc38cb2c1ddcca117269276e6419e1869c154c3bd6a05676715",
+    "cmd/replication-tagging-order_test.go": "c8260b4ccf82fa615e1e24b35a07f2d1aacbcf776e5c6f9dadffea4a09ad6ea8",
+    "cmd/replication-tagging-sender_test.go": "3770a1a48a6efe58fe8127e1e4fdf6bd7cf171e17db20f15222ea2f7b85db1af",
+    "cmd/server-main.go": "04c265de211412ba0297396928096d7f2d971244a957a3126154846035263514",
+    "cmd/server_deadline_config_test.go": "a8259d273922a8973b44d9a468791761d373fe265fff8b2b53871e4626b11405",
+    "internal/deadlineconn/deadlineconn.go": "b9272ef640f1d4403b3d0af6cdbaba9186c51ad9a0226dfe449e8ef738e1ec4b",
+    "internal/deadlineconn/deadlineconn_strict_test.go": "b4aec28c5daddb36e6ebb98dd8af2a44b7a2c48f0660068534f69669609f67a7",
+    "internal/http/dial_deadline_linux_test.go": "c4c83bda92ba9bac53166453920456134b3d8265cd59101b4203067c67eca59e",
+    "internal/http/listener.go": "49628575367f6ab9b6986caf594726d74d370f7d2ac4eed582903600b6eb3fa2",
+    "internal/http/server.go": "b7b0355f2781f8c5f7c77bc910cd4180cd3e5f22a87de41bd35ef119d36b4cdf",
+    "internal/http/server_deadline_test.go": "87303cc389bf1cf759898489f06b001073de2dd9c4b3687c4eca14aa186b62ab"
+  },
+  "no_capacity_overlay": true,
+  "race_test_selection": [
+    "TestAPILocalTaggingAlwaysAdvancesRevision",
+    "TestAPIPoolsTaggingReplicaDeletion",
+    "TestAPITaggingMultipartCommitRechecksRevision",
+    "TestAPITaggingReplicationOrdering",
+    "TestAPITaggingReplicationOrderingKMS",
+    "TestAPITaggingSSECRotationPreservesDeletionRevision",
+    "TestAPITaggingUnqualifiedCopyOrdering",
+    "TestConcurrentStrictReadDeadline",
+    "TestDefaultReadDeadlineStillRenews",
+    "TestInternodeDialReadDeadline",
+    "TestLocalTaggingCommitCannotRegressRevision",
+    "TestReplicateDeleteMarkerPurge",
+    "TestReplicateDeleteMarkerTargetSemantics",
+    "TestReplicateDeleteOperationExits",
+    "TestReplicateDeletePurgeMissingTargetState",
+    "TestReplicationDeleteQueueFullRetryBudget",
+    "TestReplicationMRFMarkerRecovery",
+    "TestServerBackgroundReadNoDeadline",
+    "TestServerConnStateHook",
+    "TestServerContinuousDownload",
+    "TestServerContinuousUpload",
+    "TestServerDefaultIdleLongDownload",
+    "TestServerDefaultIdleLongUpload",
+    "TestServerEarlyBodyClose",
+    "TestServerHTTP2Deadlines",
+    "TestServerHijackedDeadline",
+    "TestServerIdleBodyDeadline",
+    "TestServerKeepAliveDeadline",
+    "TestServerPipelinedDeadline",
+    "TestServerReadHeaderDeadline",
+    "TestServerReadHeaderTimeoutConfig",
+    "TestServerTLSHandshakeReadDeadline",
+    "TestStrictExpiredFutureReadDeadline",
+    "TestStrictReadDeadline",
+    "TestStrictReadDeadlineRepeatedRenewal",
+    "TestTaggingProductionCopyWireShape",
+    "TestTaggingRepeatedValueNeedsRevisionDelivery",
+    "TestTaggingReplicaContentDuplicateGuard",
+    "TestTaggingReplicationSenderRetryAndAcknowledgment",
+    "TestTaggingTimestampWire"
+  ],
+  "started_at": "2026-09-15T16:45:09.640646+00:00",
+  "checks": [
+    {
+      "name": "make-verifiers-final",
+      "command": [
+        "make",
+        "verifiers",
+        "GOLANGCI=/Users/vonng/tmp/silo-r4-r8-main-20260916-01a0a5ab/golangci-serial"
+      ],
+      "env": {
+        "GOMAXPROCS": "4",
+        "GOFLAGS": "-p=2",
+        "MINIO_API_REQUESTS_MAX": "10000"
+      },
+      "exit_code": 0,
+      "seconds": 76.933,
+      "log": "/Users/vonng/tmp/silo-r4-r8-main-20260916-01a0a5ab/make-verifiers-final.log",
+      "log_sha256": "54c906cff1d33d0148fbc4cac918c0785a3bcc8f7a4eb7e04a2f774c2f010bb4"
+    },
+    {
+      "name": "make-build",
+      "command": [
+        "make",
+        "build"
+      ],
+      "env": {
+        "GOMAXPROCS": "4",
+        "GOFLAGS": "-p=2",
+        "MINIO_API_REQUESTS_MAX": "10000"
+      },
+      "exit_code": 0,
+      "seconds": 19.366,
+      "log": "/Users/vonng/tmp/silo-r4-r8-main-20260916-01a0a5ab/make-build.log",
+      "log_sha256": "6ba9b545236be964861749c72e7609edf12b8f470df30d1ede8fd62f497e629b"
+    },
+    {
+      "name": "silo-version",
+      "command": [
+        "./silo",
+        "--version"
+      ],
+      "env": {
+        "GOMAXPROCS": "4",
+        "GOFLAGS": "-p=2",
+        "MINIO_API_REQUESTS_MAX": "10000"
+      },
+      "exit_code": 0,
+      "seconds": 1.259,
+      "log": "/Users/vonng/tmp/silo-r4-r8-main-20260916-01a0a5ab/silo-version.log",
+      "log_sha256": "ada27f2be570c33df5712e86782a7be2ce3acfef54c8bb22a9230db3606513af"
+    },
+    {
+      "name": "full-tests",
+      "command": [
+        "go",
+        "test",
+        "-p",
+        "2",
+        "./cmd",
+        "./internal/...",
+        "-count=1",
+        "-timeout=30m"
+      ],
+      "env": {
+        "GOMAXPROCS": "4",
+        "GOFLAGS": "-p=2",
+        "MINIO_API_REQUESTS_MAX": "10000",
+        "CGO_ENABLED": "0"
+      },
+      "exit_code": 0,
+      "seconds": 340.193,
+      "log": "/Users/vonng/tmp/silo-r4-r8-main-20260916-01a0a5ab/full-tests.log",
+      "log_sha256": "24b986e2f5aef0e668116abaab5024bf19ac664aec010ca7aa5ef56886f47ad1"
+    },
+    {
+      "name": "targeted-race",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-p",
+        "2",
+        "./cmd",
+        "./internal/deadlineconn",
+        "./internal/http",
+        "-run",
+        "^(TestAPILocalTaggingAlwaysAdvancesRevision|TestAPIPoolsTaggingReplicaDeletion|TestAPITaggingMultipartCommitRechecksRevision|TestAPITaggingReplicationOrdering|TestAPITaggingReplicationOrderingKMS|TestAPITaggingSSECRotationPreservesDeletionRevision|TestAPITaggingUnqualifiedCopyOrdering|TestConcurrentStrictReadDeadline|TestDefaultReadDeadlineStillRenews|TestInternodeDialReadDeadline|TestLocalTaggingCommitCannotRegressRevision|TestReplicateDeleteMarkerPurge|TestReplicateDeleteMarkerTargetSemantics|TestReplicateDeleteOperationExits|TestReplicateDeletePurgeMissingTargetState|TestReplicationDeleteQueueFullRetryBudget|TestReplicationMRFMarkerRecovery|TestServerBackgroundReadNoDeadline|TestServerConnStateHook|TestServerContinuousDownload|TestServerContinuousUpload|TestServerDefaultIdleLongDownload|TestServerDefaultIdleLongUpload|TestServerEarlyBodyClose|TestServerHTTP2Deadlines|TestServerHijackedDeadline|TestServerIdleBodyDeadline|TestServerKeepAliveDeadline|TestServerPipelinedDeadline|TestServerReadHeaderDeadline|TestServerReadHeaderTimeoutConfig|TestServerTLSHandshakeReadDeadline|TestStrictExpiredFutureReadDeadline|TestStrictReadDeadline|TestStrictReadDeadlineRepeatedRenewal|TestTaggingProductionCopyWireShape|TestTaggingRepeatedValueNeedsRevisionDelivery|TestTaggingReplicaContentDuplicateGuard|TestTaggingReplicationSenderRetryAndAcknowledgment|TestTaggingTimestampWire)$",
+        "-count=1",
+        "-timeout=15m"
+      ],
+      "env": {
+        "GOMAXPROCS": "4",
+        "GOFLAGS": "-p=2",
+        "MINIO_API_REQUESTS_MAX": "10000",
+        "CGO_ENABLED": "1"
+      },
+      "exit_code": 0,
+      "seconds": 46.286,
+      "log": "/Users/vonng/tmp/silo-r4-r8-main-20260916-01a0a5ab/targeted-race.log",
+      "log_sha256": "7d021e57e513ea81617df44a6253703622145bf5e72e6180de84c2bd3c7186d3"
+    }
+  ],
+  "source_unchanged": true,
+  "finished_at": "2026-09-15T16:53:13.682876+00:00"
+}
