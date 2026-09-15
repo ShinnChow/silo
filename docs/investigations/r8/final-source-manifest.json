@@ -1,0 +1,26 @@
+{
+  "created_at_utc": "2026-09-15T16:17:15.174123+00:00",
+  "baseline_sha": "9ebe81c1b3611f9cc73e676b5b741c2be62c467a",
+  "branch": "codex/r8-http-header-deadline",
+  "binding": "This manifest is committed with the source files it hashes; final local commit ID is reported in delivery.",
+  "accepted_plan": "plan-v2.md",
+  "plan_sha256": "426127ed9fb08aeddf8259ebdc4b1c24ebec8cda751a970ed99338a44b065f4c",
+  "production_diff_sha256": "92d3f43aa2bb4c636da830fc00c8a2939524d69bb8ab4bda4c4b284f043d3cf3",
+  "production_files": {
+    "cmd/common-main.go": "f8777fe8a07d175aceee07b4dd13792b2384449c404c004c38a06893be997843",
+    "cmd/server-main.go": "04c265de211412ba0297396928096d7f2d971244a957a3126154846035263514",
+    "internal/deadlineconn/deadlineconn.go": "b9272ef640f1d4403b3d0af6cdbaba9186c51ad9a0226dfe449e8ef738e1ec4b",
+    "internal/http/listener.go": "49628575367f6ab9b6986caf594726d74d370f7d2ac4eed582903600b6eb3fa2",
+    "internal/http/server.go": "b7b0355f2781f8c5f7c77bc910cd4180cd3e5f22a87de41bd35ef119d36b4cdf"
+  },
+  "test_files": {
+    "cmd/server_deadline_config_test.go": "1013157f83baa5f7882ec2d41c7b1fccb9e05fb418d0fa61263953037c9698c4",
+    "internal/deadlineconn/deadlineconn_strict_test.go": "f405690c9ff044595f48323d68f4a9b33ce695b3ad6820f54f17151067bfae5e",
+    "internal/http/dial_deadline_linux_test.go": "0939d05b72a09760d53fcdf249775989e3f89bca824b9961d0b2a657ebfdf41e",
+    "internal/http/server_deadline_test.go": "a6e687b3904a876fa92a4c5b86453159f3e5a38a4b9412dc213c7772f47fbf0b"
+  },
+  "dependencies_unchanged": {
+    "go.mod": "8351bb86377a8deed95fd0bd67c1e363e11d33f8da7631cea8f68cea11259976",
+    "go.sum": "2287ce975cab91f92f59a3b6e164d49325f141f35d480b8c3d23f796df3772b2"
+  }
+}

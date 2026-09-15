@@ -1,0 +1,14 @@
+{
+  "original_script": "buildscripts/test-timeout.sh",
+  "isolation_patch": "legacy-timeout-isolation.patch",
+  "working_directory": "/Users/vonng/tmp/silo-r8-01a0a5b9/legacy-timeout",
+  "binary_sha256": "6b982de3262c25e326280c739b4275444cf80c3eacae48f0942aa18fbb7cd654",
+  "client": "/opt/homebrew/bin/mcli RELEASE.2026-08-26T17-15-27Z (70a2950478e18e38eb68162317e4b5d34c6eb6d5)",
+  "netcat": "/usr/bin/nc via private netcat symlink",
+  "command": [
+    "/bin/bash",
+    "/Users/vonng/tmp/silo-r8-01a0a5b9/legacy-timeout/test-timeout-isolated.sh"
+  ],
+  "exit_code": 255,
+  "elapsed_seconds": 67.029
+}

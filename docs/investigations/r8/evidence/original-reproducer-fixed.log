@@ -1,0 +1,10 @@
+=== RUN   TestReviewR8AbsoluteHeaderTimeout
+=== RUN   TestReviewR8AbsoluteHeaderTimeout/standard-net-http
+    r8_baseline_test.go:56: request rejected after header timeout: unexpected EOF
+=== RUN   TestReviewR8AbsoluteHeaderTimeout/silo-listener
+    r8_baseline_test.go:56: request rejected after header timeout: unexpected EOF
+--- PASS: TestReviewR8AbsoluteHeaderTimeout (0.80s)
+    --- PASS: TestReviewR8AbsoluteHeaderTimeout/standard-net-http (0.40s)
+    --- PASS: TestReviewR8AbsoluteHeaderTimeout/silo-listener (0.40s)
+PASS
+ok  	github.com/minio/minio/internal/http	1.312s

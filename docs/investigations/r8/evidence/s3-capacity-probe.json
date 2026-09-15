@@ -1,0 +1,4 @@
+{
+  "status": 507,
+  "body": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Error><Code>XMinioStorageFull</Code><Message>Storage backend has reached its minimum free drive threshold. Please delete a few objects to proceed.</Message><Key>testobject</Key><BucketName>testbucket</BucketName><Resource>/testbucket/testobject</Resource><RequestId>18D58A9DC7CF7668</RequestId><HostId>04c30fe94f97d234a29260401af8d884660258a809670077dfa5454fa24cb0df</HostId></Error>"
+}

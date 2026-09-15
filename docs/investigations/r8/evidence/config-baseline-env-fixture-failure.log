@@ -1,0 +1,28 @@
+=== RUN   TestServerReadHeaderTimeoutConfig
+=== RUN   TestServerReadHeaderTimeoutConfig/default
+    r8_config_test.go:31: could not parse  as duration for flag read-header-timeout: time: invalid duration ""
+=== RUN   TestServerReadHeaderTimeoutConfig/flag
+    r8_config_test.go:31: could not parse  as duration for flag read-header-timeout: time: invalid duration ""
+=== RUN   TestServerReadHeaderTimeoutConfig/environment
+    r8_config_test.go:28: CLI read-header-timeout=170ms, expected=170ms
+    r8_config_test.go:33: parsed ReadHeaderTimeout = 0s, want 170ms
+=== RUN   TestServerReadHeaderTimeoutConfig/flag-over-environment
+    r8_config_test.go:28: CLI read-header-timeout=80ms, expected=80ms
+    r8_config_test.go:33: parsed ReadHeaderTimeout = 0s, want 80ms
+=== RUN   TestServerReadHeaderTimeoutConfig/yaml-retains-flag
+    r8_config_test.go:31: could not parse  as duration for flag read-header-timeout: time: invalid duration ""
+=== RUN   TestServerReadHeaderTimeoutConfig/zero-fallback
+    r8_config_test.go:31: could not parse  as duration for flag read-header-timeout: time: invalid duration ""
+=== RUN   TestServerReadHeaderTimeoutConfig/negative-disabled
+    r8_config_test.go:31: could not parse  as duration for flag read-header-timeout: time: invalid duration ""
+--- FAIL: TestServerReadHeaderTimeoutConfig (0.00s)
+    --- FAIL: TestServerReadHeaderTimeoutConfig/default (0.00s)
+    --- FAIL: TestServerReadHeaderTimeoutConfig/flag (0.00s)
+    --- FAIL: TestServerReadHeaderTimeoutConfig/environment (0.00s)
+    --- FAIL: TestServerReadHeaderTimeoutConfig/flag-over-environment (0.00s)
+    --- FAIL: TestServerReadHeaderTimeoutConfig/yaml-retains-flag (0.00s)
+    --- FAIL: TestServerReadHeaderTimeoutConfig/zero-fallback (0.00s)
+    --- FAIL: TestServerReadHeaderTimeoutConfig/negative-disabled (0.00s)
+FAIL
+FAIL	github.com/minio/minio/cmd	1.629s
+FAIL

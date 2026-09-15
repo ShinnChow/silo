@@ -1,0 +1,3 @@
+$ git diff --check 9ebe81c1b3611f9cc73e676b5b741c2be62c467a --
+
+exit_code=0
