@@ -418,6 +418,9 @@ func getReplicationState(rinfos replicatedInfos, prevState ReplicationState, vID
 
 	for _, rinfo := range rinfos.Targets {
 		if rinfo.ResyncTimestamp != "" {
+			if rs.ResetStatusesMap == nil {
+				rs.ResetStatusesMap = make(map[string]string)
+			}
 			rs.ResetStatusesMap[targetResetHeader(rinfo.Arn)] = rinfo.ResyncTimestamp
 		}
 	}
