@@ -310,6 +310,9 @@ func (z *erasureServerPools) deleteObjectReconciled(ctx context.Context, bucket,
 			if opts.VersionID == "" || opts.DeleteMarker {
 				gerr = toObjectErr(errFileNotFound, bucket, object)
 			}
+		} else if opts.VersionID != "" {
+			// An addressed version already resolved every copy above.
+			logical = mergedPoolObjectInfo(copies)
 		} else {
 			versions, err := z.metadataPoolInfos(ctx, bucket, object, opts)
 			if err != nil {

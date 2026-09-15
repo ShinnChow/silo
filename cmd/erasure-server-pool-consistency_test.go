@@ -217,8 +217,15 @@ func TestPoolsDeleteVersionUnreadablePool(t *testing.T) {
 
 type consistencyDeleteCountDisk struct {
 	StorageAPI
-	bucket, object string
-	deletes        *atomic.Int32
+	bucket, object         string
+	metadataReads, deletes *atomic.Int32
+}
+
+func (d consistencyDeleteCountDisk) ReadVersion(ctx context.Context, origvolume, volume, path, version string, opts ReadOptions) (FileInfo, error) {
+	if volume == d.bucket && path == d.object {
+		d.metadataReads.Add(1)
+	}
+	return d.StorageAPI.ReadVersion(ctx, origvolume, volume, path, version, opts)
 }
 
 func (d consistencyDeleteCountDisk) DeleteVersion(ctx context.Context, volume, path string, fi FileInfo, force bool, opts DeleteOptions) error {
@@ -234,13 +241,13 @@ func TestPoolsDeleteVersionSingleCopy(t *testing.T) {
 		t.Run(fmt.Sprintf("pool=%d", primary), func(t *testing.T) {
 			object := fmt.Sprintf("single-copy-%d", primary)
 			oi := putConsistencyObject(t, z, bucket, object, primary, "payload", ObjectOptions{Versioned: true})
-			var deletes [2]atomic.Int32
+			var metadataReads, deletes [2]atomic.Int32
 			for i, pool := range z.serverPools {
 				set := pool.getHashedSet(object)
 				getDisks := set.getDisks
 				disks := append([]StorageAPI(nil), getDisks()...)
 				for j := range disks {
-					disks[j] = consistencyDeleteCountDisk{StorageAPI: disks[j], bucket: bucket, object: object, deletes: &deletes[i]}
+					disks[j] = consistencyDeleteCountDisk{StorageAPI: disks[j], bucket: bucket, object: object, metadataReads: &metadataReads[i], deletes: &deletes[i]}
 				}
 				set.getDisks = func() []StorageAPI { return disks }
 				defer func() { set.getDisks = getDisks }()
@@ -252,6 +259,12 @@ func TestPoolsDeleteVersionSingleCopy(t *testing.T) {
 					metadata++
 					if err != nil || current.VersionID != oi.VersionID {
 						t.Errorf("metadata callback: %+v, %v", current, err)
+					}
+					// Count preflight reads before the physical delete reads its own metadata.
+					for i := range metadataReads {
+						if got := metadataReads[i].Load(); got != 16 {
+							t.Errorf("pool %d metadata reads before callbacks = %d; want once per disk (16)", i, got)
+						}
 					}
 					return ReplicateDecision{}, nil
 				},
