@@ -2,12 +2,13 @@
 
 ## 当前交付状态
 
-本地实现已完成，v3 已与真实 Opus 5.0 达成共识，原研究基线上的定向回归、race、完整构建、vet、lint 全部通过。正在将隔离分支同步到新主干快照 `af2b1794d38d9e70e1d2c3ee692426e4b6cab4bd` 并复验。
+本地实现已完成，v3 已与真实 Opus 5.0 达成共识。原研究基线和同步到主干快照后的定向回归、race、完整构建、vet、lint 全部通过；此前受宿主机容量限制的六项 DELETE 测试，在空间恢复后也全部通过。
 
 - 研究基线：`9ebe81c1b3611f9cc73e676b5b741c2be62c467a`。
+- 集成基线：`af2b1794d38d9e70e1d2c3ee692426e4b6cab4bd`；通过最终验证的源码提交：`cf381a7151ef25fc95ace5fedcd767fa19410de2`。后续提交仅整理本目录的验证文档。
 - 分支：`codex/r6-delete-marker-mrf`。
 - [PR #184](https://github.com/pgsty/silo/pull/184) 在最终核对时仍为 OPEN，head `6addf9eb916b5a4b837480cf534cd1efa5407d3c`。复用其按 purge 状态识别操作、接纳 marker 405 的方向，补齐实测遗漏；没有直接合并该 PR。
-- 新主干只新增 R4 的 SSE-KMS PUT 选项与对应材料，R6 涉及的生产文件、测试文件和依赖未发生交叉修改。
+- 从研究基线到集成基线，仅新增 R4 的 SSE-KMS PUT 选项与对应材料，R6 涉及的生产文件、测试文件和依赖未发生交叉修改。五个 R6 文件在同步前后的 SHA256 一致。
 - 本任务没有执行主干合并、远端推送、发布、部署或现网存量改写。
 
 ## 修复内容
@@ -39,7 +40,16 @@
 
 ## 验证范围
 
-原基线证据：[机器记录](verification/baseline-verification.json)，以及同目录 scope/race/build/vet/lint 日志。
+原基线证据：[机器记录](verification/baseline-verification.json)。最终集成证据：[五项检查记录](verification/rebased-verification.json)、[六项 DELETE 复验](verification/rebased-delete-verification.json)、[源码与方案哈希清单](final-source-manifest.json)。对应日志在同目录，均与原始日志逐字节一致。运行环境：Go 1.27.1，darwin/arm64，GOMAXPROCS=4。
+
+| 检查 | 最终结果 |
+|---|---|
+| `go test -p 2 ./cmd ./internal/bucket/replication -run 'TestReplication\|TestReplicate\|TestMRF\|TestResync\|TestSiteResync' -count=1 -v` | 通过，28 个顶层测试 / 198 个通过条目 |
+| `go test -race -p 2 ./cmd -run 'TestReplicateDelete\|TestReplicationMRF\|TestReplicationDeleteQueueFull' -count=1 -v` | 通过，无数据竞争报告 |
+| `go build -p 2 ./...` | 通过 |
+| `go vet -p 2 ./cmd ./internal/bucket/replication` | 通过 |
+| golangci-lint 2.13.1，仓库配置，`--build-tags kqueue` | 通过，0 issues |
+| 原容量失败的六项 DELETE 测试，按完整测试名精确复跑 | 六项全部通过 |
 
 - 28 个顶层定向测试通过，包含 198 个通过条目（含子测试）。
 - 单盘、16 盘真实 erasure 存储；真实源端签名 DELETE、minio-go HTTP、源/目标 marker 元数据。
@@ -50,7 +60,7 @@
 
 **边界：** 目标为受控 HTTP 适配器，调用真实 ObjectLayer；测试显式消费队列并执行生产复制函数，直接驱动 MRF 保存，没有启动后台定时器和完整 worker 循环。这是三端点 fan-out 与磁盘恢复验证，不是三台独立 SILO 进程的站点复制集群、接收端认证或进程崩溃验收。
 
-6 项无关广义 DELETE 测试在种子数据写入时触发宿主机容量阈值，该次扩大测试未通过；R6 存储夹具使用仓库现有容量适配器，数据仍真实落盘。一次测试链接遇到磁盘空间耗尽，清理可确认属于本任务的旧 Go 缓存后复验。详情和中间失败记录：[verification-notes.md](verification-notes.md)。
+首次扩大测试中，六项无关 DELETE 测试在种子数据写入时触发宿主机容量阈值，该次测试未通过。空间恢复后，保持代码不变精确复跑六项，全部通过；这不等于运行了整个 cmd 测试集。R6 存储夹具使用仓库现有容量适配器，数据仍真实落盘。一次测试链接遇到磁盘空间耗尽，清理可确认属于本任务的旧 Go 缓存后复验。详情和中间失败记录：[verification-notes.md](verification-notes.md)。
 
 ## 仍然独立的事项
 

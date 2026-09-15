@@ -1,0 +1,276 @@
+=== RUN   TestReplicateDeleteMarkerPurge
+=== RUN   TestReplicateDeleteMarkerPurge/recover_legacy_false
+=== RUN   TestReplicateDeleteMarkerPurge/recover_legacy_true
+--- PASS: TestReplicateDeleteMarkerPurge (0.56s)
+    --- PASS: TestReplicateDeleteMarkerPurge/recover_legacy_false (0.29s)
+    --- PASS: TestReplicateDeleteMarkerPurge/recover_legacy_true (0.27s)
+=== RUN   TestReplicateDeleteMarkerTargetSemantics
+=== RUN   TestReplicateDeleteMarkerTargetSemantics/existing_marker_is_idempotent
+=== RUN   TestReplicateDeleteMarkerTargetSemantics/purge_removes_an_existing_marker
+=== RUN   TestReplicateDeleteMarkerTargetSemantics/purge_forbidden
+=== RUN   TestReplicateDeleteMarkerTargetSemantics/purge_method_rejected
+=== RUN   TestReplicateDeleteMarkerTargetSemantics/purge_unavailable
+--- PASS: TestReplicateDeleteMarkerTargetSemantics (0.09s)
+    --- PASS: TestReplicateDeleteMarkerTargetSemantics/existing_marker_is_idempotent (0.00s)
+    --- PASS: TestReplicateDeleteMarkerTargetSemantics/purge_removes_an_existing_marker (0.00s)
+    --- PASS: TestReplicateDeleteMarkerTargetSemantics/purge_forbidden (0.00s)
+    --- PASS: TestReplicateDeleteMarkerTargetSemantics/purge_method_rejected (0.00s)
+    --- PASS: TestReplicateDeleteMarkerTargetSemantics/purge_unavailable (0.09s)
+=== RUN   TestReplicationMRFMarkerRecovery
+=== RUN   TestReplicationMRFMarkerRecovery/canonical
+    replication-delete-mrf_test.go:485: ErasureSD: canonical recovered; 1 target(s), persisted MRF, source/target metadata checked
+goroutine 5732 [running]:
+runtime/debug.Stack()
+	/opt/homebrew/Cellar/go/1.27.1/libexec/src/runtime/debug/stack.go:26 +0x6c
+runtime/debug.PrintStack()
+	/opt/homebrew/Cellar/go/1.27.1/libexec/src/runtime/debug/stack.go:18 +0x24
+github.com/minio/minio/internal/ioutil.SafeClose[...](...)
+	/Users/vonng/.codex/worktrees/aa3f/silo/internal/ioutil/ioutil.go:470
+github.com/minio/minio/internal/logger/target/http.(*Target).Cancel(0xc001231860)
+	/Users/vonng/.codex/worktrees/aa3f/silo/internal/logger/target/http/http.go:630 +0x98
+github.com/minio/minio/cmd.replicationTestAudit.func2()
+	/Users/vonng/.codex/worktrees/aa3f/silo/cmd/replication-delete-mrf_test.go:593 +0xa4
+github.com/minio/minio/cmd.testReplicationMRFMarkerRecovery(0xc00137a248, {0x10a44f2c0, _}, {_, _}, {_, _}, {_, _}, {{0x10687dafa, ...}, ...}, ...)
+	/Users/vonng/.codex/worktrees/aa3f/silo/cmd/replication-delete-mrf_test.go:486 +0x5cb8
+github.com/minio/minio/cmd.TestReplicationMRFMarkerRecovery.func1.1({0x10a44f2c0, 0xc002e19930}, {0x106879eea, 0x9}, {0xc002bf60c0, 0x3c}, {0x10a3f8e30, _}, {{0x10687dafa, 0xa}, ...}, ...)
+	/Users/vonng/.codex/worktrees/aa3f/silo/cmd/replication-delete-mrf_test.go:53 +0x124
+github.com/minio/minio/cmd.ExecObjectLayerAPITest({0xc00137a248, 0xc002e65e90, {0xc002bf5cd0, 0x1, 0x1}, 0x0, {0x0, 0x0, 0x0, {0x0, ...}, ...}})
+	/Users/vonng/.codex/worktrees/aa3f/silo/cmd/test-utils_test.go:1789 +0x32c
+github.com/minio/minio/cmd.TestReplicationMRFMarkerRecovery.func1(0xc00137a248)
+	/Users/vonng/.codex/worktrees/aa3f/silo/cmd/replication-delete-mrf_test.go:52 +0x15c
+testing.tRunner(0xc00137a248, 0xc002e65d70)
+	/opt/homebrew/Cellar/go/1.27.1/libexec/src/testing/testing.go:2193 +0x168
+created by testing.(*T).Run in goroutine 5731
+	/opt/homebrew/Cellar/go/1.27.1/libexec/src/testing/testing.go:2258 +0x7c0
+    replication-delete-mrf_test.go:485: Erasure: canonical recovered; 1 target(s), persisted MRF, source/target metadata checked
+goroutine 9170 [running]:
+runtime/debug.Stack()
+	/opt/homebrew/Cellar/go/1.27.1/libexec/src/runtime/debug/stack.go:26 +0x6c
+runtime/debug.PrintStack()
+	/opt/homebrew/Cellar/go/1.27.1/libexec/src/runtime/debug/stack.go:18 +0x24
+github.com/minio/minio/internal/ioutil.SafeClose[...](...)
+	/Users/vonng/.codex/worktrees/aa3f/silo/internal/ioutil/ioutil.go:470
+github.com/minio/minio/internal/logger/target/http.(*Target).Cancel(0xc000cce000)
+	/Users/vonng/.codex/worktrees/aa3f/silo/internal/logger/target/http/http.go:630 +0x98
+created by github.com/minio/minio/internal/logger.cancelTargets in goroutine 5732
+	/Users/vonng/.codex/worktrees/aa3f/silo/internal/logger/targets.go:213 +0x3c
+=== RUN   TestReplicationMRFMarkerRecovery/lock-failure
+    replication-delete-mrf_test.go:485: ErasureSD: lock-failure recovered; 1 target(s), persisted MRF, source/target metadata checked
+    replication-delete-mrf_test.go:485: Erasure: lock-failure recovered; 1 target(s), persisted MRF, source/target metadata checked
+=== RUN   TestReplicationMRFMarkerRecovery/invalid-MRF-metadata
+=== RUN   TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/empty-info
+=== RUN   TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/not-a-marker
+=== RUN   TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/wrong-version
+=== RUN   TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/wrong-bucket
+=== RUN   TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/wrong-object
+=== RUN   TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/zero-modtime
+=== RUN   TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/missing
+=== RUN   TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/read-error
+=== RUN   TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/empty-info#01
+=== RUN   TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/not-a-marker#01
+=== RUN   TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/wrong-version#01
+=== RUN   TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/wrong-bucket#01
+=== RUN   TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/wrong-object#01
+=== RUN   TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/zero-modtime#01
+=== RUN   TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/missing#01
+=== RUN   TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/read-error#01
+=== RUN   TestReplicationMRFMarkerRecovery/legacy
+    replication-delete-mrf_test.go:485: ErasureSD: legacy recovered; 1 target(s), persisted MRF, source/target metadata checked
+    replication-delete-mrf_test.go:485: Erasure: legacy recovered; 1 target(s), persisted MRF, source/target metadata checked
+=== RUN   TestReplicationMRFMarkerRecovery/unrecorded-purge
+    replication-delete-mrf_test.go:485: ErasureSD: unrecorded-purge recovered; 2 target(s), persisted MRF, source/target metadata checked
+    replication-delete-mrf_test.go:485: Erasure: unrecorded-purge recovered; 2 target(s), persisted MRF, source/target metadata checked
+=== RUN   TestReplicationMRFMarkerRecovery/two-targets
+    replication-delete-mrf_test.go:485: ErasureSD: two-targets recovered; 2 target(s), persisted MRF, source/target metadata checked
+    replication-delete-mrf_test.go:485: Erasure: two-targets recovered; 2 target(s), persisted MRF, source/target metadata checked
+=== RUN   TestReplicationMRFMarkerRecovery/two-targets-offline
+    replication-delete-mrf_test.go:485: ErasureSD: two-targets-offline recovered; 2 target(s), persisted MRF, source/target metadata checked
+    replication-delete-mrf_test.go:485: Erasure: two-targets-offline recovered; 2 target(s), persisted MRF, source/target metadata checked
+=== RUN   TestReplicationMRFMarkerRecovery/replica-source
+    replication-delete-mrf_test.go:485: ErasureSD: replica-source recovered; 1 target(s), persisted MRF, source/target metadata checked
+    replication-delete-mrf_test.go:485: Erasure: replica-source recovered; 1 target(s), persisted MRF, source/target metadata checked
+=== RUN   TestReplicationMRFMarkerRecovery/lost-reply-canonical
+    replication-delete-mrf_test.go:485: ErasureSD: lost-reply-canonical recovered; 1 target(s), persisted MRF, source/target metadata checked
+    replication-delete-mrf_test.go:485: Erasure: lost-reply-canonical recovered; 1 target(s), persisted MRF, source/target metadata checked
+=== RUN   TestReplicationMRFMarkerRecovery/lost-reply-legacy
+    replication-delete-mrf_test.go:485: ErasureSD: lost-reply-legacy recovered; 1 target(s), persisted MRF, source/target metadata checked
+    replication-delete-mrf_test.go:485: Erasure: lost-reply-legacy recovered; 1 target(s), persisted MRF, source/target metadata checked
+=== RUN   TestReplicationMRFMarkerRecovery/creation
+    replication-delete-mrf_test.go:485: ErasureSD: creation recovered; 1 target(s), persisted MRF, source/target metadata checked
+    replication-delete-mrf_test.go:485: Erasure: creation recovered; 1 target(s), persisted MRF, source/target metadata checked
+=== RUN   TestReplicationMRFMarkerRecovery/partial-creation-block
+=== RUN   TestReplicationMRFMarkerRecovery/retry-budget-and-scanner
+    replication-delete-mrf_test.go:485: ErasureSD: retry-budget-and-scanner recovered; 1 target(s), persisted MRF, source/target metadata checked
+    replication-delete-mrf_test.go:485: Erasure: retry-budget-and-scanner recovered; 1 target(s), persisted MRF, source/target metadata checked
+--- PASS: TestReplicationMRFMarkerRecovery (6.77s)
+    --- PASS: TestReplicationMRFMarkerRecovery/canonical (0.31s)
+    --- PASS: TestReplicationMRFMarkerRecovery/lock-failure (0.29s)
+    --- PASS: TestReplicationMRFMarkerRecovery/invalid-MRF-metadata (1.88s)
+        --- PASS: TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/empty-info (0.10s)
+        --- PASS: TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/not-a-marker (0.10s)
+        --- PASS: TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/wrong-version (0.10s)
+        --- PASS: TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/wrong-bucket (0.10s)
+        --- PASS: TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/wrong-object (0.10s)
+        --- PASS: TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/zero-modtime (0.10s)
+        --- PASS: TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/missing (0.10s)
+        --- PASS: TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/read-error (0.10s)
+        --- PASS: TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/empty-info#01 (0.10s)
+        --- PASS: TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/not-a-marker#01 (0.10s)
+        --- PASS: TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/wrong-version#01 (0.11s)
+        --- PASS: TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/wrong-bucket#01 (0.10s)
+        --- PASS: TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/wrong-object#01 (0.10s)
+        --- PASS: TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/zero-modtime#01 (0.10s)
+        --- PASS: TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/missing#01 (0.10s)
+        --- PASS: TestReplicationMRFMarkerRecovery/invalid-MRF-metadata/read-error#01 (0.10s)
+    --- PASS: TestReplicationMRFMarkerRecovery/legacy (0.27s)
+    --- PASS: TestReplicationMRFMarkerRecovery/unrecorded-purge (0.35s)
+    --- PASS: TestReplicationMRFMarkerRecovery/two-targets (0.41s)
+    --- PASS: TestReplicationMRFMarkerRecovery/two-targets-offline (0.43s)
+    --- PASS: TestReplicationMRFMarkerRecovery/replica-source (0.40s)
+    --- PASS: TestReplicationMRFMarkerRecovery/lost-reply-canonical (0.54s)
+    --- PASS: TestReplicationMRFMarkerRecovery/lost-reply-legacy (0.75s)
+    --- PASS: TestReplicationMRFMarkerRecovery/creation (0.39s)
+    --- PASS: TestReplicationMRFMarkerRecovery/partial-creation-block (0.33s)
+    --- PASS: TestReplicationMRFMarkerRecovery/retry-budget-and-scanner (0.41s)
+=== RUN   TestReplicationDeleteQueueFullRetryBudget
+--- PASS: TestReplicationDeleteQueueFullRetryBudget (0.00s)
+=== RUN   TestReplicateDeleteOperationExits
+=== RUN   TestReplicateDeleteOperationExits/marker-creation/pending-success
+=== RUN   TestReplicateDeleteOperationExits/marker-creation/completed-creation
+=== RUN   TestReplicateDeleteOperationExits/marker-creation/existing-marker
+=== RUN   TestReplicateDeleteOperationExits/marker-creation/head-read-quorum
+=== RUN   TestReplicateDeleteOperationExits/marker-creation/replica-creation-status
+=== RUN   TestReplicateDeleteOperationExits/marker-creation/head-unavailable
+=== RUN   TestReplicateDeleteOperationExits/marker-creation/head-forbidden
+=== RUN   TestReplicateDeleteOperationExits/marker-creation/delete-forbidden
+=== RUN   TestReplicateDeleteOperationExits/marker-creation/delete-method-rejected
+=== RUN   TestReplicateDeleteOperationExits/marker-creation/delete-unavailable
+=== RUN   TestReplicateDeleteOperationExits/marker-creation/offline
+=== RUN   TestReplicateDeleteOperationExits/marker-creation/retry-failed
+=== RUN   TestReplicateDeleteOperationExits/marker-creation/purge-complete
+=== RUN   TestReplicateDeleteOperationExits/marker-creation/resync-success
+=== RUN   TestReplicateDeleteOperationExits/marker-creation/resync-already-purged
+=== RUN   TestReplicateDeleteOperationExits/marker-creation/resync-failure
+=== RUN   TestReplicateDeleteOperationExits/legacy-marker-purge/pending-success
+=== RUN   TestReplicateDeleteOperationExits/legacy-marker-purge/completed-creation
+=== RUN   TestReplicateDeleteOperationExits/legacy-marker-purge/existing-marker
+=== RUN   TestReplicateDeleteOperationExits/legacy-marker-purge/head-read-quorum
+=== RUN   TestReplicateDeleteOperationExits/legacy-marker-purge/replica-creation-status
+=== RUN   TestReplicateDeleteOperationExits/legacy-marker-purge/head-unavailable
+=== RUN   TestReplicateDeleteOperationExits/legacy-marker-purge/head-forbidden
+=== RUN   TestReplicateDeleteOperationExits/legacy-marker-purge/delete-forbidden
+=== RUN   TestReplicateDeleteOperationExits/legacy-marker-purge/delete-method-rejected
+=== RUN   TestReplicateDeleteOperationExits/legacy-marker-purge/delete-unavailable
+=== RUN   TestReplicateDeleteOperationExits/legacy-marker-purge/offline
+=== RUN   TestReplicateDeleteOperationExits/legacy-marker-purge/retry-failed
+=== RUN   TestReplicateDeleteOperationExits/legacy-marker-purge/purge-complete
+=== RUN   TestReplicateDeleteOperationExits/legacy-marker-purge/resync-success
+=== RUN   TestReplicateDeleteOperationExits/legacy-marker-purge/resync-already-purged
+=== RUN   TestReplicateDeleteOperationExits/legacy-marker-purge/resync-failure
+=== RUN   TestReplicateDeleteOperationExits/marker-purge/pending-success
+=== RUN   TestReplicateDeleteOperationExits/marker-purge/completed-creation
+=== RUN   TestReplicateDeleteOperationExits/marker-purge/existing-marker
+=== RUN   TestReplicateDeleteOperationExits/marker-purge/head-read-quorum
+=== RUN   TestReplicateDeleteOperationExits/marker-purge/replica-creation-status
+=== RUN   TestReplicateDeleteOperationExits/marker-purge/head-unavailable
+=== RUN   TestReplicateDeleteOperationExits/marker-purge/head-forbidden
+=== RUN   TestReplicateDeleteOperationExits/marker-purge/delete-forbidden
+=== RUN   TestReplicateDeleteOperationExits/marker-purge/delete-method-rejected
+=== RUN   TestReplicateDeleteOperationExits/marker-purge/delete-unavailable
+=== RUN   TestReplicateDeleteOperationExits/marker-purge/offline
+=== RUN   TestReplicateDeleteOperationExits/marker-purge/retry-failed
+=== RUN   TestReplicateDeleteOperationExits/marker-purge/purge-complete
+=== RUN   TestReplicateDeleteOperationExits/marker-purge/resync-success
+=== RUN   TestReplicateDeleteOperationExits/marker-purge/resync-already-purged
+=== RUN   TestReplicateDeleteOperationExits/marker-purge/resync-failure
+=== RUN   TestReplicateDeleteOperationExits/object-purge/pending-success
+=== RUN   TestReplicateDeleteOperationExits/object-purge/completed-creation
+=== RUN   TestReplicateDeleteOperationExits/object-purge/existing-marker
+=== RUN   TestReplicateDeleteOperationExits/object-purge/head-read-quorum
+=== RUN   TestReplicateDeleteOperationExits/object-purge/replica-creation-status
+=== RUN   TestReplicateDeleteOperationExits/object-purge/head-unavailable
+=== RUN   TestReplicateDeleteOperationExits/object-purge/head-forbidden
+=== RUN   TestReplicateDeleteOperationExits/object-purge/delete-forbidden
+=== RUN   TestReplicateDeleteOperationExits/object-purge/delete-method-rejected
+=== RUN   TestReplicateDeleteOperationExits/object-purge/delete-unavailable
+=== RUN   TestReplicateDeleteOperationExits/object-purge/offline
+=== RUN   TestReplicateDeleteOperationExits/object-purge/retry-failed
+=== RUN   TestReplicateDeleteOperationExits/object-purge/purge-complete
+=== RUN   TestReplicateDeleteOperationExits/object-purge/resync-success
+=== RUN   TestReplicateDeleteOperationExits/object-purge/resync-already-purged
+=== RUN   TestReplicateDeleteOperationExits/object-purge/resync-failure
+--- PASS: TestReplicateDeleteOperationExits (0.43s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-creation/pending-success (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-creation/completed-creation (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-creation/existing-marker (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-creation/head-read-quorum (0.08s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-creation/replica-creation-status (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-creation/head-unavailable (0.02s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-creation/head-forbidden (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-creation/delete-forbidden (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-creation/delete-method-rejected (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-creation/delete-unavailable (0.02s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-creation/offline (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-creation/retry-failed (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-creation/purge-complete (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-creation/resync-success (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-creation/resync-already-purged (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-creation/resync-failure (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/legacy-marker-purge/pending-success (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/legacy-marker-purge/completed-creation (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/legacy-marker-purge/existing-marker (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/legacy-marker-purge/head-read-quorum (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/legacy-marker-purge/replica-creation-status (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/legacy-marker-purge/head-unavailable (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/legacy-marker-purge/head-forbidden (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/legacy-marker-purge/delete-forbidden (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/legacy-marker-purge/delete-method-rejected (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/legacy-marker-purge/delete-unavailable (0.08s)
+    --- PASS: TestReplicateDeleteOperationExits/legacy-marker-purge/offline (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/legacy-marker-purge/retry-failed (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/legacy-marker-purge/purge-complete (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/legacy-marker-purge/resync-success (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/legacy-marker-purge/resync-already-purged (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/legacy-marker-purge/resync-failure (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-purge/pending-success (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-purge/completed-creation (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-purge/existing-marker (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-purge/head-read-quorum (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-purge/replica-creation-status (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-purge/head-unavailable (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-purge/head-forbidden (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-purge/delete-forbidden (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-purge/delete-method-rejected (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-purge/delete-unavailable (0.12s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-purge/offline (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-purge/retry-failed (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-purge/purge-complete (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-purge/resync-success (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-purge/resync-already-purged (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/marker-purge/resync-failure (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/object-purge/pending-success (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/object-purge/completed-creation (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/object-purge/existing-marker (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/object-purge/head-read-quorum (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/object-purge/replica-creation-status (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/object-purge/head-unavailable (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/object-purge/head-forbidden (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/object-purge/delete-forbidden (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/object-purge/delete-method-rejected (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/object-purge/delete-unavailable (0.07s)
+    --- PASS: TestReplicateDeleteOperationExits/object-purge/offline (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/object-purge/retry-failed (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/object-purge/purge-complete (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/object-purge/resync-success (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/object-purge/resync-already-purged (0.00s)
+    --- PASS: TestReplicateDeleteOperationExits/object-purge/resync-failure (0.00s)
+=== RUN   TestReplicateDeletePurgeMissingTargetState
+--- PASS: TestReplicateDeletePurgeMissingTargetState (0.00s)
+=== RUN   TestReplicationMRFDropsVisible
+=== RUN   TestReplicationMRFDropsVisible/node
+=== RUN   TestReplicationMRFDropsVisible/bucket
+--- PASS: TestReplicationMRFDropsVisible (0.01s)
+    --- PASS: TestReplicationMRFDropsVisible/node (0.00s)
+    --- PASS: TestReplicationMRFDropsVisible/bucket (0.00s)
+PASS
+ok  	github.com/minio/minio/cmd	11.683s

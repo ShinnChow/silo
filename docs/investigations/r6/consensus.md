@@ -47,3 +47,7 @@ The v2 implementation was completed only after v2 agreement. Codex then found an
 | N6 prior proof | v2's regex proof is correct only for a single target. The immutable raw reviews and executable counterexample are both retained. |
 
 Only v3's three field assignments and the required invariant remain to be applied after this record. All earlier compatible refinements and acceptance limits still stand.
+
+## Implementation completion, 2026-09-16 CST
+
+The paragraph above records the state at approval time. The agreed v3 assignments and mandatory payload invariant have since been implemented and verified. After rebasing onto `af2b1794d38d9e70e1d2c3ee692426e4b6cab4bd`, all five R6 source/test hashes remained identical. Source commit `cf381a7151ef25fc95ace5fedcd767fa19410de2` passed the scoped regression, race, build, vet and lint checks, plus the six formerly capacity-blocked DELETE tests. See [README.md](README.md) and its linked machine verification records. Subsequent changes only document this evidence; no new production-plan deviation was introduced.
