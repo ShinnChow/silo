@@ -1,8 +1,8 @@
 //go:build linux
 
-// Copyright (c) 2015-2021 MinIO, Inc.
+// Copyright (c) 2026 Feng Ruohang
 //
-// This file is part of MinIO Object Storage stack
+// This file is part of Silo Object Storage stack
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
