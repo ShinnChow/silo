@@ -1,0 +1,358 @@
+{
+  "baseline": "9ebe81c1b3611f9cc73e676b5b741c2be62c467a",
+  "branch": "codex/r4-kms-tag-timestamp",
+  "source_sha256": {
+    "cmd/object-api-options.go": "25e2e9484fafd94d1b2c857b94373758e481893ad93fb1a063edf7746277accc",
+    "cmd/object-api-options-replication_test.go": "1ea2a060987e32a4c76fce96ee974df475944c2d6ab482a4893e33daf7bca849",
+    "cmd/object-copy-replication-tagging_test.go": "5437a77e68736b4ce69de9c777675251fef24b0352dfe30bd8a836fc7ee810e3"
+  },
+  "source_files_match_all_test_runs": true,
+  "checks": [
+    {
+      "name": "baseline-final",
+      "command": [
+        "go",
+        "test",
+        "-p",
+        "2",
+        "-overlay",
+        "/Users/vonng/tmp/silo-r4-evidence-20260915-a9cb/baseline-final-overlay.json",
+        "./cmd",
+        "-run",
+        "^Test(PutOptsFromHeadersReplicationTimestamps|APICopyObjectReplicaTaggingTimestampUnderKMS)$",
+        "-count=1",
+        "-timeout=5m",
+        "-v"
+      ],
+      "cwd": "/Users/vonng/.codex/worktrees/a9cb/silo",
+      "env_override": {
+        "GOMAXPROCS": "2"
+      },
+      "started_at": "2026-09-15T15:50:49.430860+00:00",
+      "finished_at": "2026-09-15T15:51:20.637630+00:00",
+      "exit_code": 1,
+      "log": "/Users/vonng/tmp/silo-r4-evidence-20260915-a9cb/baseline-final.log",
+      "source_sha256": {
+        "cmd/object-api-options.go": "25e2e9484fafd94d1b2c857b94373758e481893ad93fb1a063edf7746277accc",
+        "cmd/object-api-options-replication_test.go": "1ea2a060987e32a4c76fce96ee974df475944c2d6ab482a4893e33daf7bca849",
+        "cmd/object-copy-replication-tagging_test.go": "5437a77e68736b4ce69de9c777675251fef24b0352dfe30bd8a836fc7ee810e3"
+      },
+      "log_sha256": "f849c2082235213764e3db7a314d52af75c4859102478a1e8f837afcaa8f1ea8",
+      "overlay_sha256": "f4cbc16e4ffccaf63191de2e8476162876055796adb4c38cda2d8c569a3bbabc",
+      "overlay_sources": {
+        "/Users/vonng/.codex/worktrees/a9cb/silo/cmd/object-api-options.go": {
+          "path": "/Users/vonng/tmp/silo-r4-evidence-20260915-a9cb/object-api-options.baseline.go",
+          "sha256": "16a560d0990ae929393f682f22b32ecd2e7f4d9390484b03b54e176fcd00cff5"
+        }
+      },
+      "assessment": "Expected baseline regression failure; KMS timestamp loss. Non-KMS controls pass."
+    },
+    {
+      "name": "focused",
+      "command": [
+        "go",
+        "test",
+        "-p",
+        "2",
+        "./cmd",
+        "-run",
+        "^Test(PutOptsFromHeadersReplicationTimestamps|APICopyObjectReplicaTaggingTimestampUnderKMS|ReplicationTrustControlsInternalOptionsAndEvents|GetAndValidateAttributesOpts.*|APICopyObjectReplicaRetentionRemovalUnderBucketKMS)$",
+        "-count=1",
+        "-timeout=5m",
+        "-v"
+      ],
+      "cwd": "/Users/vonng/.codex/worktrees/a9cb/silo",
+      "env_override": {
+        "GOMAXPROCS": "2"
+      },
+      "started_at": "2026-09-15T15:51:20.638633+00:00",
+      "finished_at": "2026-09-15T15:51:48.382212+00:00",
+      "exit_code": 1,
+      "log": "/Users/vonng/tmp/silo-r4-evidence-20260915-a9cb/focused.log",
+      "source_sha256": {
+        "cmd/object-api-options.go": "25e2e9484fafd94d1b2c857b94373758e481893ad93fb1a063edf7746277accc",
+        "cmd/object-api-options-replication_test.go": "1ea2a060987e32a4c76fce96ee974df475944c2d6ab482a4893e33daf7bca849",
+        "cmd/object-copy-replication-tagging_test.go": "5437a77e68736b4ce69de9c777675251fef24b0352dfe30bd8a836fc7ee810e3"
+      },
+      "log_sha256": "9a64cbc46e9fd6186b1d3031034b720857851ce70b1466b1da5da6d1a52b76ba",
+      "assessment": "New tests and options/trust pass; pre-existing KMS lock fixture blocked by host disk free-space percentage."
+    },
+    {
+      "name": "focused-capacity-adapted",
+      "command": [
+        "go",
+        "test",
+        "-p",
+        "2",
+        "-overlay",
+        "/Users/vonng/tmp/silo-r4-evidence-20260915-a9cb/capacity-overlay.json",
+        "./cmd",
+        "-run",
+        "^Test(PutOptsFromHeadersReplicationTimestamps|APICopyObjectReplicaTaggingTimestampUnderKMS|ReplicationTrustControlsInternalOptionsAndEvents|GetAndValidateAttributesOpts.*|APICopyObjectReplicaRetentionRemovalUnderBucketKMS)$",
+        "-count=1",
+        "-timeout=5m",
+        "-v"
+      ],
+      "cwd": "/Users/vonng/.codex/worktrees/a9cb/silo",
+      "env_override": {
+        "GOMAXPROCS": "2"
+      },
+      "started_at": "2026-09-15T15:52:20.113475+00:00",
+      "finished_at": "2026-09-15T15:52:50.842773+00:00",
+      "exit_code": 0,
+      "log": "/Users/vonng/tmp/silo-r4-evidence-20260915-a9cb/focused-capacity-adapted.log",
+      "source_sha256": {
+        "cmd/object-api-options.go": "25e2e9484fafd94d1b2c857b94373758e481893ad93fb1a063edf7746277accc",
+        "cmd/object-api-options-replication_test.go": "1ea2a060987e32a4c76fce96ee974df475944c2d6ab482a4893e33daf7bca849",
+        "cmd/object-copy-replication-tagging_test.go": "5437a77e68736b4ce69de9c777675251fef24b0352dfe30bd8a836fc7ee810e3"
+      },
+      "log_sha256": "13f7aa54564a433bef4dddcf2c5ad1fe46fa03869527fb902a255ce4c3263bc9",
+      "overlay_sha256": "76a7e6fb364bdaaa3469b1dc79f9ea318059f287a4888f322639920c76dfe53a",
+      "overlay_sources": {
+        "/Users/vonng/.codex/worktrees/a9cb/silo/cmd/replication-trust_test.go": {
+          "path": "/Users/vonng/tmp/silo-r4-evidence-20260915-a9cb/replication-trust-capacity_test.go",
+          "sha256": "c81b526ae51983881bbf464199e6b90f074fa695300fa8ff005e427e4d3c8208"
+        }
+      },
+      "assessment": "PASS"
+    },
+    {
+      "name": "race",
+      "command": [
+        "go",
+        "test",
+        "-p",
+        "2",
+        "-race",
+        "./cmd",
+        "-run",
+        "^Test(PutOptsFromHeadersReplicationTimestamps|APICopyObjectReplicaTaggingTimestampUnderKMS)$",
+        "-count=1",
+        "-timeout=5m",
+        "-v"
+      ],
+      "cwd": "/Users/vonng/.codex/worktrees/a9cb/silo",
+      "env_override": {
+        "GOMAXPROCS": "2"
+      },
+      "started_at": "2026-09-15T15:52:50.843898+00:00",
+      "finished_at": "2026-09-15T15:53:43.789325+00:00",
+      "exit_code": 0,
+      "log": "/Users/vonng/tmp/silo-r4-evidence-20260915-a9cb/race.log",
+      "source_sha256": {
+        "cmd/object-api-options.go": "25e2e9484fafd94d1b2c857b94373758e481893ad93fb1a063edf7746277accc",
+        "cmd/object-api-options-replication_test.go": "1ea2a060987e32a4c76fce96ee974df475944c2d6ab482a4893e33daf7bca849",
+        "cmd/object-copy-replication-tagging_test.go": "5437a77e68736b4ce69de9c777675251fef24b0352dfe30bd8a836fc7ee810e3"
+      },
+      "log_sha256": "ae66a8c9e569a5c4b57ae56e75afc85c06a8b76f1567187519da0726605a4de4",
+      "assessment": "PASS"
+    },
+    {
+      "name": "vet",
+      "command": [
+        "go",
+        "vet",
+        "-p",
+        "2",
+        "./cmd"
+      ],
+      "cwd": "/Users/vonng/.codex/worktrees/a9cb/silo",
+      "env_override": {
+        "GOMAXPROCS": "2"
+      },
+      "started_at": "2026-09-15T15:53:43.790197+00:00",
+      "finished_at": "2026-09-15T15:53:51.129773+00:00",
+      "exit_code": 0,
+      "log": "/Users/vonng/tmp/silo-r4-evidence-20260915-a9cb/vet.log",
+      "source_sha256": {
+        "cmd/object-api-options.go": "25e2e9484fafd94d1b2c857b94373758e481893ad93fb1a063edf7746277accc",
+        "cmd/object-api-options-replication_test.go": "1ea2a060987e32a4c76fce96ee974df475944c2d6ab482a4893e33daf7bca849",
+        "cmd/object-copy-replication-tagging_test.go": "5437a77e68736b4ce69de9c777675251fef24b0352dfe30bd8a836fc7ee810e3"
+      },
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "assessment": "PASS"
+    },
+    {
+      "name": "lint",
+      "command": [
+        "/Users/vonng/pgsty/silo/.bin/golangci/v2.13.1/golangci-lint",
+        "run",
+        "--build-tags",
+        "kqueue",
+        "--timeout=10m",
+        "--config",
+        "./.golangci.yml",
+        "./cmd/..."
+      ],
+      "cwd": "/Users/vonng/.codex/worktrees/a9cb/silo",
+      "env_override": {
+        "GOMAXPROCS": "2"
+      },
+      "started_at": "2026-09-15T15:53:51.130456+00:00",
+      "finished_at": "2026-09-15T15:55:39.114303+00:00",
+      "exit_code": 0,
+      "log": "/Users/vonng/tmp/silo-r4-evidence-20260915-a9cb/lint.log",
+      "source_sha256": {
+        "cmd/object-api-options.go": "25e2e9484fafd94d1b2c857b94373758e481893ad93fb1a063edf7746277accc",
+        "cmd/object-api-options-replication_test.go": "1ea2a060987e32a4c76fce96ee974df475944c2d6ab482a4893e33daf7bca849",
+        "cmd/object-copy-replication-tagging_test.go": "5437a77e68736b4ce69de9c777675251fef24b0352dfe30bd8a836fc7ee810e3"
+      },
+      "log_sha256": "e92606b0bf483111dff0a120c315ea165821348f31365020e2468a0059095c47",
+      "assessment": "PASS"
+    }
+  ],
+  "format_checks": [
+    {
+      "command": [
+        "gofmt",
+        "-l",
+        "cmd/object-api-options.go",
+        "cmd/object-api-options-replication_test.go",
+        "cmd/object-copy-replication-tagging_test.go"
+      ],
+      "exit_code": 0,
+      "output": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "output": ""
+    }
+  ],
+  "evidence_directory": "/Users/vonng/tmp/silo-r4-evidence-20260915-a9cb",
+  "evidence_files": {
+    "baseline-final-overlay.json": {
+      "size": 177,
+      "sha256": "f4cbc16e4ffccaf63191de2e8476162876055796adb4c38cda2d8c569a3bbabc"
+    },
+    "baseline-final.json": {
+      "size": 1584,
+      "sha256": "5bf7be51e5a0eb41a40dc5fc5d3a1aba5df7733ad5dcb001f8d870a01c4233ba"
+    },
+    "baseline-final.log": {
+      "size": 22493,
+      "sha256": "f849c2082235213764e3db7a314d52af75c4859102478a1e8f837afcaa8f1ea8"
+    },
+    "baseline-identity.txt": {
+      "size": 1676,
+      "sha256": "9b21841e19a0cbb8ded18c2597488a527a27bedc65109d05d4ff598103073b68"
+    },
+    "baseline-options.log": {
+      "size": 11395,
+      "sha256": "d692f0a4bc9c58e2ac0087afa356ddf48f86e1040ea8138d68ffc4d0992bf3cb"
+    },
+    "baseline-repro.log": {
+      "size": 5693,
+      "sha256": "aa89b76f4723c6a3ce224faa7796403628d978a8707544bd97848b8887de2113"
+    },
+    "capacity-fixture.diff": {
+      "size": 870,
+      "sha256": "8d01e0b0068441f37ecee37125b81424d1f30d7c4fb37d435ea0cfe2e4617e5e"
+    },
+    "capacity-overlay.json": {
+      "size": 185,
+      "sha256": "76a7e6fb364bdaaa3469b1dc79f9ea318059f287a4888f322639920c76dfe53a"
+    },
+    "final_copy_repro_test.go": {
+      "size": 5942,
+      "sha256": "8949e07d96d2949a79f5a9e83c7a7c0473733d77b407e9c51da477d4ab74f1a8"
+    },
+    "focused-capacity-adapted.json": {
+      "size": 1661,
+      "sha256": "1a599b41caabfc5eb44db8d89c8b7e4f4f84f5f036d008369155fd337f65bdf9"
+    },
+    "focused-capacity-adapted.log": {
+      "size": 20384,
+      "sha256": "13f7aa54564a433bef4dddcf2c5ad1fe46fa03869527fb902a255ce4c3263bc9"
+    },
+    "focused.json": {
+      "size": 1253,
+      "sha256": "d9bb4979ea8aeaabb809cdc6e400a8673530bc83abf3dc2b2a06853a8523d0d9"
+    },
+    "focused.log": {
+      "size": 20475,
+      "sha256": "9a64cbc46e9fd6186b1d3031034b720857851ce70b1466b1da5da6d1a52b76ba"
+    },
+    "format-checks.json": {
+      "size": 352,
+      "sha256": "7569260900a799d5efdfb39db1f575ab1dadbbb04ace222e036968e66b6b59e7"
+    },
+    "lint.json": {
+      "size": 991,
+      "sha256": "a7144713b069f470a94b1ebe6fca6683a4b866a891a2756e15f28c280666ca14"
+    },
+    "lint.log": {
+      "size": 10,
+      "sha256": "e92606b0bf483111dff0a120c315ea165821348f31365020e2468a0059095c47"
+    },
+    "object-api-options.baseline.go": {
+      "size": 16653,
+      "sha256": "16a560d0990ae929393f682f22b32ecd2e7f4d9390484b03b54e176fcd00cff5"
+    },
+    "options-overlay.json": {
+      "size": 185,
+      "sha256": "5506b9c3b998b32f01c45af3cf01605eae9e4fb262c9ff3a6b0040abe719d4d9"
+    },
+    "options_repro_test.go": {
+      "size": 4192,
+      "sha256": "1a57a47bdd370042fa0f0d2d90efe447abedee9b9ef48a938d4bed631d83ec0b"
+    },
+    "opus-review-v1.exit": {
+      "size": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "opus-review-v1.jsonl": {
+      "size": 410466,
+      "sha256": "eb0918d8a6185b180dddcfc664a96682f05502ecf3b686b08a0547f09879d57d"
+    },
+    "opus-review-v1.stderr.log": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "overlay.json": {
+      "size": 158,
+      "sha256": "95f7c3f7e206fe36731e6d7e4a48f90c7403f07ae8155c125c6b86d2f1c2d487"
+    },
+    "r4-kms-tag-timestamp.patch": {
+      "size": 874,
+      "sha256": "2d4806d986bbd94ba4bc3951f3aeee48401ee1921c28ded0988fa09ca76ca26f"
+    },
+    "r4_repro_test.go": {
+      "size": 5508,
+      "sha256": "9bcefb6da2416b577b58085485cad60f677c2265e9dfa84d02e465e1b203766b"
+    },
+    "race.json": {
+      "size": 1026,
+      "sha256": "50b73e4acbc2426f3dcfadde78d0f0a86f10702345d2939a30204600bc750a13"
+    },
+    "race.log": {
+      "size": 18566,
+      "sha256": "ae66a8c9e569a5c4b57ae56e75afc85c06a8b76f1567187519da0726605a4de4"
+    },
+    "replication-trust-capacity_test.go": {
+      "size": 61271,
+      "sha256": "c81b526ae51983881bbf464199e6b90f074fa695300fa8ff005e427e4d3c8208"
+    },
+    "review-prompt-v1.md": {
+      "size": 2770,
+      "sha256": "07c225beff1523e056c154b3a387cf1ae345def4b4d0173065b882140ac5abdf"
+    },
+    "run-checks.py": {
+      "size": 2266,
+      "sha256": "ddecea5220bc9c286df18c0e9eca101f3d8ab731c307cd4acef937f3ecd11e65"
+    },
+    "vet.json": {
+      "size": 853,
+      "sha256": "e0964444bc91640ed6cf78229050bad5b94af4210bdf44b11d1a848f1ee930a6"
+    },
+    "vet.log": {
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "scope": "Darwin arm64; real signed HTTP + disk I/O; KMS service stub; single-pool single/16-disk fixtures; no remote CI, multi-site, release or deployment."
+}

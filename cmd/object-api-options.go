@@ -452,11 +452,11 @@ func putOptsFromHeaders(ctx context.Context, hdr http.Header, metadata map[strin
 			MTime:                mtime,
 			PreserveETag:         etag,
 			ReplicationRequest:   trustedReplication,
-			// The Object Lock timestamps order replicated retention and legal
-			// hold updates. Dropping them here would leave every update on an
-			// SSE-KMS destination unordered.
+			// These timestamps order replicated retention, legal hold and tagging
+			// updates on an SSE-KMS destination.
 			ReplicationSourceLegalholdTimestamp: lholdtimestmp,
 			ReplicationSourceRetentionTimestamp: retaintimestmp,
+			ReplicationSourceTaggingTimestamp:   taggingtimestmp,
 		}
 		return op, nil
 	}
