@@ -1179,7 +1179,7 @@ func (er erasureObjects) CompleteMultipartUpload(ctx context.Context, bucket str
 		switch {
 		case gerr == nil:
 			reconcileStoredObjectLock(fi.Metadata, storedObjectLockState(curr.UserDefined))
-			reconcileStoredObjectTags(fi.Metadata, curr.UserDefined)
+			reconcileStoredObjectTags(fi.Metadata, curr.UserTags, curr.UserDefined[ReservedMetadataPrefixLower+TaggingTimestamp])
 		case isErrVersionNotFound(gerr) || isErrObjectNotFound(gerr):
 			// No existing version to order against: keep the upload's own accepted
 			// lock, including a pre-upgrade upload that persisted values without
