@@ -1,0 +1,230 @@
+{
+  "recorded_at": "2026-09-15T15:59:49.705292+00:00",
+  "baseline": "9ebe81c1b3611f9cc73e676b5b741c2be62c467a",
+  "branch": "codex/r7-replication-content-encoding",
+  "source_sha256": {
+    "cmd/handler-utils.go": "76d6f98a8c9b04fcf1ae7c79d5832396bbf234bd5b5efc32a7f80dec64179b1a",
+    "cmd/handler-utils_test.go": "f8a53dd29170280eb007c4e43773187710f027e2aa49aadda91d2777bd0e034e",
+    "cmd/replication-content-encoding_test.go": "c71c4cf79a3ea6336febaf14bcb8ddfd68fcbef7625ff18830c14e9143749ee7",
+    "cmd/replication-metadata_test.go": "2cd3c45687d7333a9466906a278d7953fe4eeb008e07e2c7e2d167480c8b64bb"
+  },
+  "plan_sha256": {
+    "plan-v1.md": "7af5705ebbfb0a375956d38dba059095dc16e24558290b1bd35a6ce85b9e1f96",
+    "plan-v1.dispositions.md": "d32d30f8a420f904da6ee039f0461d6281e7da44bd805d416b4970d071f0af32"
+  },
+  "validation": {
+    "fixed-targeted": {
+      "baseline": "9ebe81c1b3611f9cc73e676b5b741c2be62c467a",
+      "files": {
+        "cmd/handler-utils.go": "76d6f98a8c9b04fcf1ae7c79d5832396bbf234bd5b5efc32a7f80dec64179b1a",
+        "cmd/handler-utils_test.go": "f8a53dd29170280eb007c4e43773187710f027e2aa49aadda91d2777bd0e034e",
+        "cmd/replication-content-encoding_test.go": "c71c4cf79a3ea6336febaf14bcb8ddfd68fcbef7625ff18830c14e9143749ee7",
+        "cmd/replication-metadata_test.go": "2cd3c45687d7333a9466906a278d7953fe4eeb008e07e2c7e2d167480c8b64bb"
+      },
+      "exact_baseline_overlay": "/Users/vonng/tmp/silo-r7-20260915-ad51/exact-baseline-overlay.json",
+      "recorded_at": "2026-09-15T15:55:15.454079+00:00",
+      "exit_code": 0,
+      "log": "/Users/vonng/tmp/silo-r7-20260915-ad51/fixed-targeted.log",
+      "log_sha256": "a30add5762881d604acffd63bca5880050b92a3ae125d208c53545ac78c9b212",
+      "command": [
+        "go",
+        "test",
+        "-p",
+        "2",
+        "-overlay",
+        "/Users/vonng/tmp/silo-r7-20260915-ad51/capacity-overlay.json",
+        "./cmd",
+        "-run",
+        "^Test(ExtractMetadataHeaders|ExtractMetadataFromRequest.*|ExtractReplicationMetadata.*|GetCopyObjectMetadataFromHeaderReplication|APIReplicaContentEncoding|APISnowballReplicaContentEncoding)$",
+        "-count=1",
+        "-v"
+      ],
+      "GOMAXPROCS": "4",
+      "top_level_tests_passed": 9,
+      "leaf_subtests_passed": 80
+    },
+    "fixed-sse-trust": {
+      "command": [
+        "go",
+        "test",
+        "-p",
+        "2",
+        "-overlay",
+        "/Users/vonng/tmp/silo-r7-20260915-ad51/capacity-overlay.json",
+        "./cmd",
+        "-run",
+        "^Test(API(SSECReplicaSkipsDestinationTransforms|SSECMultipartReplicaRoundTripWithCompression|SSECMultipartReplicationTrust|PutObjectReplicationHeaderPoisoning|CopyObjectReplicationHeaderPoisoning|PutObjectReplicationTrust|SnowballReplicationTrustIsPerEntry|SnowballInheritsBucketEncryption|StreamingTrailerWithUntrustedReplicationHeaders)|CloneRequestWithoutReplicationHeaders|PutReplicationOpts.*|ReplicationTrustControlsInternalOptionsAndEvents)$",
+        "-count=1",
+        "-v"
+      ],
+      "cwd": "/Users/vonng/.codex/worktrees/ad51/silo",
+      "started_at": "2026-09-15T15:54:14.556575+00:00",
+      "baseline": "9ebe81c1b3611f9cc73e676b5b741c2be62c467a",
+      "source_sha256": {
+        "cmd/handler-utils.go": "76d6f98a8c9b04fcf1ae7c79d5832396bbf234bd5b5efc32a7f80dec64179b1a",
+        "cmd/handler-utils_test.go": "f8a53dd29170280eb007c4e43773187710f027e2aa49aadda91d2777bd0e034e",
+        "cmd/replication-content-encoding_test.go": "c71c4cf79a3ea6336febaf14bcb8ddfd68fcbef7625ff18830c14e9143749ee7",
+        "cmd/replication-metadata_test.go": "2cd3c45687d7333a9466906a278d7953fe4eeb008e07e2c7e2d167480c8b64bb"
+      },
+      "GOMAXPROCS": "4",
+      "GOFLAGS": null,
+      "status": "completed",
+      "log": "/Users/vonng/tmp/silo-r7-20260915-ad51/fixed-sse-trust.log",
+      "exit_code": 0,
+      "duration_seconds": 11.364,
+      "completed_at": "2026-09-15T15:54:25.939958+00:00",
+      "log_sha256": "09222aaea6f0504dce7a801d5f392df77728ebd9875f4fef9dcdb28f71ce7b5a"
+    },
+    "fixed-race": {
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-p",
+        "2",
+        "-overlay",
+        "/Users/vonng/tmp/silo-r7-20260915-ad51/capacity-overlay.json",
+        "./cmd",
+        "-run",
+        "^Test(ExtractReplicationMetadata.*|APIReplicaContentEncoding|APISnowballReplicaContentEncoding|APISnowballReplicationTrustIsPerEntry|APISSECReplicaSkipsDestinationTransforms|APISSECMultipartReplicaRoundTripWithCompression)$",
+        "-count=1",
+        "-v"
+      ],
+      "cwd": "/Users/vonng/.codex/worktrees/ad51/silo",
+      "started_at": "2026-09-15T15:55:27.787466+00:00",
+      "baseline": "9ebe81c1b3611f9cc73e676b5b741c2be62c467a",
+      "source_sha256": {
+        "cmd/handler-utils.go": "76d6f98a8c9b04fcf1ae7c79d5832396bbf234bd5b5efc32a7f80dec64179b1a",
+        "cmd/handler-utils_test.go": "f8a53dd29170280eb007c4e43773187710f027e2aa49aadda91d2777bd0e034e",
+        "cmd/replication-content-encoding_test.go": "c71c4cf79a3ea6336febaf14bcb8ddfd68fcbef7625ff18830c14e9143749ee7",
+        "cmd/replication-metadata_test.go": "2cd3c45687d7333a9466906a278d7953fe4eeb008e07e2c7e2d167480c8b64bb"
+      },
+      "GOMAXPROCS": "4",
+      "GOFLAGS": null,
+      "status": "completed",
+      "log": "/Users/vonng/tmp/silo-r7-20260915-ad51/fixed-race.log",
+      "exit_code": 0,
+      "duration_seconds": 48.566,
+      "completed_at": "2026-09-15T15:56:16.372187+00:00",
+      "log_sha256": "b68af50412a8c1c03ea91aa40e72314ba9026798ac5dafb0d1580bc9824526b2"
+    },
+    "verifiers": {
+      "command": [
+        "make",
+        "verifiers",
+        "GOLANGCI=/Users/vonng/pgsty/silo/.bin/golangci/v2.13.1/golangci-lint"
+      ],
+      "cwd": "/Users/vonng/.codex/worktrees/ad51/silo",
+      "started_at": "2026-09-15T15:56:40.045654+00:00",
+      "baseline": "9ebe81c1b3611f9cc73e676b5b741c2be62c467a",
+      "source_sha256": {
+        "cmd/handler-utils.go": "76d6f98a8c9b04fcf1ae7c79d5832396bbf234bd5b5efc32a7f80dec64179b1a",
+        "cmd/handler-utils_test.go": "f8a53dd29170280eb007c4e43773187710f027e2aa49aadda91d2777bd0e034e",
+        "cmd/replication-content-encoding_test.go": "c71c4cf79a3ea6336febaf14bcb8ddfd68fcbef7625ff18830c14e9143749ee7",
+        "cmd/replication-metadata_test.go": "2cd3c45687d7333a9466906a278d7953fe4eeb008e07e2c7e2d167480c8b64bb"
+      },
+      "GOMAXPROCS": "4",
+      "GOFLAGS": "-p=2",
+      "status": "completed",
+      "log": "/Users/vonng/tmp/silo-r7-20260915-ad51/verifiers.log",
+      "exit_code": 0,
+      "duration_seconds": 102.527,
+      "completed_at": "2026-09-15T15:58:22.585543+00:00",
+      "log_sha256": "e42a5bb55f5c1ebfcf02cebebf6d82cf1ec5a2d74590cdf838deba16dd80bfdf"
+    },
+    "build": {
+      "command": [
+        "make",
+        "build"
+      ],
+      "cwd": "/Users/vonng/.codex/worktrees/ad51/silo",
+      "started_at": "2026-09-15T15:58:33.660305+00:00",
+      "baseline": "9ebe81c1b3611f9cc73e676b5b741c2be62c467a",
+      "source_sha256": {
+        "cmd/handler-utils.go": "76d6f98a8c9b04fcf1ae7c79d5832396bbf234bd5b5efc32a7f80dec64179b1a",
+        "cmd/handler-utils_test.go": "f8a53dd29170280eb007c4e43773187710f027e2aa49aadda91d2777bd0e034e",
+        "cmd/replication-content-encoding_test.go": "c71c4cf79a3ea6336febaf14bcb8ddfd68fcbef7625ff18830c14e9143749ee7",
+        "cmd/replication-metadata_test.go": "2cd3c45687d7333a9466906a278d7953fe4eeb008e07e2c7e2d167480c8b64bb"
+      },
+      "GOMAXPROCS": "4",
+      "GOFLAGS": "-p=2",
+      "status": "completed",
+      "log": "/Users/vonng/tmp/silo-r7-20260915-ad51/build.log",
+      "exit_code": 0,
+      "duration_seconds": 24.007,
+      "completed_at": "2026-09-15T15:58:57.722704+00:00",
+      "log_sha256": "6ba9b545236be964861749c72e7609edf12b8f470df30d1ede8fd62f497e629b"
+    }
+  },
+  "counterfactual": {
+    "command": [
+      "go",
+      "test",
+      "-p",
+      "2",
+      "-overlay",
+      "/Users/vonng/tmp/silo-r7-20260915-ad51/exact-baseline-overlay.json",
+      "./cmd",
+      "-run",
+      "^Test(ExtractReplicationMetadataPreservesNormalizedMetadata|APIReplicaContentEncoding|APISnowballReplicaContentEncoding)$",
+      "-count=1",
+      "-v"
+    ],
+    "cwd": "/Users/vonng/.codex/worktrees/ad51/silo",
+    "started_at": "2026-09-15T15:54:49.754711+00:00",
+    "baseline": "9ebe81c1b3611f9cc73e676b5b741c2be62c467a",
+    "source_sha256": {
+      "cmd/handler-utils.go": "76d6f98a8c9b04fcf1ae7c79d5832396bbf234bd5b5efc32a7f80dec64179b1a",
+      "cmd/handler-utils_test.go": "f8a53dd29170280eb007c4e43773187710f027e2aa49aadda91d2777bd0e034e",
+      "cmd/replication-content-encoding_test.go": "c71c4cf79a3ea6336febaf14bcb8ddfd68fcbef7625ff18830c14e9143749ee7",
+      "cmd/replication-metadata_test.go": "2cd3c45687d7333a9466906a278d7953fe4eeb008e07e2c7e2d167480c8b64bb"
+    },
+    "GOMAXPROCS": "4",
+    "GOFLAGS": null,
+    "status": "completed",
+    "log": "/Users/vonng/tmp/silo-r7-20260915-ad51/exact-baseline-regression.log",
+    "exit_code": 1,
+    "duration_seconds": 27.026,
+    "completed_at": "2026-09-15T15:55:16.823655+00:00",
+    "log_sha256": "75d42b2a711c6d9a9f6d277449d1428e768e04ab10a2a331103b554d75ab17f8",
+    "expected_negative": true,
+    "reason": "Only production handler-utils.go reverted to baseline through an overlay; final regression tests and capacity fixture unchanged",
+    "passed_leaf_count": 44,
+    "failed_leaf_count": 36,
+    "effective_production_override_sha256": {
+      "cmd/handler-utils.go": "e647b53e5288d57ddbaacc5549d76ced0123b5e0cb630450cf071ffc78818398"
+    }
+  },
+  "binary": {
+    "path": "/Users/vonng/.codex/worktrees/ad51/silo/silo",
+    "sha256": "c346ee4edf575bf6232689d25a7e38caa44ddd69dfa919df96c05aba4bb04c77",
+    "size": 93054290,
+    "version_output": "silo version DEVELOPMENT.2026-09-15T15-14-22Z (commit-id=9ebe81c1b3611f9cc73e676b5b741c2be62c467a)\nRuntime: go1.27.1 darwin/arm64\nLicense: GNU AGPLv3 - https://www.gnu.org/licenses/agpl-3.0.html\nCopyright: 2015-2025 MinIO, Inc.\nModifications: Copyright 2025-2026 PGSTY\nSource compatibility: based on MinIO technology\n",
+    "note": "Built and validated from the recorded uncommitted candidate file hashes; embedded commit ID is the baseline. This is not a release artifact."
+  },
+  "capacity_overlay": {
+    "path": "/Users/vonng/tmp/silo-r7-20260915-ad51/capacity-overlay.json",
+    "sha256": "aa20dd65d323f09542d2317fc1c7e24fff67cf45e831057ed0e2b0be0a4628dd",
+    "fixture_path": "/Users/vonng/tmp/silo-r7-20260915-ad51/capacity-test-utils_test.go",
+    "fixture_sha256": "d6bf8cc58b651c86ca02063fecab14c59c950b345acf739d979e553c6c2a0897",
+    "tracked": false
+  },
+  "remote_pr_state": {
+    "headRefOid": "b8f2fdde41dff3dc3b8db669c1d42d30ca5c1d3d",
+    "mergedAt": null,
+    "reviews": [],
+    "state": "OPEN",
+    "statusCheckRollup": [],
+    "updatedAt": "2026-09-15T07:07:26Z"
+  },
+  "remote_main": {
+    "message": "Merge pull request #192 from pgsty/codex/iam-revision-tombstones\n\nfix(iam): retain revocation versions through replay and recovery",
+    "sha": "9ebe81c1b3611f9cc73e676b5b741c2be62c467a"
+  },
+  "limits": [
+    "HTTP/SSE/race tests use a temporary capacity overlay, with real disk I/O.",
+    "typos was not installed and Makefile skipped it.",
+    "No full distributed two-site scheduler/restart/network-fault acceptance.",
+    "No merge, remote push, release, deployment or live stored-object rewrite."
+  ]
+}
