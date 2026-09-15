@@ -19,6 +19,12 @@
 
 共识在产品代码修改前记录；Opus 审阅代码和方案，测试由本任务执行，二者分别留证。
 
+## 最终实现复核与合并准备
+
+用户随后追加授权：使用 Opus 5 Max 核实，确认无误后合并 main。已对提交 `4fcdf37ce656152b32ad0f615d47f5e3f9748c3a`（基线 `9ebe81c1b3611f9cc73e676b5b741c2be62c467a`）执行新的独立实现复核，实际评审模型为 `claude-opus-5`，显式 `--effort max`。结论为 **APPROVE_WITH_NONBLOCKING_NOTES，阻塞 0**；适用 PR CI 实际通过后才可合并。
+
+[实现复核原文](implementation-review/opus-implementation.md)、[身份与哈希](implementation-review/opus-implementation.metadata.json)、[逐项处置](implementation-review/dispositions.md) 分别记录审阅与执行方验证边界。本次补充仅为文档；生产代码与测试维持已审阅、已本地验证版本。
+
 ## 兼容性与边界
 
 Snowball 无 PAX 的可信复制条目不再继承外层归档的 content-type/cache-control/用户元数据，与普通 Snowball 一致。外层的六个复制专用字段仍可按既有规则作用于已授权条目。相同 tar 的普通和 replica 写入已纳入条目元数据一致性回归。
@@ -63,6 +69,6 @@ make build
 
 证据为本机认证请求处理链路及实际存储、读取和既有 SSE 往返，不是双站点调度器、进程重启、网络故障或线上验收。
 
-## 状态
+## 初始交付状态
 
-研究、真实 Opus 共识、本地实现与验证均完成。结果保存在 `codex/r7-replication-content-encoding` 分支；合并、远端推送、发布、部署和现网存量处理均未执行。
+初始提交形成时，研究、真实 Opus 方案共识、本地实现与验证均完成，结果保存在 `codex/r7-replication-content-encoding` 分支；当时尚未推送或合并。随后按用户追加授权进行上述最终实现复核与合并准备。实际 PR、CI 与主干合并状态以对应远端记录和 `/Users/vonng/tmp/silo-r7-merge-20260916-ad51/` 中的执行回执为准。
