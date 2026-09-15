@@ -162,6 +162,15 @@ func (sys *IAMSys) LoadUser(ctx context.Context, objAPI ObjectLayer, accessKey s
 	return sys.store.UserNotificationHandler(ctx, accessKey, userType)
 }
 
+// LoadUserAfterDelete reloads a parent's identity and cached dependents after a
+// sibling committed a deletion. Each record may already have been recreated.
+func (sys *IAMSys) LoadUserAfterDelete(ctx context.Context, accessKey string) error {
+	if !sys.Initialized() {
+		return errServerNotInitialized
+	}
+	return sys.store.UserDeletionNotificationHandler(ctx, accessKey)
+}
+
 // LoadServiceAccount - reloads a specific service account from backend disks or etcd.
 func (sys *IAMSys) LoadServiceAccount(ctx context.Context, accessKey string) error {
 	if !sys.Initialized() {
