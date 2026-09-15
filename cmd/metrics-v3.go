@@ -323,6 +323,10 @@ func newMetricGroups(r *prometheus.Registry) *metricsV3Collection {
 			sinceLastSyncMillisMD,
 			syncFailuresMD,
 			syncSuccessesMD,
+			revocationRecordsMD,
+			revocationHealFailuresMD,
+			revocationHealDurationMillisMD,
+			revocationHealLastSuccessMD,
 		},
 		loadClusterIAMMetrics,
 	)

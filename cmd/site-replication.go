@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"maps"
 	"math/rand"
+	"net/http"
 	"net/url"
 	"reflect"
 	"runtime"
@@ -209,7 +210,10 @@ type SiteReplicationSys struct {
 	// In-memory and persisted multi-site replication state.
 	state srState
 
-	iamMetaCache srIAMCache
+	iamMetaCache        srIAMCache
+	iamHealMu           sync.Mutex
+	iamRevisionProgress map[string]iamRevisionProgress
+	iamRevisionMetrics  iamRevisionMetrics
 }
 
 type srState srStateV1
@@ -1257,13 +1261,36 @@ func (c *SiteReplicationSys) IAMChangeHook(ctx context.Context, item madmin.SRIA
 		return nil
 	}
 
+	if path := iamDeletionPath(item); path != "" {
+		r, err := loadIAMRevision(ctx, globalIAMSys.store, path)
+		if err != nil {
+			return err
+		}
+		if !r.Deleted && ((item.Type != madmin.SRIAMItemIAMUser && item.Type != madmin.SRIAMItemGroupInfo) || r.RevokedBefore.IsZero()) {
+			// A concurrent recreation has already superseded this delete.
+			return nil
+		}
+		item.UpdatedAt = r.timestamp()
+		if !r.Deleted {
+			item.UpdatedAt = r.RevokedBefore
+		}
+	}
+
+	versioned, err := c.replicationItem(ctx, item)
+	if errors.Is(err, errIAMStaleUpdate) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
 	cerr := c.concDo(nil, func(d string, p madmin.PeerInfo) error {
 		admClient, err := c.getAdminClient(ctx, d)
 		if err != nil {
 			return wrapSRErr(err)
 		}
 
-		return c.annotatePeerErr(p.Name, replicateIAMItem, admClient.SRPeerReplicateIAMItem(ctx, item))
+		_, err = executeIAMRevisionRequest(ctx, admClient, http.MethodPut, &iamRevisionBatch{Version: iamRevisionProtocol, Items: []iamReplicationItem{versioned}})
+		return c.annotatePeerErr(p.Name, replicateIAMItem, err)
 	},
 		replicateIAMItem,
 	)
@@ -1273,6 +1300,7 @@ func (c *SiteReplicationSys) IAMChangeHook(ctx context.Context, item madmin.SRIA
 // PeerAddPolicyHandler - copies IAM policy to local. A nil policy argument,
 // causes the named policy to be deleted.
 func (c *SiteReplicationSys) PeerAddPolicyHandler(ctx context.Context, policyName string, p *policy.Policy, updatedAt time.Time) error {
+	ctx = withIAMReplicationTime(ctx, updatedAt)
 	var err error
 	// skip overwrite of local update if peer sent stale info
 	if !updatedAt.IsZero() {
@@ -1286,18 +1314,19 @@ func (c *SiteReplicationSys) PeerAddPolicyHandler(ctx context.Context, policyNam
 		_, err = globalIAMSys.SetPolicy(ctx, policyName, *p)
 	}
 	if err != nil {
-		return wrapSRErr(err)
+		return iamReplicationError(err)
 	}
 	return nil
 }
 
 // PeerIAMUserChangeHandler - copies IAM user to local.
 func (c *SiteReplicationSys) PeerIAMUserChangeHandler(ctx context.Context, change *madmin.SRIAMUser, updatedAt time.Time) error {
+	ctx = withIAMReplicationTime(ctx, updatedAt)
 	if change == nil {
 		return errSRInvalidRequest(errInvalidArgument)
 	}
 	// skip overwrite of local update if peer sent stale info
-	if !updatedAt.IsZero() {
+	if !change.IsDeleteReq && !updatedAt.IsZero() {
 		if ui, err := globalIAMSys.GetUserInfo(ctx, change.AccessKey); err == nil && ui.UpdatedAt.After(updatedAt) {
 			return nil
 		}
@@ -1326,13 +1355,14 @@ func (c *SiteReplicationSys) PeerIAMUserChangeHandler(ctx context.Context, chang
 		}
 	}
 	if err != nil {
-		return wrapSRErr(err)
+		return iamReplicationError(err)
 	}
 	return nil
 }
 
 // PeerGroupInfoChangeHandler - copies group changes to local.
 func (c *SiteReplicationSys) PeerGroupInfoChangeHandler(ctx context.Context, change *madmin.SRGroupInfo, updatedAt time.Time) error {
+	ctx = withIAMReplicationTime(ctx, updatedAt)
 	if change == nil {
 		return errSRInvalidRequest(errInvalidArgument)
 	}
@@ -1340,7 +1370,7 @@ func (c *SiteReplicationSys) PeerGroupInfoChangeHandler(ctx context.Context, cha
 	var err error
 
 	// skip overwrite of local update if peer sent stale info
-	if !updatedAt.IsZero() {
+	if !updatedAt.IsZero() && (!updReq.IsRemove || len(updReq.Members) != 0) {
 		if gd, err := globalIAMSys.GetGroupDescription(updReq.Group); err == nil && gd.UpdatedAt.After(updatedAt) {
 			return nil
 		}
@@ -1349,7 +1379,8 @@ func (c *SiteReplicationSys) PeerGroupInfoChangeHandler(ctx context.Context, cha
 	if updReq.IsRemove {
 		_, err = globalIAMSys.RemoveUsersFromGroup(ctx, updReq.Group, updReq.Members)
 	} else {
-		if updReq.Status != "" && len(updReq.Members) == 0 {
+		snapshot, _ := ctx.Value(iamGroupSnapshotKey{}).(bool)
+		if !snapshot && updReq.Status != "" && len(updReq.Members) == 0 {
 			_, err = globalIAMSys.SetGroupStatus(ctx, updReq.Group, updReq.Status == madmin.GroupEnabled)
 		} else {
 			if globalIAMSys.LDAPConfig.Enabled() {
@@ -1365,13 +1396,14 @@ func (c *SiteReplicationSys) PeerGroupInfoChangeHandler(ctx context.Context, cha
 		}
 	}
 	if err != nil && !errors.Is(err, errNoSuchGroup) {
-		return wrapSRErr(err)
+		return iamReplicationError(err)
 	}
 	return nil
 }
 
 // PeerSvcAccChangeHandler - copies service-account change to local.
 func (c *SiteReplicationSys) PeerSvcAccChangeHandler(ctx context.Context, change *madmin.SRSvcAccChange, updatedAt time.Time) error {
+	ctx = withIAMReplicationTime(ctx, updatedAt)
 	if change == nil {
 		return errSRInvalidRequest(errInvalidArgument)
 	}
@@ -1382,7 +1414,7 @@ func (c *SiteReplicationSys) PeerSvcAccChangeHandler(ctx context.Context, change
 		if len(change.Create.SessionPolicy) > 0 {
 			sp, err = policy.ParseConfig(bytes.NewReader(change.Create.SessionPolicy))
 			if err != nil {
-				return wrapSRErr(err)
+				return iamReplicationError(err)
 			}
 		}
 		// skip overwrite of local update if peer sent stale info
@@ -1394,6 +1426,7 @@ func (c *SiteReplicationSys) PeerSvcAccChangeHandler(ctx context.Context, change
 		opts := newServiceAccountOpts{
 			accessKey:     change.Create.AccessKey,
 			secretKey:     change.Create.SecretKey,
+			status:        change.Create.Status,
 			sessionPolicy: sp,
 			claims:        change.Create.Claims,
 			name:          change.Create.Name,
@@ -1402,7 +1435,7 @@ func (c *SiteReplicationSys) PeerSvcAccChangeHandler(ctx context.Context, change
 		}
 		_, _, err = globalIAMSys.NewServiceAccount(ctx, change.Create.Parent, change.Create.Groups, opts)
 		if err != nil {
-			return wrapSRErr(err)
+			return iamReplicationError(err)
 		}
 
 	case change.Update != nil:
@@ -1411,7 +1444,7 @@ func (c *SiteReplicationSys) PeerSvcAccChangeHandler(ctx context.Context, change
 		if len(change.Update.SessionPolicy) > 0 {
 			sp, err = policy.ParseConfig(bytes.NewReader(change.Update.SessionPolicy))
 			if err != nil {
-				return wrapSRErr(err)
+				return iamReplicationError(err)
 			}
 		}
 		// skip overwrite of local update if peer sent stale info
@@ -1431,7 +1464,7 @@ func (c *SiteReplicationSys) PeerSvcAccChangeHandler(ctx context.Context, change
 
 		_, err = globalIAMSys.UpdateServiceAccount(ctx, change.Update.AccessKey, opts)
 		if err != nil {
-			return wrapSRErr(err)
+			return iamReplicationError(err)
 		}
 
 	case change.Delete != nil:
@@ -1442,7 +1475,7 @@ func (c *SiteReplicationSys) PeerSvcAccChangeHandler(ctx context.Context, change
 			}
 		}
 		if err := globalIAMSys.DeleteServiceAccount(ctx, change.Delete.AccessKey, true); err != nil {
-			return wrapSRErr(err)
+			return iamReplicationError(err)
 		}
 	}
 
@@ -1451,24 +1484,17 @@ func (c *SiteReplicationSys) PeerSvcAccChangeHandler(ctx context.Context, change
 
 // PeerPolicyMappingHandler - copies policy mapping to local.
 func (c *SiteReplicationSys) PeerPolicyMappingHandler(ctx context.Context, mapping *madmin.SRPolicyMapping, updatedAt time.Time) error {
+	ctx = withIAMReplicationTime(ctx, updatedAt)
 	if mapping == nil {
 		return errSRInvalidRequest(errInvalidArgument)
 	}
-	// skip overwrite of local update if peer sent stale info
-	if !updatedAt.IsZero() {
-		mp, ok := globalIAMSys.store.GetMappedPolicy(mapping.Policy, mapping.IsGroup)
-		if ok && mp.UpdatedAt.After(updatedAt) {
-			return nil
-		}
-	}
-
 	// When LDAP is enabled, we verify that the user or group exists in LDAP and
 	// use the normalized form of the entityName (which will be an LDAP DN).
 	userType := IAMUserType(mapping.UserType)
 	isGroup := mapping.IsGroup
 	entityName := mapping.UserOrGroup
 
-	if globalIAMSys.GetUsersSysType() == LDAPUsersSysType && userType == stsUser {
+	if mapping.Policy != "" && globalIAMSys.GetUsersSysType() == LDAPUsersSysType && userType == stsUser {
 		// Validate that the user or group exists in LDAP and use the normalized
 		// form of the entityName (which will be an LDAP DN).
 		var err error
@@ -1491,19 +1517,20 @@ func (c *SiteReplicationSys) PeerPolicyMappingHandler(ctx context.Context, mappi
 			entityName = foundUserDN.NormDN
 		}
 		if err != nil {
-			return wrapSRErr(err)
+			return iamReplicationError(err)
 		}
 	}
 
 	_, err := globalIAMSys.PolicyDBSet(ctx, entityName, mapping.Policy, userType, isGroup)
 	if err != nil {
-		return wrapSRErr(err)
+		return iamReplicationError(err)
 	}
 	return nil
 }
 
 // PeerSTSAccHandler - replicates STS credential locally.
 func (c *SiteReplicationSys) PeerSTSAccHandler(ctx context.Context, stsCred *madmin.SRSTSCredential, updatedAt time.Time) error {
+	ctx = withIAMReplicationTime(ctx, updatedAt)
 	if stsCred == nil {
 		return errSRInvalidRequest(errInvalidArgument)
 	}
@@ -1555,7 +1582,7 @@ func (c *SiteReplicationSys) PeerSTSAccHandler(ctx context.Context, stsCred *mad
 
 	// Set these credentials to IAM.
 	if _, err := globalIAMSys.SetTempUser(ctx, cred.AccessKey, cred, stsCred.ParentPolicyMapping); err != nil {
-		return fmt.Errorf("unable to save STS credential and/or parent policy mapping: %w", err)
+		return iamReplicationError(fmt.Errorf("unable to save STS credential and/or parent policy mapping: %w", err))
 	}
 
 	return nil
@@ -4193,7 +4220,8 @@ func (c *SiteReplicationSys) SiteReplicationMetaInfo(ctx context.Context, objAPI
 				}
 
 				info.UserInfoMap[k] = madmin.UserInfo{
-					Status: madmin.AccountStatus(v.Credentials.Status),
+					Status:    madmin.AccountStatus(v.Credentials.Status),
+					UpdatedAt: v.UpdatedAt,
 				}
 			}
 		}
@@ -5170,13 +5198,16 @@ func (c *SiteReplicationSys) healBucketReplicationConfig(ctx context.Context, ob
 }
 
 func (c *SiteReplicationSys) healIAMSystem(ctx context.Context, objAPI ObjectLayer) error {
+	// A peer rejecting a deletion must not stop unrelated live updates from
+	// reaching healthy peers. Retain and report the error for the next retry.
+	deletionErr := c.healIAMDeletions(ctx)
 	info, err := c.siteReplicationStatus(ctx, objAPI, madmin.SRStatusOptions{
 		Users:    true,
 		Policies: true,
 		Groups:   true,
 	})
 	if err != nil {
-		return err
+		return errors.Join(deletionErr, err)
 	}
 	for policy := range info.PolicyStats {
 		c.healPolicies(ctx, objAPI, policy, info)
@@ -5194,7 +5225,7 @@ func (c *SiteReplicationSys) healIAMSystem(ctx context.Context, objAPI ObjectLay
 		c.healGroupPolicies(ctx, objAPI, group, info)
 	}
 
-	return nil
+	return deletionErr
 }
 
 // heal iam policies present on this site to peers, provided current cluster has the most recent update.
@@ -5429,8 +5460,10 @@ func (c *SiteReplicationSys) healUsers(ctx context.Context, objAPI ObjectLayer, 
 
 		peerName := info.Sites[dID].Name
 
-		u, ok := globalIAMSys.GetUser(ctx, user)
-		if !ok {
+		// Disabled identities are valid replication sources. CheckKey returns
+		// their stored record even though authentication is denied.
+		u, _, err := globalIAMSys.CheckKey(ctx, user)
+		if err != nil || u.Credentials.AccessKey == "" || u.Credentials.IsExpired() {
 			continue
 		}
 		creds := u.Credentials
@@ -5629,7 +5662,10 @@ func isGroupDescEqual(g1, g2 madmin.GroupDesc) bool {
 }
 
 func isUserInfoEqual(u1, u2 madmin.UserInfo) bool {
-	if u1.PolicyName != u2.PolicyName ||
+	// Full-site summaries omit secrets and claims. Equal status alone cannot
+	// distinguish a recreated identity or an edited service-account policy.
+	if !u1.UpdatedAt.Equal(u2.UpdatedAt) ||
+		u1.PolicyName != u2.PolicyName ||
 		u1.Status != u2.Status ||
 		u1.SecretKey != u2.SecretKey {
 		return false

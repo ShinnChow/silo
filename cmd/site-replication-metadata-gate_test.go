@@ -274,6 +274,10 @@ func TestBucketMetadataInitialSyncPhysicalCreated(t *testing.T) {
 					}
 					events = append(events, event)
 				}
+				if r.URL.Path == "/minio/admin/v3/site-replication/peer/iam-revisions" {
+					_ = json.NewEncoder(w).Encode(iamRevisionResponse{iamRevisionStatus: iamRevisionStatus{Version: iamRevisionProtocol, Node: "initial-peer", Instance: "initial-boot", Digest: "ack"}})
+					return
+				}
 				w.WriteHeader(http.StatusOK)
 			}))
 			defer peer.Close()
