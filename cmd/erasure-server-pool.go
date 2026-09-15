@@ -1857,7 +1857,34 @@ func (z *erasureServerPools) ListMultipartUploads(ctx context.Context, bucket, p
 	if err := checkListMultipartArgs(ctx, bucket, prefix, keyMarker, uploadIDMarker, delimiter); err != nil {
 		return ListMultipartsInfo{}, err
 	}
+	if _, err := z.GetBucketInfo(ctx, bucket, BucketOptions{}); err != nil {
+		return ListMultipartsInfo{}, toObjectErr(err, bucket)
+	}
 
+	var uploads []MultipartInfo
+	var keyless bool
+	for idx, pool := range z.serverPools {
+		if z.IsSuspended(idx) {
+			continue
+		}
+		poolUploads, poolKeyless, err := pool.scanMultipartUploads(ctx, bucket)
+		if err != nil {
+			return ListMultipartsInfo{}, err
+		}
+		uploads = append(uploads, poolUploads...)
+		keyless = keyless || poolKeyless
+	}
+
+	// Old writers did not persist the bucket and object key. Until every such
+	// upload has drained, retain the old response behavior instead of silently
+	// claiming that a partial durable scan is complete.
+	if keyless {
+		return z.listMultipartUploadsLegacy(ctx, bucket, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads)
+	}
+	return paginateMultipartUploads(uploads, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads), nil
+}
+
+func (z *erasureServerPools) listMultipartUploadsLegacy(ctx context.Context, bucket, prefix, keyMarker, uploadIDMarker, delimiter string, maxUploads int) (ListMultipartsInfo, error) {
 	poolResult := ListMultipartsInfo{}
 	poolResult.MaxUploads = maxUploads
 	poolResult.KeyMarker = keyMarker
@@ -1883,15 +1910,14 @@ func (z *erasureServerPools) ListMultipartUploads(ctx context.Context, bucket, p
 	}
 
 	if z.SinglePool() {
-		return z.serverPools[0].ListMultipartUploads(ctx, bucket, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads)
+		return z.serverPools[0].getHashedSet(prefix).listMultipartUploadsExact(ctx, bucket, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads)
 	}
 
 	for idx, pool := range z.serverPools {
 		if z.IsSuspended(idx) {
 			continue
 		}
-		result, err := pool.ListMultipartUploads(ctx, bucket, prefix, keyMarker, uploadIDMarker,
-			delimiter, maxUploads)
+		result, err := pool.getHashedSet(prefix).listMultipartUploadsExact(ctx, bucket, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads)
 		if err != nil {
 			return result, err
 		}
@@ -1927,7 +1953,7 @@ func (z *erasureServerPools) NewMultipartUpload(ctx context.Context, bucket, obj
 			continue
 		}
 
-		result, err := pool.ListMultipartUploads(ctx, bucket, object, "", "", "", maxUploadsList)
+		result, err := pool.listMultipartUploadsExact(ctx, bucket, object)
 		if err != nil {
 			return nil, err
 		}

@@ -22,6 +22,15 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
 
 ### Object storage and replication
 
+- Make `ListMultipartUploads` discover quorum-valid uploads from durable state
+  across pools, erasure sets and drives, then apply S3 prefix, delimiter,
+  marker, ordering and 1,000-entry pagination semantics globally. New uploads
+  store their canonical bucket and key as reserved fields in the existing
+  quorum-written `xl.meta`; completion removes those upload-only fields. During
+  rolling upgrades, detection of any legacy keyless upload retains the prior
+  listing behavior until those uploads drain. See [issue #79](https://github.com/pgsty/silo/issues/79)
+  and its [design record](https://silo.pgsty.com/blog/design/list-multipart-uploads/).
+
 - Evaluate conditional multipart completion against the logical current object
   across all pools while holding the existing object lock. A stale `If-Match`
   can no longer replace newer data in another pool, and the current ETag is no
