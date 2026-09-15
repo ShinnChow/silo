@@ -425,6 +425,7 @@ func checkReplicateDelete(ctx context.Context, bucket string, dobj ObjectToDelet
 // the mere presence or absence of the target version.
 func replicateDelete(ctx context.Context, dobj DeletedObjectReplicationInfo, objectAPI ObjectLayer) replicatedInfos {
 	var replicationStatus replication.StatusType
+	isPurge := dobj.isVersionPurge()
 	bucket := dobj.Bucket
 	versionID := dobj.DeleteMarkerVersionID
 	if versionID == "" {
@@ -484,6 +485,7 @@ func replicateDelete(ctx context.Context, dobj DeletedObjectReplicationInfo, obj
 	lk := objectAPI.NewNSLock(bucket, "/[replicate]/"+dobj.ObjectName)
 	lkctx, err := lk.GetLock(ctx, globalOperationTimeout)
 	if err != nil {
+		dobj.RetryCount++
 		globalReplicationPool.Get().queueMRFSave(dobj.ToMRFEntry())
 		sendEvent(eventArgs{
 			BucketName: bucket,
@@ -546,25 +548,38 @@ func replicateDelete(ctx context.Context, dobj DeletedObjectReplicationInfo, obj
 	replicationStatus = rinfos.ReplicationStatus()
 	prevStatus := dobj.DeleteMarkerReplicationStatus()
 
-	if dobj.VersionID != "" {
-		prevStatus = replication.StatusType(dobj.VersionPurgeStatus())
-		replicationStatus = replication.StatusType(rinfos.VersionPurgeStatus())
+	if isPurge {
+		prevStatus = purgeReplicationStatus(dobj.VersionPurgeStatus())
+		replicationStatus = purgeReplicationStatus(rinfos.VersionPurgeStatus())
 	}
 
 	// to decrement pending count later.
 	for _, rinfo := range rinfos.Targets {
-		if rinfo.ReplicationStatus != rinfo.PrevReplicationStatus {
-			globalReplicationStats.Load().Update(dobj.Bucket, rinfo, replicationStatus,
-				prevStatus)
+		status, previous := rinfo.ReplicationStatus, rinfo.PrevReplicationStatus
+		if isPurge {
+			status = purgeReplicationStatus(rinfo.VersionPurgeStatus)
+			previous = purgeReplicationStatus(dobj.ReplicationState.PurgeTargets[rinfo.Arn])
+		}
+		if status != previous {
+			globalReplicationStats.Load().Update(dobj.Bucket, rinfo, status, previous)
 		}
 	}
 
 	eventName := event.ObjectReplicationComplete
 	if replicationStatus == replication.Failed {
 		eventName = event.ObjectReplicationFailed
+		dobj.RetryCount++
 		globalReplicationPool.Get().queueMRFSave(dobj.ToMRFEntry())
 	}
 	drs := getReplicationState(rinfos, dobj.ReplicationState, dobj.VersionID)
+	if isPurge {
+		// A purge must not rewrite the marker's creation/replica metadata.
+		// Multiple serialized empty target statuses can parse as nonempty,
+		// so explicitly send an empty creation update to the metadata writer.
+		drs.ReplicationStatusInternal = ""
+		drs.Targets = nil
+		drs.ReplicaStatus = ""
+	}
 	if replicationStatus != prevStatus {
 		drs.ReplicationTimeStamp = UTCNow()
 	}
@@ -606,6 +621,7 @@ func replicateDelete(ctx context.Context, dobj DeletedObjectReplicationInfo, obj
 }
 
 func replicateDeleteToTarget(ctx context.Context, dobj DeletedObjectReplicationInfo, tgt *TargetClient) (rinfo replicatedTargetInfo) {
+	isPurge := dobj.isVersionPurge()
 	versionID := dobj.DeleteMarkerVersionID
 	if versionID == "" {
 		versionID = dobj.VersionID
@@ -615,42 +631,50 @@ func replicateDeleteToTarget(ctx context.Context, dobj DeletedObjectReplicationI
 	rinfo.OpType = dobj.OpType
 	rinfo.endpoint = tgt.EndpointURL().Host
 	rinfo.secure = tgt.EndpointURL().Scheme == "https"
+	// A purge leaves ReplicationStatus empty: the metadata writer interprets
+	// that as preserving the entire creation-status block, including targets
+	// outside this fan-out. Only VersionPurgeStatus records the purge outcome.
 	defer func() {
-		if rinfo.ReplicationStatus == replication.Completed && tgt.ResetID != "" && dobj.OpType == replication.ExistingObjectReplicationType {
+		completed := rinfo.ReplicationStatus == replication.Completed
+		if isPurge {
+			completed = rinfo.VersionPurgeStatus == replication.VersionPurgeComplete
+		}
+		if completed && tgt.ResetID != "" && dobj.OpType == replication.ExistingObjectReplicationType {
 			rinfo.ResyncTimestamp = fmt.Sprintf("%s;%s", UTCNow().Format(http.TimeFormat), tgt.ResetID)
 		}
 	}()
 
-	if dobj.VersionID == "" && rinfo.PrevReplicationStatus == replication.Completed && dobj.OpType != replication.ExistingObjectReplicationType {
+	if !isPurge && rinfo.PrevReplicationStatus == replication.Completed && dobj.OpType != replication.ExistingObjectReplicationType {
 		rinfo.ReplicationStatus = rinfo.PrevReplicationStatus
 		return rinfo
 	}
-	if dobj.VersionID != "" && rinfo.VersionPurgeStatus == replication.VersionPurgeComplete {
+	if isPurge && rinfo.VersionPurgeStatus == replication.VersionPurgeComplete {
 		return rinfo
 	}
 	if globalBucketTargetSys.isOffline(tgt.EndpointURL()) {
-		replLogOnceIf(ctx, fmt.Errorf("remote target is offline for bucket:%s arn:%s", dobj.Bucket, tgt.ARN), "replication-target-offline-delete-"+tgt.ARN)
+		rinfo.Err = fmt.Errorf("remote target is offline for bucket:%s arn:%s", dobj.Bucket, tgt.ARN)
+		replLogOnceIf(ctx, rinfo.Err, "replication-target-offline-delete-"+tgt.ARN)
 		sendEvent(eventArgs{
 			BucketName: dobj.Bucket,
 			Object: ObjectInfo{
 				Bucket:       dobj.Bucket,
 				Name:         dobj.ObjectName,
-				VersionID:    dobj.VersionID,
+				VersionID:    versionID,
 				DeleteMarker: dobj.DeleteMarker,
 			},
 			UserAgent: "Internal: [Replication]",
 			Host:      globalLocalNodeName,
 			EventName: event.ObjectReplicationNotTracked,
 		})
-		if dobj.VersionID == "" {
-			rinfo.ReplicationStatus = replication.Failed
-		} else {
+		if isPurge {
 			rinfo.VersionPurgeStatus = replication.VersionPurgeFailed
+		} else {
+			rinfo.ReplicationStatus = replication.Failed
 		}
 		return rinfo
 	}
 	// early return if already replicated delete marker for existing object replication/ healing delete markers
-	if dobj.DeleteMarkerVersionID != "" {
+	if !isPurge && dobj.DeleteMarkerVersionID != "" {
 		toi, err := tgt.StatObject(ctx, tgt.Bucket, dobj.ObjectName, minio.StatObjectOptions{
 			VersionID: versionID,
 			Internal: minio.AdvancedGetOptions{
@@ -662,16 +686,10 @@ func replicateDeleteToTarget(ctx context.Context, dobj DeletedObjectReplicationI
 		switch {
 		case isErrMethodNotAllowed(serr):
 			// delete marker already replicated
-			if dobj.VersionID == "" && rinfo.VersionPurgeStatus.Empty() {
-				rinfo.ReplicationStatus = replication.Completed
-				return rinfo
-			}
+			rinfo.ReplicationStatus = replication.Completed
+			return rinfo
 		case isErrObjectNotFound(serr), isErrVersionNotFound(serr):
-			// version being purged is already not found on target.
-			if !rinfo.VersionPurgeStatus.Empty() {
-				rinfo.VersionPurgeStatus = replication.VersionPurgeComplete
-				return rinfo
-			}
+			// The marker still needs to be created on the target.
 		case isErrReadQuorum(serr), isErrWriteQuorum(serr):
 			// destination has some quorum issues, perform removeObject() anyways
 			// to complete the operation.
@@ -691,7 +709,7 @@ func replicateDeleteToTarget(ctx context.Context, dobj DeletedObjectReplicationI
 	rmErr := tgt.RemoveObject(ctx, tgt.Bucket, dobj.ObjectName, minio.RemoveObjectOptions{
 		VersionID: versionID,
 		Internal: minio.AdvancedRemoveOptions{
-			ReplicationDeleteMarker: dobj.DeleteMarkerVersionID != "",
+			ReplicationDeleteMarker: !isPurge && dobj.DeleteMarkerVersionID != "",
 			ReplicationMTime:        dobj.DeleteMarkerMTime.Time,
 			ReplicationStatus:       minio.ReplicationStatusReplica,
 			ReplicationRequest:      true, // always set this to distinguish between `mc mirror` replication and serverside
@@ -699,20 +717,20 @@ func replicateDeleteToTarget(ctx context.Context, dobj DeletedObjectReplicationI
 	})
 	if rmErr != nil {
 		rinfo.Err = rmErr
-		if dobj.VersionID == "" {
-			rinfo.ReplicationStatus = replication.Failed
-		} else {
+		if isPurge {
 			rinfo.VersionPurgeStatus = replication.VersionPurgeFailed
+		} else {
+			rinfo.ReplicationStatus = replication.Failed
 		}
 		replLogIf(ctx, fmt.Errorf("unable to replicate delete marker to %s: %s/%s(%s): %w", tgt.EndpointURL(), tgt.Bucket, dobj.ObjectName, versionID, rmErr))
 		if rmErr != nil && minio.IsNetworkOrHostDown(rmErr, true) && !globalBucketTargetSys.isOffline(tgt.EndpointURL()) {
 			globalBucketTargetSys.markOffline(tgt.EndpointURL())
 		}
 	} else {
-		if dobj.VersionID == "" {
-			rinfo.ReplicationStatus = replication.Completed
-		} else {
+		if isPurge {
 			rinfo.VersionPurgeStatus = replication.VersionPurgeComplete
+		} else {
+			rinfo.ReplicationStatus = replication.Completed
 		}
 	}
 	return rinfo
@@ -779,6 +797,18 @@ func (m caseInsensitiveMap) Lookup(key string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// replicationTaggingTimestamp carries a recorded removal even when tags are
+// empty. Only legacy nonempty tags use ModTime; absence is not a tombstone.
+func replicationTaggingTimestamp(objInfo ObjectInfo) (time.Time, error) {
+	if stamp, ok := caseInsensitiveMap(objInfo.UserDefined).Lookup(ReservedMetadataPrefixLower + TaggingTimestamp); ok {
+		return time.Parse(time.RFC3339Nano, stamp)
+	}
+	if objInfo.UserTags != "" {
+		return objInfo.ModTime, nil
+	}
+	return time.Time{}, nil
 }
 
 func putReplicationOpts(ctx context.Context, sc string, objInfo ObjectInfo) (putOpts minio.PutObjectOptions, isMP bool, err error) {
@@ -850,16 +880,11 @@ func putReplicationOpts(ctx context.Context, sc string, objInfo ObjectInfo) (put
 		tag, _ := tags.ParseObjectTags(objInfo.UserTags)
 		if tag != nil {
 			putOpts.UserTags = tag.ToMap()
-			// set tag timestamp in opts
-			tagTimestamp := objInfo.ModTime
-			if tagTmstampStr, ok := objInfo.UserDefined[ReservedMetadataPrefixLower+TaggingTimestamp]; ok {
-				tagTimestamp, err = time.Parse(time.RFC3339Nano, tagTmstampStr)
-				if err != nil {
-					return putOpts, false, err
-				}
-			}
-			putOpts.Internal.TaggingTimestamp = tagTimestamp
 		}
+	}
+	putOpts.Internal.TaggingTimestamp, err = replicationTaggingTimestamp(objInfo)
+	if err != nil {
+		return putOpts, false, err
 	}
 
 	lkMap := caseInsensitiveMap(objInfo.UserDefined)
@@ -1001,6 +1026,12 @@ func getReplicationAction(oi1 ObjectInfo, oi2 minio.ObjectInfo, opType replicati
 	oi2Map := make(map[string]string)
 	maps.Copy(oi2Map, oi2.UserTags)
 	if (oi2.UserTagCount > 0 && !reflect.DeepEqual(oi2Map, t.ToMap())) || (oi2.UserTagCount != len(t.ToMap())) {
+		return replicateMetadata
+	}
+	// HEAD does not report the tag revision. Equal values can hide a newer
+	// deletion or re-addition, so scheduled metadata/heal work must deliver it.
+	// Completed objects are still excluded by the existing scanner gates.
+	if _, ok := caseInsensitiveMap(oi1.UserDefined).Lookup(ReservedMetadataPrefixLower + TaggingTimestamp); ok {
 		return replicateMetadata
 	}
 
@@ -1268,9 +1299,6 @@ func replicateObject(ctx context.Context, ri ReplicateObjectInfo, objectAPI Obje
 					if rinfo.ResyncTimestamp != "" {
 						oi.UserDefined[targetResetHeader(rinfo.Arn)] = rinfo.ResyncTimestamp
 					}
-				}
-				if ri.UserTags != "" {
-					oi.UserDefined[xhttp.AmzObjectTagging] = ri.UserTags
 				}
 				return dsc, nil
 			},
@@ -1689,14 +1717,11 @@ applyAction:
 		if _, ok := lkMap.Lookup(xhttp.AmzObjectLockRetainUntilDate); ok {
 			dstOpts.Internal.RetentionTimestamp = objInfo.ModTime
 		}
-		if objInfo.UserTags != "" {
-			dstOpts.Internal.TaggingTimestamp = objInfo.ModTime
-		}
-		if tagTmStr, ok := lkMap.Lookup(ReservedMetadataPrefixLower + TaggingTimestamp); ok {
-			ondiskTimestamp, err := time.Parse(time.RFC3339, tagTmStr)
-			if err == nil {
-				dstOpts.Internal.TaggingTimestamp = ondiskTimestamp
-			}
+		dstOpts.Internal.TaggingTimestamp, rinfo.Err = replicationTaggingTimestamp(objInfo)
+		if rinfo.Err != nil {
+			rinfo.ReplicationStatus = replication.Failed
+			replLogIf(ctx, fmt.Errorf("invalid tagging timestamp for object %s/%s(%s): %w", bucket, object, objInfo.VersionID, rinfo.Err))
+			return rinfo
 		}
 		if retTmStr, ok := lkMap.Lookup(ReservedMetadataPrefixLower + ObjectLockRetentionTimestamp); ok {
 			ondiskTimestamp, err := time.Parse(time.RFC3339, retTmStr)
@@ -1916,11 +1941,26 @@ func filterReplicationStatusMetadata(metadata map[string]string) map[string]stri
 // DeletedObjectReplicationInfo has info on deleted object
 type DeletedObjectReplicationInfo struct {
 	DeletedObject
-	Bucket    string
-	EventType string
-	OpType    replication.Type
-	ResetID   string
-	TargetArn string
+	Bucket     string
+	EventType  string
+	OpType     replication.Type
+	ResetID    string
+	TargetArn  string
+	RetryCount int
+}
+
+// isVersionPurge also recognizes the old marker-shaped purge task. Use the
+// operation's state, rather than one target's possibly missing purge entry.
+func (di DeletedObjectReplicationInfo) isVersionPurge() bool {
+	return di.VersionID != "" || di.DeleteMarkerVersionID != "" && !di.VersionPurgeStatus().Empty()
+}
+
+// Purge metadata uses COMPLETE; operation statistics and audit use COMPLETED.
+func purgeReplicationStatus(status VersionPurgeStatusType) replication.StatusType {
+	if replication.StatusType(status) == replication.CompletedLegacy {
+		return replication.Completed
+	}
+	return replication.StatusType(status)
 }
 
 // ToMRFEntry returns the relevant info needed by MRF
@@ -1930,9 +1970,10 @@ func (di DeletedObjectReplicationInfo) ToMRFEntry() MRFReplicateEntry {
 		versionID = di.VersionID
 	}
 	return MRFReplicateEntry{
-		Bucket:    di.Bucket,
-		Object:    di.ObjectName,
-		versionID: versionID,
+		Bucket:     di.Bucket,
+		Object:     di.ObjectName,
+		versionID:  versionID,
+		RetryCount: di.RetryCount,
 	}
 }
 
@@ -2424,6 +2465,7 @@ func (p *ReplicationPool) queueReplicaDeleteTask(doi DeletedObjectReplicationInf
 	case <-p.ctx.Done():
 	case ch <- doi:
 	default:
+		doi.RetryCount++
 		p.queueMRFSave(doi.ToMRFEntry())
 		p.mu.RLock()
 		prio := p.priority
@@ -3787,9 +3829,10 @@ func queueReplicationHeal(ctx context.Context, bucket string, oi ObjectInfo, rcf
 				DeleteMarkerMTime:     DeleteMarkerMTime{roi.ModTime},
 				DeleteMarker:          roi.DeleteMarker,
 			},
-			Bucket:    roi.Bucket,
-			OpType:    replication.HealReplicationType,
-			EventType: ReplicateHealDelete,
+			Bucket:     roi.Bucket,
+			OpType:     replication.HealReplicationType,
+			EventType:  ReplicateHealDelete,
+			RetryCount: retryCount,
 		}
 		// heal delete marker replication failure or versioned delete replication failure
 		if roi.ReplicationStatus == replication.Pending ||
@@ -4072,7 +4115,12 @@ func (p *ReplicationPool) queueMRFHeal() error {
 				VersionID: vID,
 			})
 			cancel()
-			if err != nil {
+			// A versioned marker lookup returns its metadata with a 405. Only
+			// accept that error with a real, matching marker identity.
+			validMarker := isErrMethodNotAllowed(err) && oi.DeleteMarker &&
+				vID != "" && oi.VersionID == vID && !oi.ModTime.IsZero() &&
+				oi.Bucket == e.Bucket && oi.Name != "" && oi.Name == decodeDirObject(e.Object)
+			if err != nil && !validMarker || oi.Name == "" {
 				continue
 			}
 

@@ -1,0 +1,195 @@
+=== RUN   TestStrictReadDeadline
+=== RUN   TestStrictReadDeadline/SetReadDeadline
+=== RUN   TestStrictReadDeadline/SetDeadline
+--- PASS: TestStrictReadDeadline (0.00s)
+    --- PASS: TestStrictReadDeadline/SetReadDeadline (0.00s)
+    --- PASS: TestStrictReadDeadline/SetDeadline (0.00s)
+=== RUN   TestDefaultReadDeadlineStillRenews
+--- PASS: TestDefaultReadDeadlineStillRenews (0.00s)
+=== RUN   TestStrictExpiredFutureReadDeadline
+--- PASS: TestStrictExpiredFutureReadDeadline (0.06s)
+=== RUN   TestConcurrentStrictReadDeadline
+--- PASS: TestConcurrentStrictReadDeadline (0.00s)
+PASS
+ok  	github.com/minio/minio/internal/deadlineconn	0.652s
+=== RUN   TestServerReadHeaderDeadline
+=== RUN   TestServerReadHeaderDeadline/tls=false/second=false/trickle=false
+=== PAUSE TestServerReadHeaderDeadline/tls=false/second=false/trickle=false
+=== RUN   TestServerReadHeaderDeadline/tls=false/second=false/trickle=true
+=== PAUSE TestServerReadHeaderDeadline/tls=false/second=false/trickle=true
+=== RUN   TestServerReadHeaderDeadline/tls=false/second=true/trickle=false
+=== PAUSE TestServerReadHeaderDeadline/tls=false/second=true/trickle=false
+=== RUN   TestServerReadHeaderDeadline/tls=false/second=true/trickle=true
+=== PAUSE TestServerReadHeaderDeadline/tls=false/second=true/trickle=true
+=== RUN   TestServerReadHeaderDeadline/tls=true/second=false/trickle=false
+=== PAUSE TestServerReadHeaderDeadline/tls=true/second=false/trickle=false
+=== RUN   TestServerReadHeaderDeadline/tls=true/second=false/trickle=true
+=== PAUSE TestServerReadHeaderDeadline/tls=true/second=false/trickle=true
+=== RUN   TestServerReadHeaderDeadline/tls=true/second=true/trickle=false
+=== PAUSE TestServerReadHeaderDeadline/tls=true/second=true/trickle=false
+=== RUN   TestServerReadHeaderDeadline/tls=true/second=true/trickle=true
+=== PAUSE TestServerReadHeaderDeadline/tls=true/second=true/trickle=true
+=== CONT  TestServerReadHeaderDeadline/tls=false/second=false/trickle=false
+=== CONT  TestServerReadHeaderDeadline/tls=true/second=false/trickle=false
+=== CONT  TestServerReadHeaderDeadline/tls=true/second=true/trickle=false
+=== CONT  TestServerReadHeaderDeadline/tls=false/second=true/trickle=false
+=== CONT  TestServerReadHeaderDeadline/tls=false/second=false/trickle=true
+=== CONT  TestServerReadHeaderDeadline/tls=true/second=false/trickle=true
+=== CONT  TestServerReadHeaderDeadline/tls=false/second=true/trickle=true
+=== CONT  TestServerReadHeaderDeadline/tls=true/second=true/trickle=true
+--- PASS: TestServerReadHeaderDeadline (0.00s)
+    --- PASS: TestServerReadHeaderDeadline/tls=false/second=false/trickle=true (0.40s)
+    --- PASS: TestServerReadHeaderDeadline/tls=true/second=false/trickle=true (0.41s)
+    --- PASS: TestServerReadHeaderDeadline/tls=false/second=false/trickle=false (0.60s)
+    --- PASS: TestServerReadHeaderDeadline/tls=true/second=false/trickle=false (0.61s)
+    --- PASS: TestServerReadHeaderDeadline/tls=false/second=true/trickle=true (0.80s)
+    --- PASS: TestServerReadHeaderDeadline/tls=true/second=true/trickle=true (0.81s)
+    --- PASS: TestServerReadHeaderDeadline/tls=false/second=true/trickle=false (1.00s)
+    --- PASS: TestServerReadHeaderDeadline/tls=true/second=true/trickle=false (1.01s)
+=== RUN   TestServerKeepAliveDeadline
+=== RUN   TestServerKeepAliveDeadline/tls=false
+=== PAUSE TestServerKeepAliveDeadline/tls=false
+=== RUN   TestServerKeepAliveDeadline/tls=true
+=== PAUSE TestServerKeepAliveDeadline/tls=true
+=== CONT  TestServerKeepAliveDeadline/tls=false
+=== CONT  TestServerKeepAliveDeadline/tls=true
+--- PASS: TestServerKeepAliveDeadline (0.00s)
+    --- PASS: TestServerKeepAliveDeadline/tls=true (1.50s)
+    --- PASS: TestServerKeepAliveDeadline/tls=false (1.50s)
+=== RUN   TestServerContinuousUpload
+=== RUN   TestServerContinuousUpload/tls=false/chunked=false/expect=false
+=== PAUSE TestServerContinuousUpload/tls=false/chunked=false/expect=false
+=== RUN   TestServerContinuousUpload/tls=false/chunked=false/expect=true
+=== PAUSE TestServerContinuousUpload/tls=false/chunked=false/expect=true
+=== RUN   TestServerContinuousUpload/tls=false/chunked=true/expect=false
+=== PAUSE TestServerContinuousUpload/tls=false/chunked=true/expect=false
+=== RUN   TestServerContinuousUpload/tls=false/chunked=true/expect=true
+=== PAUSE TestServerContinuousUpload/tls=false/chunked=true/expect=true
+=== RUN   TestServerContinuousUpload/tls=true/chunked=false/expect=false
+=== PAUSE TestServerContinuousUpload/tls=true/chunked=false/expect=false
+=== RUN   TestServerContinuousUpload/tls=true/chunked=false/expect=true
+=== PAUSE TestServerContinuousUpload/tls=true/chunked=false/expect=true
+=== RUN   TestServerContinuousUpload/tls=true/chunked=true/expect=false
+=== PAUSE TestServerContinuousUpload/tls=true/chunked=true/expect=false
+=== RUN   TestServerContinuousUpload/tls=true/chunked=true/expect=true
+=== PAUSE TestServerContinuousUpload/tls=true/chunked=true/expect=true
+=== CONT  TestServerContinuousUpload/tls=false/chunked=false/expect=false
+=== CONT  TestServerContinuousUpload/tls=true/chunked=false/expect=false
+=== CONT  TestServerContinuousUpload/tls=false/chunked=true/expect=false
+=== CONT  TestServerContinuousUpload/tls=false/chunked=false/expect=true
+=== CONT  TestServerContinuousUpload/tls=true/chunked=true/expect=false
+=== CONT  TestServerContinuousUpload/tls=true/chunked=true/expect=true
+=== CONT  TestServerContinuousUpload/tls=true/chunked=false/expect=true
+=== CONT  TestServerContinuousUpload/tls=false/chunked=true/expect=true
+=== NAME  TestServerContinuousUpload/tls=false/chunked=false/expect=true
+    server_deadline_test.go:259: continuous upload 1.296547458s > idle 300ms
+=== NAME  TestServerContinuousUpload/tls=false/chunked=true/expect=false
+    server_deadline_test.go:259: continuous upload 1.296906542s > idle 300ms
+=== NAME  TestServerContinuousUpload/tls=true/chunked=true/expect=false
+    server_deadline_test.go:259: continuous upload 1.293365791s > idle 300ms
+=== NAME  TestServerContinuousUpload/tls=true/chunked=true/expect=true
+    server_deadline_test.go:259: continuous upload 1.293554459s > idle 300ms
+=== NAME  TestServerContinuousUpload/tls=false/chunked=false/expect=false
+    server_deadline_test.go:259: continuous upload 1.296912417s > idle 300ms
+=== NAME  TestServerContinuousUpload/tls=true/chunked=false/expect=true
+    server_deadline_test.go:259: continuous upload 1.293226958s > idle 300ms
+=== NAME  TestServerContinuousUpload/tls=false/chunked=true/expect=true
+    server_deadline_test.go:259: continuous upload 1.295960125s > idle 300ms
+=== NAME  TestServerContinuousUpload/tls=true/chunked=false/expect=false
+    server_deadline_test.go:259: continuous upload 1.29373425s > idle 300ms
+--- PASS: TestServerContinuousUpload (0.00s)
+    --- PASS: TestServerContinuousUpload/tls=true/chunked=true/expect=false (1.30s)
+    --- PASS: TestServerContinuousUpload/tls=false/chunked=true/expect=true (1.30s)
+    --- PASS: TestServerContinuousUpload/tls=true/chunked=false/expect=false (1.30s)
+    --- PASS: TestServerContinuousUpload/tls=false/chunked=false/expect=false (1.30s)
+    --- PASS: TestServerContinuousUpload/tls=false/chunked=true/expect=false (1.30s)
+    --- PASS: TestServerContinuousUpload/tls=false/chunked=false/expect=true (1.30s)
+    --- PASS: TestServerContinuousUpload/tls=true/chunked=false/expect=true (1.30s)
+    --- PASS: TestServerContinuousUpload/tls=true/chunked=true/expect=true (1.30s)
+=== RUN   TestServerDefaultIdleLongUpload
+    server_deadline_test.go:268: set SILO_TEST_LONG_UPLOAD=1 for >30s default-idle regression
+--- SKIP: TestServerDefaultIdleLongUpload (0.00s)
+=== RUN   TestServerIdleBodyDeadline
+=== RUN   TestServerIdleBodyDeadline/tls=false
+=== PAUSE TestServerIdleBodyDeadline/tls=false
+=== RUN   TestServerIdleBodyDeadline/tls=true
+=== PAUSE TestServerIdleBodyDeadline/tls=true
+=== CONT  TestServerIdleBodyDeadline/tls=false
+=== CONT  TestServerIdleBodyDeadline/tls=true
+--- PASS: TestServerIdleBodyDeadline (0.00s)
+    --- PASS: TestServerIdleBodyDeadline/tls=false (0.45s)
+    --- PASS: TestServerIdleBodyDeadline/tls=true (0.45s)
+=== RUN   TestServerBackgroundReadNoDeadline
+=== RUN   TestServerBackgroundReadNoDeadline/tls=false/body=false
+=== PAUSE TestServerBackgroundReadNoDeadline/tls=false/body=false
+=== RUN   TestServerBackgroundReadNoDeadline/tls=false/body=true
+=== PAUSE TestServerBackgroundReadNoDeadline/tls=false/body=true
+=== RUN   TestServerBackgroundReadNoDeadline/tls=true/body=false
+=== PAUSE TestServerBackgroundReadNoDeadline/tls=true/body=false
+=== RUN   TestServerBackgroundReadNoDeadline/tls=true/body=true
+=== PAUSE TestServerBackgroundReadNoDeadline/tls=true/body=true
+=== CONT  TestServerBackgroundReadNoDeadline/tls=false/body=false
+=== CONT  TestServerBackgroundReadNoDeadline/tls=true/body=false
+=== CONT  TestServerBackgroundReadNoDeadline/tls=false/body=true
+=== CONT  TestServerBackgroundReadNoDeadline/tls=true/body=true
+--- PASS: TestServerBackgroundReadNoDeadline (0.00s)
+    --- PASS: TestServerBackgroundReadNoDeadline/tls=false/body=true (0.70s)
+    --- PASS: TestServerBackgroundReadNoDeadline/tls=false/body=false (0.70s)
+    --- PASS: TestServerBackgroundReadNoDeadline/tls=true/body=true (0.70s)
+    --- PASS: TestServerBackgroundReadNoDeadline/tls=true/body=false (0.70s)
+=== RUN   TestServerTLSHandshakeReadDeadline
+2026/09/15 23:51:45 http: TLS handshake error from 127.0.0.1:54459: read tcp 127.0.0.1:54458->127.0.0.1:54459: i/o timeout
+--- PASS: TestServerTLSHandshakeReadDeadline (0.20s)
+=== RUN   TestServerConnStateHook
+=== RUN   TestServerConnStateHook/tls=false
+=== RUN   TestServerConnStateHook/tls=true
+--- PASS: TestServerConnStateHook (0.00s)
+    --- PASS: TestServerConnStateHook/tls=false (0.00s)
+    --- PASS: TestServerConnStateHook/tls=true (0.00s)
+=== RUN   TestServerHTTP2Deadlines
+--- PASS: TestServerHTTP2Deadlines (0.40s)
+=== RUN   TestServerEarlyBodyClose
+=== RUN   TestServerEarlyBodyClose/tls=false
+=== PAUSE TestServerEarlyBodyClose/tls=false
+=== RUN   TestServerEarlyBodyClose/tls=true
+=== PAUSE TestServerEarlyBodyClose/tls=true
+=== CONT  TestServerEarlyBodyClose/tls=false
+=== CONT  TestServerEarlyBodyClose/tls=true
+--- PASS: TestServerEarlyBodyClose (0.00s)
+    --- PASS: TestServerEarlyBodyClose/tls=false (0.30s)
+    --- PASS: TestServerEarlyBodyClose/tls=true (0.30s)
+=== RUN   TestServerPipelinedDeadline
+=== RUN   TestServerPipelinedDeadline/tls=false
+=== RUN   TestServerPipelinedDeadline/tls=true
+--- PASS: TestServerPipelinedDeadline (1.30s)
+    --- PASS: TestServerPipelinedDeadline/tls=false (0.65s)
+    --- PASS: TestServerPipelinedDeadline/tls=true (0.65s)
+=== RUN   TestServerHijackedDeadline
+=== RUN   TestServerHijackedDeadline/tls=false
+=== PAUSE TestServerHijackedDeadline/tls=false
+=== RUN   TestServerHijackedDeadline/tls=true
+=== PAUSE TestServerHijackedDeadline/tls=true
+=== CONT  TestServerHijackedDeadline/tls=false
+=== CONT  TestServerHijackedDeadline/tls=true
+--- PASS: TestServerHijackedDeadline (0.00s)
+    --- PASS: TestServerHijackedDeadline/tls=false (0.70s)
+    --- PASS: TestServerHijackedDeadline/tls=true (0.70s)
+=== RUN   TestServerContinuousDownload
+=== RUN   TestServerContinuousDownload/tls=false
+=== PAUSE TestServerContinuousDownload/tls=false
+=== RUN   TestServerContinuousDownload/tls=true
+=== PAUSE TestServerContinuousDownload/tls=true
+=== CONT  TestServerContinuousDownload/tls=false
+=== CONT  TestServerContinuousDownload/tls=true
+=== NAME  TestServerContinuousDownload/tls=false
+    server_deadline_test.go:587: continuous download 1.296415709s > idle 300ms
+=== NAME  TestServerContinuousDownload/tls=true
+    server_deadline_test.go:587: continuous download 1.294823375s > idle 300ms
+--- PASS: TestServerContinuousDownload (0.00s)
+    --- PASS: TestServerContinuousDownload/tls=false (1.30s)
+    --- PASS: TestServerContinuousDownload/tls=true (1.30s)
+=== RUN   TestServerDefaultIdleLongDownload
+    server_deadline_test.go:594: set SILO_TEST_LONG_UPLOAD=1 for >30s default-idle transfer regressions
+--- SKIP: TestServerDefaultIdleLongDownload (0.00s)
+PASS
+ok  	github.com/minio/minio/internal/http	9.965s

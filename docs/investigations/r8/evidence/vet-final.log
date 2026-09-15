@@ -1,0 +1,3 @@
+$ go vet ./internal/deadlineconn ./internal/http
+
+exit_code=0

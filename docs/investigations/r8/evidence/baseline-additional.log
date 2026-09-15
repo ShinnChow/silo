@@ -1,0 +1,23 @@
+=== RUN   TestServerConnStateHook
+=== RUN   TestServerConnStateHook/tls=false
+=== RUN   TestServerConnStateHook/tls=true
+--- PASS: TestServerConnStateHook (0.00s)
+    --- PASS: TestServerConnStateHook/tls=false (0.00s)
+    --- PASS: TestServerConnStateHook/tls=true (0.00s)
+=== RUN   TestServerHTTP2Deadlines
+    r8_compatibility_test.go:278: expected HTTP/2, got HTTP/1.1
+    r8_compatibility_test.go:293: unexpected HTTP/1.1 204 No Content
+--- FAIL: TestServerHTTP2Deadlines (0.00s)
+=== RUN   TestServerEarlyBodyClose
+=== RUN   TestServerEarlyBodyClose/tls=false
+=== PAUSE TestServerEarlyBodyClose/tls=false
+=== RUN   TestServerEarlyBodyClose/tls=true
+=== PAUSE TestServerEarlyBodyClose/tls=true
+=== CONT  TestServerEarlyBodyClose/tls=false
+=== CONT  TestServerEarlyBodyClose/tls=true
+--- PASS: TestServerEarlyBodyClose (0.00s)
+    --- PASS: TestServerEarlyBodyClose/tls=false (0.30s)
+    --- PASS: TestServerEarlyBodyClose/tls=true (0.30s)
+FAIL
+FAIL	github.com/minio/minio/internal/http	0.959s
+FAIL

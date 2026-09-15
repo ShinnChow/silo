@@ -1,0 +1,24 @@
+{
+  "baseline_sha": "9ebe81c1b3611f9cc73e676b5b741c2be62c467a",
+  "plan": "plan-v2.md",
+  "plan_sha256": "426127ed9fb08aeddf8259ebdc4b1c24ebec8cda751a970ed99338a44b065f4c",
+  "requested_model": "claude-opus-5",
+  "effort": "max",
+  "cli_version": "2.1.270",
+  "status": "completed",
+  "created_at_utc": "2026-09-15T15:59:43.188547+00:00",
+  "actual_assistant_models": [
+    "claude-opus-5"
+  ],
+  "result_subtype": "success",
+  "is_error": false,
+  "session_id": "a1e9e8a2-3417-440b-93b6-c749cbca204f",
+  "duration_ms": 211549,
+  "raw_path": "/Users/vonng/tmp/silo-r8-01a0a5b9/opus-v2.jsonl",
+  "stderr_path": "/Users/vonng/tmp/silo-r8-01a0a5b9/opus-v2.stderr.log",
+  "raw_sha256": "28a1266b05b8813295168530d9b9dcc792a379a798e74419ee1f06aad364defd",
+  "review_sha256": "da31df576da632377c963da2ad32e96a9bf4d5f747fb8e2493573b32a899a4ed",
+  "completed_at_utc": "2026-09-15T16:07:10.728735+00:00",
+  "verdict": "CONSENSUS",
+  "blocking_disagreements": 0
+}

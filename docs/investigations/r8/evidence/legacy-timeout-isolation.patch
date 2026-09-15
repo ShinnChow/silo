@@ -1,0 +1,31 @@
+--- buildscripts/test-timeout.sh
++++ temporary/test-timeout-isolated.sh
+@@ -31,8 +31,11 @@
+ 	fi
+ 
+ 	echo "Cleaning up instances of Silo"
+-	pkill silo || true
+-	pkill -9 silo || true
++	if [ -n "${pid:-}" ]; then
++		kill "$pid" 2>/dev/null || true
++		wait "$pid" 2>/dev/null || true
++	fi
++	if [ -f "$WORK_DIR/server1.log" ]; then cp "$WORK_DIR/server1.log" "$PWD/timeout-server.log"; fi
+ 	purge "$WORK_DIR"
+ 	if [ $# -ne 0 ]; then
+ 		exit $#
+@@ -83,7 +86,7 @@
+ 		"$(git rev-parse --show-toplevel)/buildscripts/install-mcli.sh" "$PWD/mc"
+ 	fi
+ 
+-	"${SILO[@]}" --address ":$start_port" --read-header-timeout ${srv_hdr_timeout}s --idle-timeout ${srv_idle_timeout}s "${WORK_DIR}/disk/" >"${WORK_DIR}/server1.log" 2>&1 &
++	"${SILO[@]}" --address "127.0.0.1:$start_port" --read-header-timeout ${srv_hdr_timeout}s --idle-timeout ${srv_idle_timeout}s "${WORK_DIR}/disk/" >"${WORK_DIR}/server1.log" 2>&1 &
+ 	pid=$!
+ 	disown $pid
+ 	sleep 1
+@@ -124,3 +127,5 @@
+ }
+ 
+ main "$@"
++
++catch

@@ -2327,7 +2327,11 @@ func (er erasureObjects) PutObjectTags(ctx context.Context, bucket, object strin
 
 	fi.Metadata[xhttp.AmzObjectTagging] = tags
 	fi.ReplicationState = opts.PutReplicationState()
+	stamp := monotonicTaggingTimestamp(opts.UserDefined[ReservedMetadataPrefixLower+TaggingTimestamp], fi.Metadata[ReservedMetadataPrefixLower+TaggingTimestamp])
 	maps.Copy(fi.Metadata, opts.UserDefined)
+	if stamp != "" {
+		fi.Metadata[ReservedMetadataPrefixLower+TaggingTimestamp] = stamp
+	}
 
 	if err = er.updateObjectMeta(ctx, bucket, object, fi, onlineDisks); err != nil {
 		return ObjectInfo{}, toObjectErr(err, bucket, object)

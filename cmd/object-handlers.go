@@ -1797,6 +1797,7 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	// source timestamp is newer than the stored one, and a stale update must
 	// leave the stored state in place instead of erasing it.
 	storedLock := storedObjectLockState(srcInfo.UserDefined)
+	storedTagTimestamp := srcInfo.UserDefined[ReservedMetadataPrefixLower+TaggingTimestamp]
 
 	srcInfo.UserDefined, err = getCpObjMetadataFromHeader(ctx, r, srcInfo.UserDefined, allowReplicationMetadata)
 	if err != nil {
@@ -1814,23 +1815,29 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	if objTags != "" {
-		lastTaggingTimestamp := srcInfo.UserDefined[ReservedMetadataPrefixLower+TaggingTimestamp]
-		if dstOpts.ReplicationRequest {
-			srcTimestamp := dstOpts.ReplicationSourceTaggingTimestamp
-			if !srcTimestamp.IsZero() {
-				ondiskTimestamp, err := time.Parse(time.RFC3339Nano, lastTaggingTimestamp)
-				// update tagging metadata only if replica  timestamp is newer than what's on disk
-				if err != nil || (err == nil && !ondiskTimestamp.After(srcTimestamp)) {
-					srcInfo.UserDefined[ReservedMetadataPrefixLower+TaggingTimestamp] = srcTimestamp.UTC().Format(time.RFC3339Nano)
-					srcInfo.UserDefined[xhttp.AmzObjectTagging] = objTags
-				}
-			}
-		} else {
+	if dstOpts.ReplicationRequest {
+		srcTimestamp := dstOpts.ReplicationSourceTaggingTimestamp
+		if !srcTimestamp.IsZero() {
+			// An empty value with a timestamp is an ordered deletion. Recheck
+			// the captured state even if metadata REPLACE rebuilt the map.
+			srcInfo.UserDefined[ReservedMetadataPrefixLower+TaggingTimestamp] = srcTimestamp.UTC().Format(time.RFC3339Nano)
 			srcInfo.UserDefined[xhttp.AmzObjectTagging] = objTags
-			srcInfo.UserDefined[ReservedMetadataPrefixLower+TaggingTimestamp] = UTCNow().Format(time.RFC3339Nano)
+			reconcileStoredObjectTags(srcInfo.UserDefined, srcInfo.UserTags, storedTagTimestamp)
+		} else {
+			srcInfo.UserDefined[xhttp.AmzObjectTagging] = srcInfo.UserTags
+			if storedTagTimestamp != "" {
+				srcInfo.UserDefined[ReservedMetadataPrefixLower+TaggingTimestamp] = storedTagTimestamp
+			} else {
+				delete(srcInfo.UserDefined, ReservedMetadataPrefixLower+TaggingTimestamp)
+			}
 		}
+	} else {
+		srcInfo.UserDefined[xhttp.AmzObjectTagging] = objTags
+		srcInfo.UserDefined[ReservedMetadataPrefixLower+TaggingTimestamp] = UTCNow().Format(time.RFC3339Nano)
 	}
+	// SSE-C rotation snapshots reserved metadata before the tag decision. Its
+	// later merge must not put the old timestamp back over the accepted state.
+	delete(encMetadata, ReservedMetadataPrefixLower+TaggingTimestamp)
 
 	srcInfo.UserDefined = filterReplicationStatusMetadata(srcInfo.UserDefined)
 	srcInfo.UserDefined = objectlock.FilterObjectLockMetadata(srcInfo.UserDefined, true, true)
@@ -2312,6 +2319,9 @@ func (api objectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		writeErrorResponse(ctx, w, toAPIError(ctx, err), r.URL)
 		return
+	}
+	if opts.ReplicationRequest && !opts.ReplicationSourceTaggingTimestamp.IsZero() {
+		metadata[ReservedMetadataPrefixLower+TaggingTimestamp] = opts.ReplicationSourceTaggingTimestamp.UTC().Format(time.RFC3339Nano)
 	}
 
 	actualSize := size
@@ -3760,11 +3770,11 @@ func (api objectAPIHandlers) PutObjectTaggingHandler(w http.ResponseWriter, r *h
 	}
 
 	dsc := mustReplicate(ctx, bucket, object, getMustReplicateOptions(objInfo.UserDefined, tagsStr, objInfo.ReplicationStatus, replication.MetadataReplicationType, opts))
+	stamp := UTCNow().Format(time.RFC3339Nano)
+	opts.UserDefined = map[string]string{ReservedMetadataPrefixLower + TaggingTimestamp: stamp}
 	if dsc.ReplicateAny() {
-		opts.UserDefined = make(map[string]string)
-		opts.UserDefined[ReservedMetadataPrefixLower+ReplicationTimestamp] = UTCNow().Format(time.RFC3339Nano)
+		opts.UserDefined[ReservedMetadataPrefixLower+ReplicationTimestamp] = stamp
 		opts.UserDefined[ReservedMetadataPrefixLower+ReplicationStatus] = dsc.PendingStatus()
-		opts.UserDefined[ReservedMetadataPrefixLower+TaggingTimestamp] = UTCNow().Format(time.RFC3339Nano)
 	}
 
 	// Put object tags
@@ -3863,9 +3873,10 @@ func (api objectAPIHandlers) DeleteObjectTaggingHandler(w http.ResponseWriter, r
 	}
 
 	dsc := mustReplicate(ctx, bucket, object, oi.getMustReplicateOptions(replication.MetadataReplicationType, opts))
+	stamp := UTCNow().Format(time.RFC3339Nano)
+	opts.UserDefined = map[string]string{ReservedMetadataPrefixLower + TaggingTimestamp: stamp}
 	if dsc.ReplicateAny() {
-		opts.UserDefined = make(map[string]string)
-		opts.UserDefined[ReservedMetadataPrefixLower+ReplicationTimestamp] = UTCNow().Format(time.RFC3339Nano)
+		opts.UserDefined[ReservedMetadataPrefixLower+ReplicationTimestamp] = stamp
 		opts.UserDefined[ReservedMetadataPrefixLower+ReplicationStatus] = dsc.PendingStatus()
 	}
 

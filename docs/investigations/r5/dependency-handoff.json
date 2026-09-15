@@ -1,0 +1,35 @@
+{
+  "tested_dependency": "dbcf8dec589deb5d91e17d295cb70997635f5b55",
+  "merged_dependency": "af2b1794d38d9e70e1d2c3ee692426e4b6cab4bd",
+  "pr": "https://github.com/pgsty/silo/pull/193",
+  "files": {
+    "cmd/object-api-options.go": {
+      "tested_sha256": "25e2e9484fafd94d1b2c857b94373758e481893ad93fb1a063edf7746277accc",
+      "merged_sha256": "25e2e9484fafd94d1b2c857b94373758e481893ad93fb1a063edf7746277accc",
+      "package_body_sha256": "23fa2a25307bf1e41b665217a3f39aa7a8b860686a54209092fa9c0f1f13243a",
+      "package_body_identical": true
+    },
+    "cmd/object-api-options-replication_test.go": {
+      "tested_sha256": "1ea2a060987e32a4c76fce96ee974df475944c2d6ab482a4893e33daf7bca849",
+      "merged_sha256": "c21fc8889a079085d9a882499a1cbe868278a3517580651f3bed1102e2a6aef8",
+      "package_body_sha256": "1a57a47bdd370042fa0f0d2d90efe447abedee9b9ef48a938d4bed631d83ec0b",
+      "package_body_identical": true
+    },
+    "cmd/object-copy-replication-tagging_test.go": {
+      "tested_sha256": "5437a77e68736b4ce69de9c777675251fef24b0352dfe30bd8a836fc7ee810e3",
+      "merged_sha256": "73f066ed7258d430f078ecc90e551ece878bd3d4672bc762094d434ff8fec23d",
+      "package_body_sha256": "ef77de91cd91d1bd1c3cb10e4fee171c724c4f548749a23c7e48dcfcfb6a1585",
+      "package_body_identical": true
+    }
+  },
+  "other_changes": [
+    "cmd/object-api-options-replication_test.go",
+    "cmd/object-copy-replication-tagging_test.go",
+    "docs/investigations/r4/implementation-review.md",
+    "docs/investigations/r4/implementation-review.metadata.json",
+    "docs/investigations/r4/merge-verification.json",
+    "docs/investigations/r4/merge-verification.md",
+    "docs/investigations/r4/verification.md"
+  ],
+  "scope": "R5 local branch will rebase onto this exact R4 merge; no R5 push or merge."
+}

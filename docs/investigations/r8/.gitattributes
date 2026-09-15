@@ -1,0 +1,3 @@
+# Keep captured output and unified-diff context verbatim.
+*.log -whitespace
+*.patch -whitespace

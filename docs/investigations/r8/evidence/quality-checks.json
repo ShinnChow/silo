@@ -1,0 +1,186 @@
+[
+  {
+    "name": "vet-final",
+    "command": [
+      "go",
+      "vet",
+      "./internal/deadlineconn",
+      "./internal/http"
+    ],
+    "started_at_utc": "2026-09-15T16:04:26.504181+00:00",
+    "exit_code": 0,
+    "log": "docs/investigations/r8/evidence/vet-final.log",
+    "log_sha256": "521e3dbf0e63e910c0025f52abf592799fe3a9e9329a7fc33cb9938df5578036"
+  },
+  {
+    "name": "tidy-final",
+    "command": [
+      "go",
+      "mod",
+      "tidy",
+      "-diff"
+    ],
+    "started_at_utc": "2026-09-15T16:04:26.810955+00:00",
+    "exit_code": 0,
+    "log": "docs/investigations/r8/evidence/tidy-final.log",
+    "log_sha256": "3ad6ef5392ed3ed22d5b0fc1d5e04665208487b3fb168910457b8197ab507471"
+  },
+  {
+    "name": "whitespace-final",
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "started_at_utc": "2026-09-15T16:04:26.979546+00:00",
+    "exit_code": 0,
+    "log": "docs/investigations/r8/evidence/whitespace-final.log",
+    "log_sha256": "fa77ab6dcf895a30623113e37b6ee812c6cd35b0cbb9693a0c18de550e6b1cf6"
+  },
+  {
+    "name": "linux-race-final",
+    "command": "docker run --rm ... golang:1.27.1-bookworm go test -p 2 -race ./internal/deadlineconn ./internal/http -count=1 -v",
+    "exit_code": 0,
+    "platform": "linux/arm64",
+    "log": "docs/investigations/r8/evidence/linux-race-final.log",
+    "log_sha256": "484577f3b3820ecfc078b38dd808e048f52704a8c3ffc0dad9100bff26ead1f3"
+  },
+  {
+    "name": "darwin-race-final",
+    "command": "go test -race ./internal/deadlineconn ./internal/http -count=1 -v",
+    "exit_code": 0,
+    "platform": "darwin/arm64",
+    "log": "docs/investigations/r8/evidence/darwin-race-final.log",
+    "log_sha256": "e7f0bac82e1eb346ff53422bb2426995bcb7d5d06b1d81c1bb3cc8c2dcdc7774"
+  },
+  {
+    "name": "review-refinements",
+    "command": "go test -race ./internal/http ./internal/deadlineconn -run ^Test(ServerHTTP2Deadlines|StrictReadDeadlineRepeatedRenewal)$ -count=3 -v",
+    "exit_code": 0,
+    "platform": "darwin/arm64",
+    "log": "docs/investigations/r8/evidence/review-refinements.log",
+    "log_sha256": "c9b46f946cedcca88b8ed3dc7e465a4ad7836b4add338e42db3da7572be6a83b"
+  },
+  {
+    "name": "original-reproducer-fixed",
+    "command": "go test -overlay=/Users/vonng/tmp/silo-r8-01a0a5b9/baseline-overlay.json ./internal/http -run ^TestReviewR8AbsoluteHeaderTimeout$ -count=1 -v",
+    "exit_code": 0,
+    "platform": "darwin/arm64",
+    "log": "docs/investigations/r8/evidence/original-reproducer-fixed.log",
+    "log_sha256": "e787f5e5ad826518a39fdebbb43d28b6ceab36ed8e32267cf3a450af31ce9844"
+  },
+  {
+    "name": "default-30s-transfers",
+    "command": "SILO_TEST_LONG_UPLOAD=1 go test ./internal/http -run ^TestServerDefaultIdleLong -count=1 -v",
+    "exit_code": 0,
+    "platform": "darwin/arm64",
+    "log": "docs/investigations/r8/evidence/default-30s-transfers.log",
+    "log_sha256": "378defff78ae565e95d52830e5b11c1a01a0a11efc14c2822228ca366df58bc3"
+  },
+  {
+    "name": "grid",
+    "command": "go test ./internal/grid -run ^(TestSingleRoundtrip|TestDisconnect)$ -count=1 -v",
+    "exit_code": 0,
+    "platform": "darwin/arm64",
+    "log": "docs/investigations/r8/evidence/grid.log",
+    "log_sha256": "4f677621e0c927e7a37bbd4c8e29ec9c5879ae4aaaf185fe4c3e0a4c41c6ab10"
+  },
+  {
+    "name": "configuration-baseline",
+    "command": "go test -p 2 -overlay=/Users/vonng/tmp/silo-r8-01a0a5b9/config-overlay.json ./cmd -run ^TestServerReadHeaderTimeoutConfig$ -count=1 -v",
+    "exit_code": 1,
+    "expected_failure": true,
+    "platform": "darwin/arm64",
+    "log": "docs/investigations/r8/evidence/config-baseline.log",
+    "log_sha256": "cc7f7bf345ecfe52db414a785ac3727dc7bf88ec6493de13c1ced1d215e706d8"
+  },
+  {
+    "name": "runtime-v1",
+    "command": "python3 docs/investigations/r8/evidence/runtime_probe.py /Users/vonng/tmp/silo-r8-01a0a5b9/silo-v1 baseline /Users/vonng/tmp/silo-r8-01a0a5b9/runtime-v1",
+    "exit_code": 0,
+    "expected_behavior": "both configured sources still incorrectly accept delayed headers before the binding fix",
+    "platform": "darwin/arm64",
+    "log": "docs/investigations/r8/evidence/runtime-v1.json",
+    "log_sha256": "64808fb172e98e81c65c324f5bb967b91a931fa4a757508aa64aaac94b663ce1"
+  },
+  {
+    "name": "lint-initial",
+    "command": "golangci-lint run --allow-serial-runners --timeout=5m ./internal/deadlineconn ./internal/http",
+    "exit_code": 1,
+    "reason": "staticcheck requested the promoted srv.Close selector; fixed without behavior change",
+    "log": "docs/investigations/r8/evidence/lint.log",
+    "log_sha256": "3370461b3b426035790fccc8b862538f3740f3c8455277518872de6befa6990a"
+  },
+  {
+    "name": "configuration-fixed",
+    "command": "go test -p 2 ./cmd -run ^(TestServerReadHeaderTimeoutConfig|TestServerConfigFile)$ -count=1 -v",
+    "exit_code": 0,
+    "platform": "darwin/arm64",
+    "log": "docs/investigations/r8/evidence/config-fixed.log",
+    "log_sha256": "bf9b7b80ecaa011bcdd4e32d902c0e03d79dfa5f9016f6b43c65678542cc74bb"
+  },
+  {
+    "name": "build-v2",
+    "command": "go build -p 2 -o /Users/vonng/tmp/silo-r8-01a0a5b9/silo-v2 .",
+    "exit_code": 0,
+    "platform": "darwin/arm64",
+    "log": "docs/investigations/r8/evidence/build-v2.log",
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "name": "lint-final",
+    "command": "golangci-lint run --allow-serial-runners --timeout=5m ./internal/deadlineconn ./internal/http",
+    "exit_code": 0,
+    "platform": "darwin/arm64",
+    "log": "docs/investigations/r8/evidence/lint-final.log",
+    "log_sha256": "e92606b0bf483111dff0a120c315ea165821348f31365020e2468a0059095c47"
+  },
+  {
+    "name": "runtime-v2",
+    "command": "python3 docs/investigations/r8/evidence/runtime_probe.py /Users/vonng/tmp/silo-r8-01a0a5b9/silo-v2 fixed /Users/vonng/tmp/silo-r8-01a0a5b9/runtime-v2",
+    "exit_code": 0,
+    "platform": "darwin/arm64",
+    "log": "docs/investigations/r8/evidence/runtime-v2.json",
+    "log_sha256": "253b0c192a3267731bfc46545befe0b7fe07cee6f9c5785d10a03ff782189499"
+  },
+  {
+    "name": "configuration-race-extra",
+    "command": "go test -race -p 2 ./cmd -run ^TestServerReadHeaderTimeoutConfig$ -count=1 -v",
+    "exit_code": 1,
+    "blocked_by_environment": "Darwin external linker failed: errno=28 No space left on device",
+    "log": "docs/investigations/r8/evidence/config-race.log",
+    "log_sha256": "4cec7bba425217027939e01cce8d931a0ade98695bfb31529e71a2d748fc6295"
+  },
+  {
+    "name": "legacy-timeout",
+    "command": "/bin/bash /Users/vonng/tmp/silo-r8-01a0a5b9/legacy-timeout/test-timeout-isolated.sh",
+    "exit_code": 255,
+    "status": "supplementary S3 script blocked by host storage capacity; normal PUT independently returns HTTP 507 XMinioStorageFull",
+    "log": "docs/investigations/r8/evidence/legacy-timeout.log",
+    "diagnostic": "docs/investigations/r8/evidence/s3-capacity-probe.json",
+    "log_sha256": "64f838a6a726e5ed2145924ea6bdbfe6ccb4a05dc1977baaa9658e7024888af6"
+  },
+  {
+    "name": "s3-capacity-diagnostic",
+    "command": "python3 /Users/vonng/tmp/silo-r8-01a0a5b9/s3_capacity_probe.py",
+    "exit_code": 0,
+    "observed_http_status": 507,
+    "observed_s3_code": "XMinioStorageFull",
+    "log": "docs/investigations/r8/evidence/s3-capacity-probe.json",
+    "log_sha256": "51111b9d72437089c8642ef2e2c2b02cf9c81227ec9de9857ba938ea280d077a"
+  },
+  {
+    "name": "delivery-whitespace",
+    "command": [
+      "git",
+      "diff",
+      "--check",
+      "9ebe81c1b3611f9cc73e676b5b741c2be62c467a",
+      "--"
+    ],
+    "exit_code": 0,
+    "log": "docs/investigations/r8/evidence/delivery-whitespace.log",
+    "log_sha256": "3a403d687fac110e2675ee7f86a4f8b3c095b54fa602535f9805a957c67b92c2",
+    "note": "R8 archive .gitattributes preserves raw .log/.patch whitespace; production and test source still checked normally."
+  }
+]

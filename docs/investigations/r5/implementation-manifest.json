@@ -1,0 +1,17 @@
+{
+  "base_commit": "dbcf8dec589deb5d91e17d295cb70997635f5b55",
+  "plan_version": "v2",
+  "plan_sha256": "5a782acf3f285b23d1ae43a73481c4eb772a9a6d917fc5a550ecfc7cbf7446ca",
+  "patch_sha256": "8f6f76ee874c43b0827fde272e8a947f118efb1c1af92bf4a02ef88f93554c1b",
+  "files": {
+    "cmd/bucket-replication.go": "cbab22ffe316fabc076e7f4a1fa5b1417d07b265ae9dc1b27454689355926d35",
+    "cmd/erasure-object.go": "4bc848685ea714d88cabbd5d1b8585fbcc06f7b19c775e1a811030e783d0e1a4",
+    "cmd/erasure-server-pool-consistency.go": "d2736ef6bffbb5c5758eba8df38f8d4ecb888a838ab0de8ad3cf015c051f8ad7",
+    "cmd/erasure-server-pool.go": "87ad0b25dfa3081d0e63d0073b788614a9c88e2498a2ce0956b93f8a0a03ef53",
+    "cmd/object-handlers-common.go": "101bd7d7447072d13fed50983b69b562e4725632645e623d7fdd490f388ecdec",
+    "cmd/object-handlers.go": "61897a260f3f5f660f41edcb50956c60e914ef98f9a987da824f16d78171fde2",
+    "cmd/object-multipart-handlers.go": "d9622c69c540ab32dd23916e3f534b6886473a98370c9dd17673e69a423b2a7e",
+    "cmd/replication-tagging-order_test.go": "64d6dfe3436970caeafcb914157bdedac5982a2105fe72c1753a8d68cf7ed6ef",
+    "cmd/replication-tagging-sender_test.go": "3770a1a48a6efe58fe8127e1e4fdf6bd7cf171e17db20f15222ea2f7b85db1af"
+  }
+}

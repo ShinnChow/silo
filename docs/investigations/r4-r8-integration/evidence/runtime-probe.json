@@ -1,0 +1,27 @@
+{
+  "binary": "/Users/vonng/tmp/silo-r4-r8-main-20260916-01a0a5ab/silo/silo",
+  "binary_sha256": "1cc536f1a3c8d8372ff2d5b140b1fd2bc98a299324fea0f73f67288d48104ce4",
+  "expected_rejection": true,
+  "cases": [
+    {
+      "source": "flag",
+      "header_timeout_ms": 100,
+      "idle_timeout_ms": 2000,
+      "header_completion_delay_ms": 400,
+      "rejected": true,
+      "status": "",
+      "elapsed_seconds": 0.403,
+      "still_alive": true
+    },
+    {
+      "source": "environment",
+      "header_timeout_ms": 100,
+      "idle_timeout_ms": 2000,
+      "header_completion_delay_ms": 400,
+      "rejected": true,
+      "status": "",
+      "elapsed_seconds": 0.402,
+      "still_alive": true
+    }
+  ]
+}

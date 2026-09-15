@@ -106,6 +106,7 @@ func TestReplicateDeleteMarkerTargetSemantics(t *testing.T) {
 
 func testReplicateDeleteMarkerPurge(obj ObjectLayer, instanceType, bucket string, router http.Handler, creds auth.Credentials, t *testing.T, legacy bool) {
 	ctx := t.Context()
+	defer replicationTestCapacity(obj)()
 	const arn = "arn:minio:replication::af470089-d354-4473-934c-9e1f52f6da89:bucket"
 	const name = "marker"
 	version := mustGetUUID()
@@ -208,27 +209,12 @@ func testReplicateDeleteMarkerPurge(obj ObjectLayer, instanceType, bucket string
 		t.Errorf("purge scheduled as marker creation: version=%q marker=%q", deletion.VersionID, deletion.DeleteMarkerVersionID)
 	}
 	if legacy {
-		// Reproduce the old producer's state and let the existing scanner/heal
-		// path recover it. Upgrades must also finish purges already left pending.
+		// Old task shapes must complete directly; scanner/MRF recovery is
+		// covered separately by TestReplicationMRFMarkerRecovery.
 		deletion.VersionID, deletion.DeleteMarkerVersionID = "", version
-		replicateDelete(ctx, deletion, obj)
-		oi, _ := obj.GetObjectInfo(ctx, bucket, name, ObjectOptions{VersionID: version, Versioned: true})
-		if oi.VersionPurgeStatus != replication.VersionPurgePending {
-			t.Fatalf("legacy source purge = %s, want PENDING", oi.VersionPurgeStatus)
-		}
-		targets, err := globalBucketTargetSys.ListBucketTargets(ctx, bucket)
-		if err != nil {
-			t.Fatal(err)
-		}
-		queueReplicationHeal(ctx, bucket, oi, replicationConfig{Config: &cfg, remotes: targets}, 0)
-		select {
-		case op := <-worker:
-			deletion = op.(DeletedObjectReplicationInfo)
-		case <-time.After(time.Second):
-			t.Fatal("legacy pending purge was not scheduled for healing")
-		}
 	}
-	result := replicateDelete(context.Background(), deletion, obj)
+
+	result := replicateDelete(context.Background(), deletion, markerPurgeUpdateLayer{ObjectLayer: obj, t: t})
 	if result.VersionPurgeStatus() != replication.VersionPurgeComplete {
 		t.Errorf("remote purge result = %s, want COMPLETE", result.VersionPurgeStatus())
 	}

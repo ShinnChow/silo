@@ -1,0 +1,17 @@
+{
+  "command": [
+    "go",
+    "test",
+    "-p",
+    "2",
+    "./cmd",
+    "-run",
+    "^TestAPIPoolsTaggingReplicaDeletion$",
+    "-count=1",
+    "-timeout=2m"
+  ],
+  "exit_code": 0,
+  "seconds": 5.096,
+  "log": "/Users/vonng/tmp/silo-r4-r8-main-20260916-01a0a5ab/isolated-pools-before.log",
+  "log_sha256": "f014a1a72dda7b973cd1e0b7e77c70b470eeebca0d04805d98f07c2622c87b1e"
+}

@@ -1,0 +1,16 @@
+=== RUN   TestServerHTTP2Deadlines
+--- PASS: TestServerHTTP2Deadlines (0.42s)
+=== RUN   TestServerHTTP2Deadlines
+--- PASS: TestServerHTTP2Deadlines (0.41s)
+=== RUN   TestServerHTTP2Deadlines
+--- PASS: TestServerHTTP2Deadlines (0.42s)
+PASS
+ok  	github.com/minio/minio/internal/http	3.003s
+=== RUN   TestStrictReadDeadlineRepeatedRenewal
+--- PASS: TestStrictReadDeadlineRepeatedRenewal (0.90s)
+=== RUN   TestStrictReadDeadlineRepeatedRenewal
+--- PASS: TestStrictReadDeadlineRepeatedRenewal (0.90s)
+=== RUN   TestStrictReadDeadlineRepeatedRenewal
+--- PASS: TestStrictReadDeadlineRepeatedRenewal (0.90s)
+PASS
+ok  	github.com/minio/minio/internal/deadlineconn	4.915s

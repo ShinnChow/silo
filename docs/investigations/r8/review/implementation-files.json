@@ -1,0 +1,9 @@
+{
+  "internal/deadlineconn/deadlineconn.go": "b9272ef640f1d4403b3d0af6cdbaba9186c51ad9a0226dfe449e8ef738e1ec4b",
+  "internal/http/listener.go": "49628575367f6ab9b6986caf594726d74d370f7d2ac4eed582903600b6eb3fa2",
+  "internal/http/server.go": "b7b0355f2781f8c5f7c77bc910cd4180cd3e5f22a87de41bd35ef119d36b4cdf",
+  "cmd/server-main.go": "04c265de211412ba0297396928096d7f2d971244a957a3126154846035263514",
+  "internal/deadlineconn/deadlineconn_strict_test.go": "fec37273f338d3cb6f56c71eb6d8d677f8d5e4c2a7c55bc5ab2e64c56ad4a50b",
+  "internal/http/server_deadline_test.go": "c56460fd8258a7fe8cf25d88fb2030ecfee0e142e0559fad0eb1a05d43d27c0f",
+  "internal/http/dial_deadline_linux_test.go": "0939d05b72a09760d53fcdf249775989e3f89bca824b9961d0b2a657ebfdf41e"
+}

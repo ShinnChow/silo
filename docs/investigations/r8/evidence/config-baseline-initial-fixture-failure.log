@@ -1,0 +1,4 @@
+# github.com/minio/minio/cmd [github.com/minio/minio/cmd.test]
+../../../../tmp/silo-r8-01a0a5b9/config_deadline_test.go:26:52: undefined: serverFlags
+FAIL	github.com/minio/minio/cmd [build failed]
+FAIL

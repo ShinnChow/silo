@@ -1,0 +1,59 @@
+{
+  "baseline": "9f3037e941a49ab4cd8a0eed7c0f01083fbe4bbe",
+  "reviewed_code_commit": "055030ea53ca92ee22ce1e601ef4757c247edde8",
+  "tested_commit": "80684fed59f556d579e268c5a855d936c1347b68",
+  "integration_branch": "codex/merge-r4-r8",
+  "current_source_matches_tested_commit": true,
+  "production_or_test_body_changes_after_review": false,
+  "source_sha256": {
+    "cmd/bucket-replication-utils.go": "365641c760901641e8320cc5123697ab92a46f1add612048b991ed2d1cfad43b",
+    "cmd/bucket-replication.go": "2e766c5946dcabaea79455b50a8e426f404e55c92dcbccbe28d55906e2e43843",
+    "cmd/common-main.go": "f8777fe8a07d175aceee07b4dd13792b2384449c404c004c38a06893be997843",
+    "cmd/erasure-object.go": "4bc848685ea714d88cabbd5d1b8585fbcc06f7b19c775e1a811030e783d0e1a4",
+    "cmd/erasure-server-pool-consistency.go": "d2736ef6bffbb5c5758eba8df38f8d4ecb888a838ab0de8ad3cf015c051f8ad7",
+    "cmd/erasure-server-pool.go": "87ad0b25dfa3081d0e63d0073b788614a9c88e2498a2ce0956b93f8a0a03ef53",
+    "cmd/object-handlers-common.go": "101bd7d7447072d13fed50983b69b562e4725632645e623d7fdd490f388ecdec",
+    "cmd/object-handlers.go": "61897a260f3f5f660f41edcb50956c60e914ef98f9a987da824f16d78171fde2",
+    "cmd/object-multipart-handlers.go": "d9622c69c540ab32dd23916e3f534b6886473a98370c9dd17673e69a423b2a7e",
+    "cmd/replication-delete-marker_test.go": "d967787804d558ac6266b113228fdf4a4f9fcb7cab39138a4fb07558814ccca4",
+    "cmd/replication-delete-mrf_test.go": "6fcfaf505d28f98e42dff9c0d965895be2c2d112e9e996220d424aea1f76d691",
+    "cmd/replication-delete-operation_test.go": "2e674cab5ca4dbc38cb2c1ddcca117269276e6419e1869c154c3bd6a05676715",
+    "cmd/replication-tagging-order_test.go": "c8260b4ccf82fa615e1e24b35a07f2d1aacbcf776e5c6f9dadffea4a09ad6ea8",
+    "cmd/replication-tagging-sender_test.go": "3770a1a48a6efe58fe8127e1e4fdf6bd7cf171e17db20f15222ea2f7b85db1af",
+    "cmd/server-main.go": "04c265de211412ba0297396928096d7f2d971244a957a3126154846035263514",
+    "cmd/server_deadline_config_test.go": "a8259d273922a8973b44d9a468791761d373fe265fff8b2b53871e4626b11405",
+    "internal/deadlineconn/deadlineconn.go": "b9272ef640f1d4403b3d0af6cdbaba9186c51ad9a0226dfe449e8ef738e1ec4b",
+    "internal/deadlineconn/deadlineconn_strict_test.go": "b4aec28c5daddb36e6ebb98dd8af2a44b7a2c48f0660068534f69669609f67a7",
+    "internal/http/dial_deadline_linux_test.go": "c4c83bda92ba9bac53166453920456134b3d8265cd59101b4203067c67eca59e",
+    "internal/http/listener.go": "49628575367f6ab9b6986caf594726d74d370f7d2ac4eed582903600b6eb3fa2",
+    "internal/http/server.go": "b7b0355f2781f8c5f7c77bc910cd4180cd3e5f22a87de41bd35ef119d36b4cdf",
+    "internal/http/server_deadline_test.go": "87303cc389bf1cf759898489f06b001073de2dd9c4b3687c4eca14aa186b62ab"
+  },
+  "compatibility_inventory_sha256": "208c78a9e9fc98d6de7f1e0f03cfec97d8491df65ad4de3d88f04c36c555f819",
+  "evidence_sha256": {
+    "evidence/full-tests.log": "24b986e2f5aef0e668116abaab5024bf19ac664aec010ca7aa5ef56886f47ad1",
+    "evidence/header-equivalence.json": "0aee56aa978515579aa59215152b685f614cd5bda323fe26690a4c21f837f109",
+    "evidence/integration-equivalence.json": "473711fa8660504275242b70e80622277a32c73e0c7df1de6f5ba2d6bbfcc54e",
+    "evidence/isolated-pools-before.log": "f014a1a72dda7b973cd1e0b7e77c70b470eeebca0d04805d98f07c2622c87b1e",
+    "evidence/isolated-pools-before.result.json": "3a761d8a6fd1869a9a9d2b3d506ddec4fdaaad098da2b6a2f85252acf9561774",
+    "evidence/make-build.log": "6ba9b545236be964861749c72e7609edf12b8f470df30d1ede8fd62f497e629b",
+    "evidence/make-verifiers-final.log": "54c906cff1d33d0148fbc4cac918c0785a3bcc8f7a4eb7e04a2f774c2f010bb4",
+    "evidence/opus-integration.metadata.json": "c468e952e2364625ffe04a7221489185705857ad073f6fdb8dee3fe6aad9345c",
+    "evidence/opus-integration.prompt.md": "f95edcf71afedceab190ff57bfbec812b06c8c18b5370d887131a760228c2b2c",
+    "evidence/opus-review.md": "463f6b97e8d19929187242724e6bcfc2406217cd82702739716b65e19a8f2360",
+    "evidence/runtime-probe.json": "e493d9757c130c2531072dc0eaee42b8fc1fa0f45fc43d0d0e098aac55f0d387",
+    "evidence/runtime-probe.result.json": "d8703c201493cf865d758d53cbc6d92b71535345dafe3c2f27ca2a29ad53e353",
+    "evidence/silo-version.log": "ada27f2be570c33df5712e86782a7be2ce3acfef54c8bb22a9230db3606513af",
+    "evidence/targeted-race.log": "7d021e57e513ea81617df44a6253703622145bf5e72e6180de84c2bd3c7186d3",
+    "evidence/validation-results.json": "29182a752a8ffb75367e8cce51e1f2ef080e453a059248ae2c868aa66627aede"
+  },
+  "original_raw_review": {
+    "path": "/Users/vonng/tmp/silo-r4-r8-main-20260916-01a0a5ab/opus-integration.jsonl",
+    "sha256": "3e1a45ebdf3f4420fb05647bb383c00d0a86452a6c357a92679485c99d8f4eb3"
+  },
+  "original_review_diff": {
+    "path": "/Users/vonng/tmp/silo-r4-r8-main-20260916-01a0a5ab/integration-code.diff",
+    "sha256": "d8c4e60f9e4a5b1338f3e6e07b758b1bb279db80eec26847e3b35fde0d049485"
+  },
+  "scope": "Local integration validation and independent source review. Final PR checks and remote merge are recorded separately."
+}

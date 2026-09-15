@@ -1,0 +1,11 @@
+{
+  "timestamp_utc": "2026-09-15T16:14:25.042607+00:00",
+  "reason": "parent requested cleanup of completed task-owned disposable artifacts; baseline runtime evidence and hash retained",
+  "deleted": [
+    {
+      "path": "/Users/vonng/tmp/silo-r8-01a0a5b9/silo-v1",
+      "size": 132390258,
+      "sha256": "ed8d30cb40832f854bd82b083b9d1ec3ee16a35598416a54ef2d48bde8384ffc"
+    }
+  ]
+}

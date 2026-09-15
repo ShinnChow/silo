@@ -934,6 +934,7 @@
     "arn:minio:kms:::this-is-disregarded",
     "arn:minio:kms:::xyz-test-key",
     "arn:minio:replication:",
+    "arn:minio:replication::",
     "arn:minio:replication::8320b6d18f9032b4700f1f03b50d8d1853de8f22cab86931ee794e12f190852c:destinationbucket",
     "arn:minio:replication:::",
     "arn:minio:replication:::dest-bucket",

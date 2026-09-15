@@ -1,0 +1,36 @@
+=== RUN   TestServerConfigFile
+=== RUN   TestServerConfigFile/testdata/config/1.yaml
+=== RUN   TestServerConfigFile/testdata/config/2.yaml
+=== RUN   TestServerConfigFile/testdata/config/invalid.yaml
+=== RUN   TestServerConfigFile/testdata/config/invalid-types.yaml
+=== RUN   TestServerConfigFile/testdata/config/invalid-disks.yaml
+--- PASS: TestServerConfigFile (0.00s)
+    --- PASS: TestServerConfigFile/testdata/config/1.yaml (0.00s)
+    --- PASS: TestServerConfigFile/testdata/config/2.yaml (0.00s)
+    --- PASS: TestServerConfigFile/testdata/config/invalid.yaml (0.00s)
+    --- PASS: TestServerConfigFile/testdata/config/invalid-types.yaml (0.00s)
+    --- PASS: TestServerConfigFile/testdata/config/invalid-disks.yaml (0.00s)
+=== RUN   TestServerReadHeaderTimeoutConfig
+=== RUN   TestServerReadHeaderTimeoutConfig/default
+=== RUN   TestServerReadHeaderTimeoutConfig/flag
+=== RUN   TestServerReadHeaderTimeoutConfig/environment
+=== RUN   TestServerReadHeaderTimeoutConfig/flag-over-environment
+=== RUN   TestServerReadHeaderTimeoutConfig/yaml-retains-flag
+=== RUN   TestServerReadHeaderTimeoutConfig/zero-fallback
+=== RUN   TestServerReadHeaderTimeoutConfig/zero-idle-default-header
+=== RUN   TestServerReadHeaderTimeoutConfig/negative-idle-default-header
+=== RUN   TestServerReadHeaderTimeoutConfig/fmt-gen-unregistered-duration
+=== RUN   TestServerReadHeaderTimeoutConfig/negative-disabled
+--- PASS: TestServerReadHeaderTimeoutConfig (0.06s)
+    --- PASS: TestServerReadHeaderTimeoutConfig/default (0.01s)
+    --- PASS: TestServerReadHeaderTimeoutConfig/flag (0.00s)
+    --- PASS: TestServerReadHeaderTimeoutConfig/environment (0.00s)
+    --- PASS: TestServerReadHeaderTimeoutConfig/flag-over-environment (0.01s)
+    --- PASS: TestServerReadHeaderTimeoutConfig/yaml-retains-flag (0.00s)
+    --- PASS: TestServerReadHeaderTimeoutConfig/zero-fallback (0.04s)
+    --- PASS: TestServerReadHeaderTimeoutConfig/zero-idle-default-header (0.00s)
+    --- PASS: TestServerReadHeaderTimeoutConfig/negative-idle-default-header (0.00s)
+    --- PASS: TestServerReadHeaderTimeoutConfig/fmt-gen-unregistered-duration (0.00s)
+    --- PASS: TestServerReadHeaderTimeoutConfig/negative-disabled (0.00s)
+PASS
+ok  	github.com/minio/minio/cmd	2.462s

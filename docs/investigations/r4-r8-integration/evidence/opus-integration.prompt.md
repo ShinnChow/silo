@@ -1,0 +1,18 @@
+Independently review the complete SILO R4-R8 integration candidate for a user-authorized merge to main. You are the real Claude Opus reviewer; provide your own conclusion from source inspection. Read-only: no edits, no GitHub actions, no test execution claims.
+
+Exact candidate: 055030ea53ca92ee22ce1e601ef4757c247edde8; integration branch codex/merge-r4-r8. Base: 9f3037e941a49ab4cd8a0eed7c0f01083fbe4bbe, already contains separately reviewed and CI-accepted R4 (SSE-KMS tag timestamp) and R7 (replication metadata/aws-chunked). This candidate adds the final R5, R6, and R8 local repairs, cherry-picked without conflicts and with provenance/DCO preserved.
+
+Read /Users/vonng/pgsty/silo/AGENTS.md and CONTRIBUTING.md. The maintained PGSTY stack is the release target; upstream MinIO compatibility is best effort. Read /Users/vonng/tmp/silo-r4-r8-main-20260916-01a0a5ab/integration-code.diff and /Users/vonng/tmp/silo-r4-r8-main-20260916-01a0a5ab/reviewed-source.json, then inspect complete relevant functions and tests in this worktree. Each repair already has real same-version Opus plan consensus: docs/investigations/r5/plan-v2.md and consensus.md; r6/plan-v3.md and consensus.md; r8/plan-v2.md and consensus.md. Prior implementation reviews and validation reports are supporting evidence, not substitutes for this integration review. The R6 v2 multi-target parser proof was disproved by a real storage counterexample and fixed only after v3 consensus; verify the final empty creation-update invariant.
+
+Focus on concrete integration correctness:
+1. R5 tag revision persistence and empty/nonempty ordering through COPY, PUT, multipart, retries and source ACK, with R6 purge/MRF state writes and shared bucket-replication.go functions.
+2. R7 restores only six replication-specific fields. Verify tag values/timestamps remain handled correctly and aws-chunked is not reintroduced, including R4 KMS options.
+3. R6 marker creation versus canonical/legacy purge, all exits, per-target statistics, disk creation/replica metadata preservation, identity-checked marker 405 recovery, retry counts and bounded scanner fallback.
+4. R8 absolute request-header deadlines and CLI/env propagation, HTTP/1 streaming bodies, keep-alive/TLS/h2 boundaries, default DeadlineConn callers and effects on replication I/O.
+5. Full-package test global state, cleanup/initialization ordering and any compile/dependency conflicts that separate scoped tests would miss.
+
+Current local make verifiers is running; full candidate runtime tests and actual PR CI are still pending. Do not label them as passed. The host previously had ENOSPC; it now has more than 700 GiB free, so standard full-package tests can run without capacity overlays. Historical reports accurately retain earlier environment limits and incomplete multi-process deployment acceptance.
+
+Two new R6 and four new R8 test files have boilerplate copyright headers queued for repository-policy normalization, after confirming original authorship. They will be header-only changes with package-and-body byte equivalence checked; do not conflate them with production semantic edits. Any actual implementation blocker will be fixed and re-reviewed as needed.
+
+Return GO_WITH_NONBLOCKING_NOTES or REQUEST_CHANGES, number of blocking findings, exact candidate identity and inspected scope. For each blocker give path/line, real triggering conditions, impact and smallest compatible correction. Clearly distinguish inherited out-of-scope limitations from newly introduced defects and required CI from optional further deployment tests. Do not invent a blocker merely from absence of production deployment. This request is main merge, not release/deploy.

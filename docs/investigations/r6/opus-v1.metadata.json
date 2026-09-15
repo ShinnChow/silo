@@ -1,0 +1,23 @@
+{
+  "source_commit": "9ebe81c1b3611f9cc73e676b5b741c2be62c467a",
+  "requested_model": "claude-opus-5",
+  "requested_effort": "max",
+  "cli_version": "2.1.270",
+  "plan": "plan-v1.md",
+  "plan_sha256": "bcd023e2b00ad3dc709baa738bb02551d47aeebb49879b0f76f2789f4c4dff8b",
+  "assistant_models": [
+    "claude-opus-5"
+  ],
+  "raw_path": "/Users/vonng/tmp/silo-r6-20260915-aa3f/opus-v1.jsonl",
+  "raw_sha256": "16f1954b213b5813a72a8db6d960d7933e1065c63e9ae2d6f139d0cff881011f",
+  "command": "claude --print --model claude-opus-5 --effort max --safe-mode --permission-mode plan --tools Read,Grep,Glob --strict-mcp-config --no-session-persistence --add-dir /Users/vonng/tmp/silo-r6-20260915-aa3f --output-format stream-json --verbose",
+  "auxiliary_usage_models": [
+    "claude-haiku-4-5-20251001",
+    "claude-opus-5"
+  ],
+  "subtype": "success",
+  "is_error": false,
+  "session_id": "927a163e-c14f-4366-b1bc-dbb363fbe793",
+  "duration_ms": 357292,
+  "num_turns": 61
+}

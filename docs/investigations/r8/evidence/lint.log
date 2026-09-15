@@ -1,0 +1,5 @@
+internal/http/server_deadline_test.go:61:7: QF1008: could remove embedded field "Server" from selector (staticcheck)
+		srv.Server.Close()
+		    ^
+1 issues:
+* staticcheck: 1

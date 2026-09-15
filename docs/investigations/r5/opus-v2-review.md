@@ -1,0 +1,43 @@
+Write is disabled for this task by your instruction, so the review is returned in full as text. No files were created or edited.
+
+# Independent follow-up review — R5 repair plan v2
+
+**Reviewer model: `claude-opus-5` (Opus 5), effort max.** Read: `docs/investigations/r5/plan-v2.md` (complete), `opus-v1-response.md`, my preserved `opus-v1-review.md`, plus `/Users/vonng/tmp/silo-r5-20260915-77ad/matrix_test.go` (discussion cases) and `discussion-baseline.log`. Source re-read at `9ebe81c1b` only where an item's disposition depended on it.
+
+**VERDICT: APPROVE_WITH_NONBLOCKING_NOTES** for `docs/investigations/r5/plan-v2.md`, consensus target sha256 `5a782acf3f285b23d1ae43a73481c4eb772a9a6d917fc5a550ecfc7cbf7446ca`. **Blocking items remaining: 0 (zero).** All five v1 blockers are resolved; R2 I withdraw as a blocker on the evidence below.
+
+Same binding caveat as v1, unchanged: this session has Glob/Grep/Read only, so I did not execute `sha256sum`. I reviewed the file at that path in this worktree at the stated base and cite its line numbers so findings bind to the hash.
+
+## Per-item resolution
+
+| Item | Status | Basis |
+|---|---|---|
+| **R1** empty/no-revision ModTime fallback | **Resolved** | Plan L35 is exactly my v1 correction: revision-when-recorded, existing nonempty ModTime fallback retained, empty + no revision sends nothing. §B and §D (L61) are now consistent. |
+| **R2** forced metadata replication scope | **Resolved — my correction was wrong; I withdraw the blocker** | See below. |
+| **R3** production COPY request shape | **Resolved, with wire evidence** | `TestTaggingProductionCopyWireShape` (matrix_test.go:436-459) drives the real `minio.Core.CopyObject` against an httptest peer: `metadata-directive="" tagging-directive="REPLACE"` plus the tagging timestamp header (log line 6). L17 now states both shapes and requires covering a peer that sends metadata REPLACE. |
+| **R4** local revision inversion | **Resolved and correctly strengthened** | L31's uniform multi-pool requirement is necessary, and **my v1 note was wrong** — see correction 2. `TestLocalTaggingCommitCannotRegressRevision` encodes max-across-pools + 1ns in the response and every copy; it fails baseline (log line 9: stamp stays `01:00:00Z`). |
+| **R5** duplicate-suppression wording | **Resolved** | L51 is explicit: valid source revision *strictly newer than the destination's stored tag revision*, `olderThan` semantics, client preconditions preserved, re-upload cost documented. |
+
+## R2 adjudication — why I withdraw it
+
+**My proposed restriction was incorrect.** `TestTaggingRepeatedValueNeedsRevisionDelivery` (matrix_test.go:422-435) runs both rows; baseline returns `replicateNone` for equal `""` **and** for equal `"key=same"` with a revision an hour newer (log lines 2-3). An empty-only condition fixes only the first row, so it does not repair X@T1 / delete@T2 / X@T3 with a reordered delete. The scenario is reachable: `er.PutObjectTags` never touches `fi.ModTime` (`cmd/erasure-object.go:2328-2332`), so the full-copy gate `oi1.ModTime.Unix() != oi2.LastModified.Unix()` (`:975-981`) never fires on tagging-only changes and the value comparison at `:1003` is decisive; concurrent workers for the same object are not serialized by revision, and at `:1600-1625` a `replicateNone` result is force-marked Completed, making the loss permanent and silent.
+
+**My cost rationale is refuted by source, not merely by assertion.** `queueReplicationHeal` returns at `cmd/bucket-replication.go:3768` for `Completed && VersionPurgeStatus.Empty() && !mustResync()`; `replicateObject` requeues only non-Completed at `:1306`. I also checked the feedback path I would have raised in its place: `mustReplicate` returns an empty decision for an incoming replication request (`:270-272`), so a forced COPY cannot schedule a new event at the destination — no active-active ping-pong. And the blast radius is **narrower than the plan claims**: `ObjectReplicationType` dispatches to `ri.replicateObject` (`:1233-1237`), which never calls `getReplicationAction`, so the extra COPY applies only to Metadata/Heal/ExistingObject types.
+
+**Concrete tradeoff against a HEAD revision protocol.** The sender already extends the HEAD (`sOpts.Set(xhttp.AmzTagDirective, "ACCESS")`, `:1595`), so the idea is not absurd — but the pinned SDK's `extractObjMetadata` (`minio-go@v7.3.1-0.20260910142817.../utils.go:232-277`) preserves only the whitelist plus `x-amz-meta-`/`X-Minio-Meta-`; any `x-minio-internal-*` response header is discarded. Exposing the revision therefore needs (a) a new target-side response header, in a client-visible namespace or behind an SDK whitelist change, (b) a sender-side read path, and (c) a fallback for peers that do not answer — and that fallback is the forced COPY anyway. Strictly more code, a new cross-version wire contract, and the same worst case. The plan's choice is right; L39 already states the residual cost honestly.
+
+## Corrections to my own v1 non-blocking claims
+
+1. **KMS / COPY (as you flagged).** My v1 line — "the metadata-COPY leg is **not** affected" — is wrong. The sender indeed forwards no public SSE header, but `CopyObjectHandler` applies the destination bucket's SSE config and `globalAutoEncryption` to `r.Header` at `cmd/object-handlers.go:1428-1433`, *before* `copyDstOpts` → `putOptsFromReq` → `putOpts` → `putOptsFromHeaders`, whose `crypto.S3KMS.IsRequested(hdr)` branch (`cmd/object-api-options.go:431-461`) returns an ObjectOptions carrying the legal-hold and retention timestamps but **not** `ReplicationSourceTaggingTimestamp`. So COPY does depend on R4 whenever the destination bucket has default KMS or auto-encryption is on. Plan L59 states this correctly; do not adopt my broader exclusion.
+2. **Multi-pool merge.** My v1 R4 note claimed per-pool stamp differences merge safely via `mergedPoolObjectInfo`. They do not on ordinary reads: `z.GetObjectInfo` → `getLatestObjectInfoWithIdx` (`cmd/erasure-server-pool.go:1121`, `:1032-1072`) returns one pool's `ObjectInfo`, sorted by ModTime with a lowest-index tiebreak — and ModTime is identical across copies for tagging changes. `mergedPoolObjectInfo` is reached only from `replicaObjectInfo` and `updatePoolMetadata` (`cmd/erasure-server-pool-consistency.go:135-147`, `:169-174`). Since the replication sender reads through `GetObjectNInfo`, it can emit a stale primary-pool revision. L31's uniform value is required.
+
+## Non-blocking notes for v2
+
+- **Tighten the cost statement** in L39 to Metadata/Heal/ExistingObject types only (`ObjectReplicationType` bypasses the predicate). It makes the accepted cost smaller and the test targets sharper.
+- **Add a termination regression** asserting `mustReplicate` yields no decision for the incoming forced COPY (`:270-272`). That property, not the scanner gates alone, is what makes the rule terminating under bidirectional configurations.
+- **Assert ModTime invariance across tagging** (`:2328-2332`). If a future change ever bumped ModTime on tagging, the equal-value skip disappears and the whole cost calculus shifts; a one-line assertion pins the premise.
+- **Multi-pool guard mechanics.** `z.PutObjectTags` returns `copies[0]`'s result (`cmd/erasure-server-pool.go:3059-3067`) and is bypassed entirely for `SinglePool()` (`:3035-3036`). Keep the guard in `er.PutObjectTags` as the invariant holder, have it advance only when the passed value is not strictly newer than that set's stored value, and have the response report what was actually written. Transient per-set divergence from a direct-to-set write outside the pool lock re-converges on the next z-level write; say so rather than implying it cannot happen.
+- **`replicateNone` branch side effect.** Revisioned objects now reach `applyAction` instead of the force-Completed path at `:1614-1624`, so a failed COPY becomes Failed + MRF rather than a phantom Completed, and `rinfo.ReplicationAction` flips `none`→`metadata`. Right direction; cover the metrics path once.
+- **Sender parse asymmetry.** The receiver fails closed on a malformed tag timestamp (`cmd/object-api-options.go:421-424`) while the COPY sender swallows it (`cmd/bucket-replication.go:1695-1700`). L35/L37 covers this; just confirm the COPY call site is in scope, since it is a different function from `putReplicationOpts`.
+
+I made no edits, launched no agents, and executed nothing. No implementation is proposed or requested here, so I am not calling ExitPlanMode.
