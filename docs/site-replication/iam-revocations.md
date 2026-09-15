@@ -114,6 +114,12 @@ cache.
 
 ## Healing, failures and operational cost
 
+Each process starts one healing loop. Losing its distributed leadership lease
+pauses work until leadership is reacquired; it does not permanently terminate
+healing. Configuration reloads do not create extra loops. The 30-second interval
+starts after leadership is acquired and after each completed pass. Initial lock
+retries and endpoint recovery can add further delay; it is not a convergence SLA.
+
 The normal IAM loaders maintain an in-memory index of deletion records and
 retained boundaries, without secrets. Healing uses this index; it does not add a
 second full walk of `config/iam/` every cycle. Existing full IAM loading still

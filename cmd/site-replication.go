@@ -211,6 +211,7 @@ type SiteReplicationSys struct {
 	state srState
 
 	iamMetaCache        srIAMCache
+	healOnce            sync.Once // Configuration reloads must not spawn more healing loops.
 	iamHealMu           sync.Mutex
 	iamRevisionProgress map[string]iamRevisionProgress
 	iamRevisionMetrics  iamRevisionMetrics
@@ -238,7 +239,7 @@ type srStateData struct {
 
 // Init - initialize the site replication manager.
 func (c *SiteReplicationSys) Init(ctx context.Context, objAPI ObjectLayer) error {
-	go c.startHealRoutine(ctx, objAPI)
+	c.healOnce.Do(func() { go c.startHealRoutine(ctx, objAPI) })
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for {
 		err := c.loadFromDisk(ctx, objAPI)
@@ -4577,9 +4578,25 @@ func (c *SiteReplicationSys) PeerStateEditReq(ctx context.Context, arg madmin.SR
 const siteHealTimeInterval = 30 * time.Second
 
 func (c *SiteReplicationSys) startHealRoutine(ctx context.Context, objAPI ObjectLayer) {
-	ctx, cancel := globalLeaderLock.GetLock(ctx)
-	defer cancel()
+	for ctx.Err() == nil {
+		var leadership LockContext
+		select {
+		case <-ctx.Done():
+			return
+		case leadership = <-globalLeaderLock.lockContext:
+		}
+		if leadership.Context().Err() != nil {
+			continue
+		}
+		leaderCtx, cancel := mergeContext(leadership.Context(), ctx)
+		c.healWithLeadership(leaderCtx, objAPI)
+		cancel()
+		// Quorum loss cancels a leadership lease, not the subsystem. Wait
+		// for a new lease so revocations can still reach offline sites.
+	}
+}
 
+func (c *SiteReplicationSys) healWithLeadership(ctx context.Context, objAPI ObjectLayer) {
 	healTimer := time.NewTimer(siteHealTimeInterval)
 	defer healTimer.Stop()
 
