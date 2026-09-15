@@ -287,33 +287,51 @@ func (z *erasureServerPools) retireReplicaCopies(ctx context.Context, bucket, ob
 	return nil
 }
 
-// deleteObjectConditional evaluates the condition once against the logical
+// deleteObjectReconciled evaluates any condition once against the logical
 // version, then removes all its copies under the same lock as pooled writers.
-func (z *erasureServerPools) deleteObjectConditional(ctx context.Context, bucket, object string, opts ObjectOptions) (ObjectInfo, error) {
+func (z *erasureServerPools) deleteObjectReconciled(ctx context.Context, bucket, object string, opts ObjectOptions) (ObjectInfo, error) {
 	copies, err := z.objectPoolInfos(ctx, bucket, object, opts)
 	if err != nil {
 		return ObjectInfo{}, err
 	}
 	primary := copies[0]
-	if opts.CheckPrecondFn(primary.ObjInfo) {
+	if opts.CheckPrecondFn != nil && opts.CheckPrecondFn(primary.ObjInfo) {
 		return ObjectInfo{}, PreConditionFailed{}
 	}
 	opts.CheckPrecondFn = nil
 	opts.NoLock = true
 	if opts.EvalRetentionBypassFn != nil || opts.EvalMetadataFn != nil {
-		versions, err := z.metadataPoolInfos(ctx, bucket, object, opts)
-		if err != nil {
-			return ObjectInfo{}, err
+		logical := primary.ObjInfo
+		var gerr error
+		switch {
+		case logical.DeleteMarker:
+			// Markers can be deleted by version ID. Match the set layer's
+			// callback inputs instead of rejecting them as metadata updates.
+			gerr = toObjectErr(errMethodNotAllowed, bucket, object)
+			if opts.VersionID == "" || opts.DeleteMarker {
+				gerr = toObjectErr(errFileNotFound, bucket, object)
+			}
+		case opts.VersionID != "":
+			// An addressed version already resolved every copy above.
+			logical = mergedPoolObjectInfo(copies)
+		default:
+			versions, err := z.metadataPoolInfos(ctx, bucket, object, opts)
+			if err != nil {
+				return ObjectInfo{}, err
+			}
+			logical = mergedPoolObjectInfo(versions)
 		}
-		logical := mergedPoolObjectInfo(versions)
+		// Keep the retention gate first. These callbacks independently evaluate
+		// the logical version and run once before any deletion; the handler only
+		// sweeps metadata's transition state after a successful delete.
 		if opts.EvalRetentionBypassFn != nil {
-			if err := opts.EvalRetentionBypassFn(logical, nil); err != nil {
+			if err := opts.EvalRetentionBypassFn(logical, gerr); err != nil {
 				return ObjectInfo{}, err
 			}
 			opts.EvalRetentionBypassFn = nil
 		}
 		if opts.EvalMetadataFn != nil {
-			decision, err := opts.EvalMetadataFn(&logical, nil)
+			decision, err := opts.EvalMetadataFn(&logical, gerr)
 			if err != nil {
 				return ObjectInfo{}, err
 			}

@@ -899,7 +899,6 @@ type scannerItem struct {
 	objectName  string // Only the object name without prefixes.
 	replication replicationConfig
 	lifeCycle   *lifecycle.Lifecycle
-	poolIdx     int
 	Typ         fs.FileMode
 	heal        struct {
 		enabled bool
@@ -910,7 +909,6 @@ type scannerItem struct {
 
 type sizeSummary struct {
 	totalSize       int64
-	hotTierSize     int64
 	versions        uint64
 	deleteMarkers   uint64
 	replicatedSize  int64
@@ -1161,14 +1159,6 @@ eventLoop:
 		globalExpiryState.enqueueNoncurrentVersions(i.bucket, toDel, noncurrentEvents)
 	}
 	i.alertExcessiveVersions(remainingVersions, cumulativeSize)
-	if globalILMConfig.accessTieringEnabled() {
-		for idx, oi := range objInfos {
-			if oi.IsLatest && events[idx].Action == lifecycle.NoneAction {
-				applyAccessTransition(ctx, i, oi)
-				break
-			}
-		}
-	}
 }
 
 func evalActionFromLifecycle(ctx context.Context, lc lifecycle.Lifecycle, lr lock.Retention, rcfg *replication.Config, obj ObjectInfo) lifecycle.Event {
@@ -1484,8 +1474,6 @@ const (
 	ILMFreeVersionDelete = "ilm:free-version-delete"
 	// ILMTransition - audit trail for ILM transitioning.
 	ILMTransition = " ilm:transition"
-	// ILMAccessTier - audit trail for moving objects between server pools.
-	ILMAccessTier = "ilm:access-tier"
 )
 
 func auditLogLifecycle(ctx context.Context, oi ObjectInfo, event string, tags map[string]string, traceFn func(event string, metadata map[string]string, err error)) {
@@ -1497,8 +1485,6 @@ func auditLogLifecycle(ctx context.Context, oi ObjectInfo, event string, tags ma
 		apiName = "ILMFreeVersionDelete"
 	case ILMTransition:
 		apiName = "ILMTransition"
-	case ILMAccessTier:
-		apiName = "ILMAccessTier"
 	}
 	auditLogInternal(ctx, AuditLogOptions{
 		Event:     event,

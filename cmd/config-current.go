@@ -227,7 +227,7 @@ func initHelp() {
 		},
 		config.HelpKV{
 			Key:         config.ILMSubSys,
-			Description: "manage ILM settings for expiration, transition, and access-tier workers",
+			Description: "manage ILM settings for expiration and transition workers",
 			Optional:    true,
 		},
 	}
@@ -703,9 +703,6 @@ func applyDynamicConfigForSubSys(ctx context.Context, objAPI ObjectLayer, s conf
 			}
 			if globalExpiryState != nil {
 				globalExpiryState.ResizeWorkers(ilmCfg.ExpirationWorkers)
-			}
-			if globalAccessTierState != nil {
-				globalAccessTierState.UpdateWorkers(ilmCfg.AccessWorkers)
 			}
 			globalILMConfig.update(ilmCfg)
 		}
