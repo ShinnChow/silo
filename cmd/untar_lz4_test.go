@@ -40,7 +40,7 @@ func TestUntarLZ4(t *testing.T) {
 			compressor := lz4.NewWriter(&compressed)
 			archive := tar.NewWriter(compressor)
 			for name, data := range want {
-				if err := archive.WriteHeader(&tar.Header{Name: name, Mode: 0600, Size: int64(len(data))}); err != nil {
+				if err := archive.WriteHeader(&tar.Header{Name: name, Mode: 0o600, Size: int64(len(data))}); err != nil {
 					t.Fatal(err)
 				}
 				if _, err := archive.Write(data); err != nil {
