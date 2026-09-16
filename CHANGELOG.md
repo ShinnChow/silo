@@ -56,19 +56,28 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
   quorum-written `xl.meta`; completion removes those upload-only fields. Native
   markers remain usable after their upload is completed or canceled. Strict
   listing returns a diagnostic 503 for legacy uploads or uncertain coverage;
-  `api multipart_listing=legacy` is an explicit temporary migration mode.
-  Upgrade every writer, drain old uploads and check the read-only admin
-  `multipart-preflight` report before relying on strict listing. Per-process
+  the default remains the released exact-key/cache-based `legacy` behavior.
+  Opt into strict mode only through `MINIO_API_MULTIPART_LISTING=strict`, after
+  upgrading every writer, draining old uploads, checking the read-only admin
+  `multipart-preflight` report and validating scan capacity. The process-only
+  setting is not persisted into shared API configuration. Historical
+  `multipart_listing` keys are ignored and can be removed with a targeted
+  `mcli admin config reset ALIAS api multipart_listing` before rollback. Per-process
   admission, directory-entry, worker and time budgets bound scan scheduling;
   each page still scans durable state. See [issue #79](https://github.com/pgsty/silo/issues/79)
   and its [design record](https://silo.pgsty.com/blog/design/list-multipart-uploads/).
   Thanks to mr javad seydi (@mrjavadseydi) for the original implementation.
-- Confirm multipart cancellation on a strict majority of each relevant set,
-  and allow retries after partial deletion. Uncertain pools or insufficient
-  confirmations return 503 rather than acknowledging a cancellation whose
-  static remnants can later become readable. **Known boundary:** creation
-  writes that finish after a storage timeout can still restore an upload after
-  successful cancellation; this change does not add a durable creation fence.
+- Retain released read-quorum and best-effort multipart cancellation in default
+  legacy mode. Strict mode requires majority deletion acknowledgements and
+  permits retries below read quorum. When most drives were already empty,
+  failed deletion of an observed remnant now returns 503 instead of being
+  masked by empty-drive successes. Wrong-key or wrong-bucket cancellation
+  preserves the valid upload's cache entry; successful cancellation notifies
+  peers with the request context after the distributed lock is released.
+  The HTTP response for an absent
+  upload remains 204; this is not proof of physical cleanup. **Known boundary:**
+  delayed creation writes can still restore an upload after cancellation;
+  this change does not add a durable creation fence.
 - Preserve object tags during multi-pool metadata reconciliation by reading the
   resolved tag field together with its revision (#189). Previously, reconciliation
   could replace existing tags with an empty value.

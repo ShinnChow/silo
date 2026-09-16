@@ -1753,11 +1753,11 @@ func (er erasureObjects) CompleteMultipartUpload(ctx context.Context, bucket str
 	return fi.ToObjectInfo(bucket, object, opts.Versioned || opts.VersionSuspended), nil
 }
 
-// abortMultipartUpload confirms absence on a strict majority of this set.
-// Unlike an existence read followed by best-effort deletion, it also permits
-// retrying a partial deletion which no longer has a readable metadata quorum.
-// This does not fence creation writes still executing after a storage timeout.
-func (er erasureObjects) abortMultipartUpload(ctx context.Context, bucket, object, uploadID string, opts ObjectOptions) (bool, error) {
+// abortMultipartUpload retains read-quorum validation and best-effort cleanup
+// in legacy mode. Strict mode requires majority deletion acknowledgements and
+// permits retrying remnants below read quorum. Neither mode fences creation
+// writes still executing after a storage timeout.
+func (er erasureObjects) abortMultipartUpload(ctx context.Context, bucket, object, uploadID string, opts ObjectOptions, legacy bool) (bool, error) {
 	if !opts.NoAuditLog {
 		auditObjectErasureSet(ctx, "AbortMultipartUpload", object, &er)
 	}
@@ -1769,21 +1769,34 @@ func (er erasureObjects) abortMultipartUpload(ctx context.Context, bucket, objec
 	if !ok || internalID == "" || internalID == "." || internalID == ".." || strings.ContainsAny(internalID, "/\\") {
 		return false, InvalidUploadID{Bucket: bucket, Object: object, UploadID: uploadID}
 	}
+	if legacy {
+		// Keep the released read-quorum and best-effort cleanup behavior.
+		// The upload ID safety check above applies to both modes.
+		defer er.deleteAll(ctx, minioMetaMultipartBucket, er.getUploadIDDir(bucket, object, uploadID))
+		_, _, err := er.checkUploadIDExists(ctx, bucket, object, uploadID, false)
+		err = toObjectErr(err, bucket, object, uploadID)
+		if _, absent := err.(InvalidUploadID); absent {
+			return false, nil
+		}
+		return err == nil, err
+	}
 	disks := er.getDisks()
 	uploadPath := er.getUploadIDDir(bucket, object, uploadID)
 	_, errs := readAllFileInfo(ctx, disks, bucket, minioMetaMultipartBucket, uploadPath, "", false, false)
 	quorum := er.setDriveCount/2 + 1
 	found, absent := false, 0
-	for _, err := range errs {
+	observed := make([]bool, len(disks))
+	for i, err := range errs {
 		switch {
 		case err == nil, errors.Is(err, errFileCorrupt):
 			found = true
+			observed[i] = true
 		case errors.Is(err, errFileNotFound), errors.Is(err, errFileVersionNotFound):
 			absent++
 		}
 	}
-	if absent >= quorum {
-		return found, nil
+	if absent >= quorum && !found {
+		return false, nil
 	}
 	if !found {
 		return false, toObjectErr(errErasureReadQuorum, bucket, object, uploadID)
@@ -1801,13 +1814,25 @@ func (er erasureObjects) abortMultipartUpload(ctx context.Context, bucket, objec
 			return err
 		}, i)
 	}
-	return true, toObjectErr(reduceWriteQuorumErrs(ctx, g.Wait(), nil, quorum), bucket, object, uploadID)
+	deleteErrs := g.Wait()
+	if err := reduceWriteQuorumErrs(ctx, deleteErrs, nil, quorum); err != nil {
+		return true, toObjectErr(err, bucket, object, uploadID)
+	}
+	if absent >= quorum {
+		// Missing disks must not mask a failed cleanup of known remnants.
+		for i, found := range observed {
+			if found && deleteErrs[i] != nil {
+				return true, toObjectErr(errErasureWriteQuorum, bucket, object, uploadID)
+			}
+		}
+	}
+	return true, nil
 }
 
-// AbortMultipartUpload confirms logical cancellation. Offline part data may
-// still need stale-upload cleanup after its drives return.
+// AbortMultipartUpload cancels an upload using the configured mode. Offline
+// part data may still need stale-upload cleanup after its drives return.
 func (er erasureObjects) AbortMultipartUpload(ctx context.Context, bucket, object, uploadID string, opts ObjectOptions) (err error) {
-	found, err := er.abortMultipartUpload(ctx, bucket, object, uploadID, opts)
+	found, err := er.abortMultipartUpload(ctx, bucket, object, uploadID, opts, globalAPIConfig.getMultipartListingLegacy())
 	if err != nil {
 		return err
 	}

@@ -47,6 +47,7 @@ func TestListMultipartUploadsS3Compatibility(t *testing.T) {
 		t.Fatal(err)
 	}
 	z := obj.(*erasureServerPools)
+	setMultipartListingTestMode(t, false)
 	t.Cleanup(func() {
 		z.Shutdown(t.Context())
 		removeRoots(dirs)
@@ -201,15 +202,7 @@ func TestListMultipartUploadsS3Compatibility(t *testing.T) {
 	if !errors.Is(err, errMultipartListingLegacy) {
 		t.Fatalf("legacy strict listing: %v", err)
 	}
-	globalAPIConfig.mu.Lock()
-	oldLegacy := globalAPIConfig.multipartListingLegacy
-	globalAPIConfig.multipartListingLegacy = true
-	globalAPIConfig.mu.Unlock()
-	t.Cleanup(func() {
-		globalAPIConfig.mu.Lock()
-		globalAPIConfig.multipartListingLegacy = oldLegacy
-		globalAPIConfig.mu.Unlock()
-	})
+	setMultipartListingTestMode(t, true)
 	legacy, err := z.ListMultipartUploads(t.Context(), bucket, legacyObject, "", "", "", 100)
 	if err != nil {
 		t.Fatal(err)
@@ -267,6 +260,7 @@ func TestPaginateMultipartUploads(t *testing.T) {
 
 func TestListMultipartUploadsGlobalPageAcrossPools(t *testing.T) {
 	z, bucket := consistencyPools(t)
+	setMultipartListingTestMode(t, false)
 	objects := []string{"a/one", "b/two", "c/three", "d/four"}
 	for i, object := range objects {
 		if _, err := z.serverPools[i%len(z.serverPools)].NewMultipartUpload(t.Context(), bucket, object, ObjectOptions{}); err != nil {

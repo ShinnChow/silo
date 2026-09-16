@@ -2160,13 +2160,14 @@ func (z *erasureServerPools) AbortMultipartUpload(ctx context.Context, bucket, o
 		return toObjectErr(err, bucket)
 	}
 
-	defer func() {
-		_, absent := err.(InvalidUploadID)
-		if err == nil || absent {
+	// Unlock cancels the derived lock context before this notification runs.
+	// Keep the request context so successful cancellation reaches peer caches.
+	defer func(ctx context.Context) {
+		if err == nil {
 			z.mpCache.Delete(uploadID)
 			globalNotificationSys.DeleteUploadID(ctx, uploadID)
 		}
-	}()
+	}(ctx)
 
 	lk := z.NewNSLock(bucket, pathJoin(object, uploadID))
 	lkctx, err := lk.GetLock(ctx, globalOperationTimeout)
@@ -2176,13 +2177,18 @@ func (z *erasureServerPools) AbortMultipartUpload(ctx context.Context, bucket, o
 	ctx = lkctx.Context()
 	defer lk.Unlock(lkctx)
 
+	legacy := globalAPIConfig.getMultipartListingLegacy()
 	found := false
 	var firstErr error
 	for idx, pool := range z.serverPools {
 		if z.IsSuspended(idx) {
 			continue
 		}
-		poolFound, err := pool.getHashedSet(object).abortMultipartUpload(ctx, bucket, object, uploadID, opts)
+		poolFound, err := pool.getHashedSet(object).abortMultipartUpload(ctx, bucket, object, uploadID, opts, legacy)
+		if legacy && (poolFound || err != nil) {
+			// Match the released first-matching-pool behavior.
+			return err
+		}
 		found = found || poolFound
 		if err != nil && firstErr == nil {
 			firstErr = err

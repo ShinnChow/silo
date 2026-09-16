@@ -31,6 +31,7 @@ func TestMultipartListingAbortBetweenHTTPPages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	setMultipartListingTestMode(t, false)
 	var firstID, secondID string
 	for attempt := 0; attempt < 32; attempt++ {
 		one, err := z.NewMultipartUpload(t.Context(), bucket, "a", ObjectOptions{})
@@ -147,6 +148,22 @@ func TestMultipartListingLegacyPreflight(t *testing.T) {
 		t.Fatal(err)
 	}
 	z.mpCache.Clear()
+	t.Run("legacy-upgrade", func(t *testing.T) {
+		setMultipartListingTestMode(t, true)
+		exact, err := z.ListMultipartUploads(t.Context(), other, "old", "", "", "", 10)
+		if err != nil {
+			t.Fatal(err)
+		}
+		requireMultipartUploadKeys(t, exact, "old")
+		const empty = "multipart-legacy-empty"
+		if err := z.MakeBucket(t.Context(), empty, MakeBucketOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		got, err := z.ListMultipartUploads(t.Context(), empty, "", "", "", "", 10)
+		if err != nil || len(got.Uploads) != 0 {
+			t.Fatalf("old upload in another bucket broke legacy listing: %+v %v", got, err)
+		}
+	})
 	_, err = z.ListMultipartUploads(t.Context(), bucket, "", "", "", "", 10)
 	if !errors.Is(err, errMultipartListingLegacy) {
 		t.Fatalf("old upload in another bucket: %v", err)
@@ -214,6 +231,7 @@ func TestMultipartListingIdentityFallback(t *testing.T) {
 
 func TestMultipartAbortPoolsAndRetry(t *testing.T) {
 	z, bucket := consistencyPools(t)
+	setMultipartListingTestMode(t, false)
 	mp, err := z.serverPools[1].NewMultipartUpload(t.Context(), bucket, "a", ObjectOptions{})
 	if err != nil {
 		t.Fatal(err)
@@ -286,6 +304,7 @@ func TestMultipartListingMarkerHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	setMultipartListingTestMode(t, false)
 	for _, tc := range []struct {
 		key, marker string
 		status      int
@@ -369,6 +388,7 @@ func TestMultipartAbortLateCreateBoundary(t *testing.T) {
 		t.Fatal(err)
 	}
 	z := obj.(*erasureServerPools)
+	setMultipartListingTestMode(t, false)
 	t.Cleanup(func() { z.Shutdown(context.Background()); removeRoots(dirs) })
 	saved := globalStorageClass
 	globalStorageClass.Update(storageclass.Config{Standard: storageclass.StorageClass{Parity: 8}})
@@ -454,6 +474,7 @@ func TestMultipartListingScanCosts(t *testing.T) {
 		t.Fatal(err)
 	}
 	z := obj.(*erasureServerPools)
+	setMultipartListingTestMode(t, false)
 	t.Cleanup(func() { z.Shutdown(context.Background()); removeRoots(dirs) })
 	const bucket, otherBucket = "r9-scan-target", "r9-scan-unrelated"
 	for _, name := range []string{bucket, otherBucket} {
@@ -523,6 +544,7 @@ func multipartListingFixture(t *testing.T) (*erasureServerPools, *erasureObjects
 	if err := z.MakeBucket(t.Context(), bucket, MakeBucketOptions{}); err != nil {
 		t.Fatal(err)
 	}
+	setMultipartListingTestMode(t, false)
 	return z, z.serverPools[0].getHashedSet("a"), bucket
 }
 
@@ -673,6 +695,7 @@ func TestMultipartListingAdmissionHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	setMultipartListingTestMode(t, false)
 	for range cap(multipartScanSlots) {
 		scan, err := startMultipartScan(t.Context(), false)
 		if err != nil {
