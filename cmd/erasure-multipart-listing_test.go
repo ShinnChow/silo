@@ -333,6 +333,18 @@ func TestMultipartPreflightAdminHTTP(t *testing.T) {
 	if err = json.Unmarshal(rec.Body.Bytes(), &report); err != nil || !report.Ready || !report.Complete {
 		t.Fatalf("preflight: %+v %v", report, err)
 	}
+	for range cap(multipartScanSlots) {
+		scan, err := startMultipartScan(t.Context(), false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer scan.close()
+	}
+	rec = httptest.NewRecorder()
+	bed.router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("busy admin preflight: %d %s", rec.Code, rec.Body.String())
+	}
 }
 
 type multipartLateCreateDisk struct {
@@ -641,6 +653,9 @@ func TestMultipartListingBudgetAndAdmission(t *testing.T) {
 	if !errors.As(err, &limited) {
 		t.Fatalf("budget: %v", err)
 	}
+	if apiErr := toAPIError(t.Context(), err); apiErr.HTTPStatusCode != http.StatusServiceUnavailable || apiErr.Code != "SlowDown" {
+		t.Fatalf("budget error mapping: %+v", apiErr)
+	}
 	second, err := startMultipartScan(t.Context(), false)
 	if err != nil {
 		t.Fatal(err)
@@ -649,6 +664,36 @@ func TestMultipartListingBudgetAndAdmission(t *testing.T) {
 	if third, err := startMultipartScan(t.Context(), false); err == nil {
 		third.close()
 		t.Fatal("third scan admitted")
+	}
+}
+
+func TestMultipartListingAdmissionHTTP(t *testing.T) {
+	z, _, _ := multipartListingFixture(t)
+	bucket, router, err := initAPIHandlerTest(t.Context(), z, []string{"ListMultipartUploads"}, MakeBucketOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range cap(multipartScanSlots) {
+		scan, err := startMultipartScan(t.Context(), false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer scan.close()
+	}
+	req, err := newTestSignedRequestV4(http.MethodGet,
+		getListMultipartUploadsURLWithParams("", bucket, "", "", "", "", "1"),
+		0, nil, globalActiveCred.AccessKey, globalActiveCred.SecretKey, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	var response APIErrorResponse
+	if err := xml.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusServiceUnavailable || response.Code != "SlowDown" {
+		t.Fatalf("admission returned %d %s", rec.Code, rec.Body.String())
 	}
 }
 

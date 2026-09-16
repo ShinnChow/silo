@@ -452,6 +452,7 @@ const (
 	ErrIAMNotInitialized
 	ErrMultipartListingLegacy
 	ErrMultipartListingIdentity
+	ErrSlowDown
 
 	apiErrCodeEnd // This is used only for the testing code
 )
@@ -1346,6 +1347,11 @@ var errorCodes = errorCodeMap{
 	ErrMultipartListingIdentity: {
 		Code:           "MultipartListingMetadataInvalid",
 		Description:    "Multipart upload metadata is inconsistent. Run the multipart preflight check to locate the affected storage set.",
+		HTTPStatusCode: http.StatusServiceUnavailable,
+	},
+	ErrSlowDown: {
+		Code:           "SlowDown",
+		Description:    "Please reduce your request rate",
 		HTTPStatusCode: http.StatusServiceUnavailable,
 	},
 	ErrBucketMetadataNotInitialized: {
@@ -2319,6 +2325,8 @@ func toAPIErrorCode(ctx context.Context, err error) (apiErr APIErrorCode) {
 	}
 
 	switch err.(type) {
+	case SlowDown:
+		apiErr = ErrSlowDown
 	case StorageFull:
 		apiErr = ErrStorageFull
 	case hash.BadDigest:
