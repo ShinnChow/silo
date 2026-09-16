@@ -1657,7 +1657,7 @@ func (er erasureObjects) putObject(ctx context.Context, bucket string, object st
 	return fi.ToObjectInfo(bucket, object, opts.Versioned || opts.VersionSuspended), nil
 }
 
-func (er erasureObjects) deleteObjectVersion(ctx context.Context, bucket, object string, fi FileInfo, forceDelMarker bool) error {
+func (er erasureObjects) deleteObjectVersion(ctx context.Context, bucket, object string, fi FileInfo, forceDelMarker, purge bool) error {
 	disks := er.getDisks()
 	// Assume (N/2 + 1) quorum for Delete()
 	// this is a theoretical assumption such that
@@ -1673,7 +1673,13 @@ func (er erasureObjects) deleteObjectVersion(ctx context.Context, bucket, object
 			if disks[index] == nil {
 				return errDiskNotFound
 			}
-			return disks[index].DeleteVersion(ctx, bucket, object, fi, forceDelMarker, DeleteOptions{})
+			err := disks[index].DeleteVersion(ctx, bucket, object, fi, forceDelMarker, DeleteOptions{})
+			// Physical removal and reliable already-absent replies are the same
+			// outcome. Creation and metadata updates must not use this quorum.
+			if purge && (err == errFileNotFound || err == errFileVersionNotFound) {
+				return nil
+			}
+			return err
 		}, index)
 	}
 	// return errors if any during deletion
@@ -2023,6 +2029,11 @@ func (er erasureObjects) DeleteObject(ctx context.Context, bucket, object string
 		if opts.DeleteMarker {
 			versionFound = false
 		} else if !tryDel {
+			if opts.isVersionPurge() && (isErrObjectNotFound(gerr) || isErrVersionNotFound(gerr)) {
+				if err := er.checkPurgeAbsent(ctx, bucket, object, opts.VersionID); err != nil {
+					return objInfo, err
+				}
+			}
 			return objInfo, gerr
 		}
 	}
@@ -2105,6 +2116,13 @@ func (er erasureObjects) DeleteObject(ctx context.Context, bucket, object string
 		}
 	}
 
+	purge := opts.isVersionPurge()
+	if purge {
+		// A delete marker describes the version being removed; it is not an
+		// instruction to create that marker on disks which already lack it.
+		markDelete, deleteMarker = false, false
+	}
+
 	modTime := opts.MTime
 	if opts.MTime.IsZero() {
 		modTime = UTCNow()
@@ -2151,7 +2169,7 @@ func (er erasureObjects) DeleteObject(ctx context.Context, bucket, object string
 		// delete marker. Add delete marker, since we don't have
 		// any version specified explicitly. Or if a particular
 		// version id needs to be replicated.
-		if err = er.deleteObjectVersion(ctx, bucket, object, fi, opts.DeleteMarker); err != nil {
+		if err = er.deleteObjectVersion(ctx, bucket, object, fi, opts.DeleteMarker, false); err != nil {
 			return objInfo, toObjectErr(err, bucket, object)
 		}
 		oi := fi.ToObjectInfo(bucket, object, opts.Versioned || opts.VersionSuspended)
@@ -2174,11 +2192,17 @@ func (er erasureObjects) DeleteObject(ctx context.Context, bucket, object string
 	if opts.SkipFreeVersion {
 		dfi.SetSkipTierFreeVersion()
 	}
-	if err = er.deleteObjectVersion(ctx, bucket, object, dfi, opts.DeleteMarker); err != nil {
+	if err = er.deleteObjectVersion(ctx, bucket, object, dfi, opts.DeleteMarker, purge); err != nil {
 		return objInfo, toObjectErr(err, bucket, object)
 	}
 
-	return dfi.ToObjectInfo(bucket, object, opts.Versioned || opts.VersionSuspended), nil
+	oi := dfi.ToObjectInfo(bucket, object, opts.Versioned || opts.VersionSuspended)
+	if purge {
+		// Preserve the DELETE response's identity without reusing it as a disk
+		// instruction to create a marker.
+		oi.DeleteMarker = goi.DeleteMarker
+	}
+	return oi, nil
 }
 
 // Send the successful but partial upload/delete, however ignore
@@ -2467,7 +2491,7 @@ func (er erasureObjects) TransitionObject(ctx context.Context, bucket, object st
 
 	storageDisks := er.getDisks()
 
-	if err = er.deleteObjectVersion(ctx, bucket, object, fi, false); err != nil {
+	if err = er.deleteObjectVersion(ctx, bucket, object, fi, false, false); err != nil {
 		eventName = event.ObjectTransitionFailed
 	}
 

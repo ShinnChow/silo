@@ -1239,9 +1239,12 @@ func (z *erasureServerPools) DeleteObject(ctx context.Context, bucket string, ob
 		return ObjectInfo{}, z.deletePrefix(ctx, bucket, object)
 	}
 
-	// Reconcile ordinary addressed-version deletes independently of pool movement.
+	// Resolve a physical purge by its addressed version even on a replica
+	// receiver: latest-key routing can select a different pool or miss copies.
+	// Marker creation and specialized movement/scanner operations retain their
+	// existing routing.
 	reconcileVersion := opts.VersionID != "" && !opts.DataMovement &&
-		!opts.ReplicationRequest && !opts.Expiration.Expire && !opts.InclFreeVersions
+		(!opts.ReplicationRequest || opts.isVersionPurge()) && !opts.Expiration.Expire && !opts.InclFreeVersions
 	if !z.SinglePool() && (opts.CheckPrecondFn != nil || reconcileVersion) {
 		return z.deleteObjectReconciled(ctx, bucket, object, opts)
 	}
@@ -1253,6 +1256,13 @@ func (z *erasureServerPools) DeleteObject(ctx context.Context, bucket string, ob
 	if err != nil {
 		if _, ok := err.(InsufficientReadQuorum); ok {
 			return objInfo, InsufficientWriteQuorum{}
+		}
+		// Lookup can return before the set's purge confirmation. Check here,
+		// before any callback can change the request into a metadata update.
+		if opts.isVersionPurge() && (isErrObjectNotFound(err) || isErrVersionNotFound(err)) {
+			if quorumErr := z.checkPurgeAbsent(ctx, bucket, object, opts.VersionID); quorumErr != nil {
+				return objInfo, quorumErr
+			}
 		}
 		// A conditional (If-Match) delete addressing a specific version treats an
 		// absent key as an absent version. getPoolInfoExistingWithOpts strips
@@ -1284,6 +1294,11 @@ func (z *erasureServerPools) DeleteObject(ctx context.Context, bucket string, ob
 			if verr != nil && (!isErrMethodNotAllowed(verr) || !vi.DeleteMarker) {
 				// Genuine read failure for the addressed version: a missing
 				// version -> VersionNotFound (NoSuchVersion), read-quorum loss, etc.
+				if opts.isVersionPurge() && (isErrObjectNotFound(verr) || isErrVersionNotFound(verr)) {
+					if quorumErr := z.checkPurgeAbsent(ctx, bucket, object, opts.VersionID); quorumErr != nil {
+						return objInfo, quorumErr
+					}
+				}
 				return objInfo, verr
 			}
 			// verr is nil for a live version, or MethodNotAllowed with a populated

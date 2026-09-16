@@ -316,6 +316,11 @@ func (z *erasureServerPools) retireReplicaCopies(ctx context.Context, bucket, ob
 func (z *erasureServerPools) deleteObjectReconciled(ctx context.Context, bucket, object string, opts ObjectOptions) (ObjectInfo, error) {
 	copies, err := z.objectPoolInfos(ctx, bucket, object, opts)
 	if err != nil {
+		if opts.isVersionPurge() && (isErrObjectNotFound(err) || isErrVersionNotFound(err)) {
+			if quorumErr := z.checkPurgeAbsent(ctx, bucket, object, opts.VersionID); quorumErr != nil {
+				return ObjectInfo{}, quorumErr
+			}
+		}
 		return ObjectInfo{}, err
 	}
 	primary := copies[0]
@@ -363,6 +368,21 @@ func (z *erasureServerPools) deleteObjectReconciled(ctx context.Context, bucket,
 				opts.SetDeleteReplicationState(decision, opts.VersionID)
 			}
 			opts.EvalMetadataFn = nil
+		}
+	}
+	if opts.isVersionPurge() {
+		// A missing pool may have only read-quorum absence. Verify every pool
+		// omitted by lookup before mutating the known copies.
+		for i, pool := range z.serverPools {
+			found := false
+			for _, copy := range copies {
+				found = found || copy.Index == i
+			}
+			if !found {
+				if err := pool.getHashedSet(object).checkPurgeAbsent(ctx, bucket, object, opts.VersionID); err != nil {
+					return ObjectInfo{}, err
+				}
+			}
 		}
 	}
 	if opts.VersionID == "" && (opts.Versioned || opts.VersionSuspended) {

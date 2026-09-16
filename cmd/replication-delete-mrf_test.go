@@ -82,22 +82,59 @@ type markerRecoveryTarget struct {
 func replicationTestCapacity(obj ObjectLayer) func() {
 	var restore []func()
 	for _, pool := range obj.(*erasureServerPools).serverPools {
+		pool.erasureDisksMu.Lock()
 		for _, set := range pool.sets {
-			original := set.getDisks
-			disks := append([]StorageAPI(nil), original()...)
+			original := pool.erasureDisks[set.setIndex]
+			disks := append([]StorageAPI(nil), original...)
 			for i, disk := range disks {
 				if disk != nil {
 					disks[i] = tagTestCapacityDisk{StorageAPI: disk}
 				}
 			}
-			set.getDisks = func() []StorageAPI { return disks }
-			restore = append(restore, func() { set.getDisks = original })
+			// GetDisks copies this list under the same mutex. Keep its function
+			// stable while background IAM scans use the fixture, both when
+			// installing the adapter and when restoring the original disks.
+			pool.erasureDisks[set.setIndex] = disks
+			restore = append(restore, func() {
+				pool.erasureDisksMu.Lock()
+				pool.erasureDisks[set.setIndex] = original
+				pool.erasureDisksMu.Unlock()
+			})
 		}
+		pool.erasureDisksMu.Unlock()
 	}
 	return func() {
 		for _, fn := range restore {
 			fn()
 		}
+	}
+}
+
+func TestReplicationCapacityConcurrentIAM(t *testing.T) {
+	z, _ := consistencyPools(t)
+	if _, _, err := initAPIHandlerTest(t.Context(), z, nil, MakeBucketOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+	iam := globalIAMSys
+	started, finished := make(chan struct{}), make(chan error, 1)
+	go func() {
+		close(started)
+		for range 20 {
+			if err := iam.Load(ctx, false); err != nil {
+				finished <- err
+				return
+			}
+		}
+		finished <- nil
+	}()
+	<-started
+	for range 5000 {
+		replicationTestCapacity(z)()
+	}
+	if err := <-finished; err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -1630,7 +1630,7 @@ func (x *xlMetaV2) AddVersion(fi FileInfo) error {
 		ventry.DeleteMarker = &xlMetaV2DeleteMarker{
 			VersionID: uv,
 			ModTime:   fi.ModTime.UnixNano(),
-			MetaSys:   make(map[string][]byte),
+			MetaSys:   deleteMarkerMetadata(fi),
 		}
 	} else {
 		ventry.Type = ObjectType
