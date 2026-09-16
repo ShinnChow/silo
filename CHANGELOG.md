@@ -9,6 +9,33 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
 
 ### Authorization and security
 
+- Restrict embedded Console's anonymous sharing proxy to object-content GETs
+  at the configured S3 origin, and reject every redirect. Internal metrics,
+  system paths and non-download S3 operations cannot be reached through it.
+  Normal public, presigned and versioned downloads remain available without a
+  new setting; a full sharing-disable switch is not introduced. See
+  [Console #56](https://github.com/pgsty/silo-console/pull/56) and the
+  [design record](https://github.com/pgsty/silo-console/issues/52).
+  Thanks to Jiri Pejchal (@jiri-pejchal) for the report.
+- Persist IAM deletion revisions and parent revocation boundaries so stale site
+  events cannot restore deleted identities, policies or their older grants
+  (#191, #192). Peer deletion notifications reload committed storage; deliberate
+  recreation requires a newer revision, and credentials issued before the
+  parent's revocation remain invalid.
+  **Coordinated upgrade required:** upgrade every participating node and site.
+  Mixed old/new nodes sharing an IAM backend and rolling downgrade are
+  unsupported. Back up complete IAM storage and encryption material; an admin
+  export of live records omits deletion history. Reissue credentials for
+  recreated parents and explicitly reconcile pre-upgrade revocations whose
+  history is already lost. Restoring an older backup can lose later revocations;
+  keep affected sites isolated until reconciliation/rekeying is complete. See
+  [the operator runbook](https://github.com/pgsty/silo.pgsty.com/blob/29c7f220b3acc556ad570694056d35e11246f1b9/content/operations/replication/iam-upgrade.md).
+- Enforce an absolute HTTP/1 request-header deadline through the connection
+  wrapper (#196). Repeated small reads no longer extend that deadline, and
+  `--read-header-timeout` / `MINIO_READ_HEADER_TIMEOUT` now reaches the HTTP
+  server. HTTP/1 request bodies retain the rolling idle timeout; this does not
+  impose a total upload/download duration. A shorter setting also constrains
+  TLS handshake reads. The wrapper's strict header mode is not applied to HTTP/2.
 - Reject unsigned `x-amz-*` request headers that could turn a signed PUT into a
   copy of another object accessible to the signer (SN-2026-011). The latest
   public Server is affected; the fix is on main. See [the advisory ledger](docs/security/advisories.md).
@@ -30,17 +57,44 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
   rolling upgrades, detection of any legacy keyless upload retains the prior
   listing behavior until those uploads drain. See [issue #79](https://github.com/pgsty/silo/issues/79)
   and its [design record](https://silo.pgsty.com/blog/design/list-multipart-uploads/).
+- Preserve object tags during multi-pool metadata reconciliation by reading the
+  resolved tag field together with its revision (#189). Previously, reconciliation
+  could replace existing tags with an empty value.
+- Preserve the tag revision on SSE-KMS metadata replication (#193), and advance
+  tag revisions monotonically on local PUT/DELETE tagging (#196). Empty tags
+  participate in reconciliation as an ordered deletion, preventing older
+  events from restoring removed tags. SSE-C key rotation also retains the tag
+  revision. Malformed historical revisions can fail and retry; their missing
+  history is not reconstructed by the upgrade.
+- Complete delete-marker version purges and preserve their identity and retry
+  state through MRF recovery (#196). Recovery accepts a 405 marker response only
+  when its version, bucket, object name and modification time match the task.
+  Purge audit status is normalized from `COMPLETE` to `COMPLETED`.
+  Thanks to Julien Laurenceau (@julienlau) for the investigation and proposed
+  fix in #184 that helped shape this follow-up.
+- Restore only the six replication-specific metadata fields after ordinary
+  request metadata extraction (#194). This prevents transport-only `aws-chunked`
+  from being stored as Content-Encoding while preserving the signed-header
+  protections. Trusted Snowball entries no longer inherit the outer archive's
+  ordinary metadata. Thanks to Mikhail Khadarenka (@chodorenko) for the fix in #187.
+  **Existing data:** these repairs prevent new errors; they do not scan or rewrite
+  historical object metadata, recover lost tags or prove that old purge work has
+  converged. Follow the [read-only audit procedure](https://github.com/pgsty/silo.pgsty.com/blob/29c7f220b3acc556ad570694056d35e11246f1b9/content/operations/replication/replica-metadata-audit.md)
+  before planning any repair of stored state.
 
 - Evaluate conditional multipart completion against the logical current object
   across all pools while holding the existing object lock. A stale `If-Match`
   can no longer replace newer data in another pool, and the current ETag is no
   longer rejected because the upload resides next to an older copy. Conditions
   are evaluated once; a current delete marker counts as an absent object.
-  **Availability change:** if metadata cannot be read from any pool, conditional
+  **Availability change:** if any pool's metadata cannot be read, conditional
   completion fails even when another pool can still serve GET/HEAD. This also
   applies when the unreadable pool may not hold the object: absence cannot be
   verified. Retry after the pool recovers. Unconditional completion and the
   single-pool path retain their existing behavior.
+  Ordinary conditional PUT has a separate cross-pool precondition gap tracked
+  in [#199](https://github.com/pgsty/silo/issues/199); the multipart repair does
+  not resolve it.
 
 - Reconcile ordinary single-object version DELETE across all pools, including
   null versions, delete markers and unqualified directory-marker DELETE. This
@@ -70,7 +124,7 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
 - Repair federated CopyObject checksums, destination timestamps, reserved
   metadata, encrypted-object forwarding, legal hold and KMS context.
 - Make resync counters, target selection, cancellation and worker lifetimes
-  reflect actual work; complete delete-marker purges and report bounded MRF drops.
+  reflect actual work, and report bounded MRF drops.
 - Converge bucket metadata with deterministic source state, deletion tombstones,
   creation time recovery and diagnostics. The mixed-version export gate requires
   coordinated upgrades before tombstones are exported. See [the #77 record](docs/investigations/issue-77-current.md).
@@ -82,7 +136,7 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
 - Restore embedded Console login over loopback TLS, trusted-proxy handling and
   all four WebSocket connection limits. Preserve Go TLS defaults across transports.
 - Directly require `github.com/pgsty/silo-pkg/v3` v3.14.0; select Console
-  `v0.0.0-20260913015128-417559bb2c97` and MC
+  `v0.0.0-20260916034812-56dfe455ac2f` and MC
   `v0.0.0-20260913012246-4f609a4da3bb` with explicit PGSTY replacements.
 - Pin upstream minio-go `v7.3.1-0.20260910142817-60bd07042d49`; refresh Go x/*
   modules and security fixes including bounded AMQP frame handling. Keep Go
