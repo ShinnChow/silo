@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - "go.mod"
+      - "go.sum"
       - ".github/goreleaser.yml"
       - ".github/nfpm.yml"
       - "Dockerfile.goreleaser"
@@ -93,9 +95,9 @@ jobs:
           echo "LDFLAGS: ${LDFLAGS}"
 
       - name: GoReleaser config check
-        uses: goreleaser/goreleaser-action@v7
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
-          version: "~> v2"
+          version: v2.18.1
           args: check --config .github/goreleaser.yml
 
       - name: Validate Helm chart and legacy upgrade identity
@@ -107,9 +109,9 @@ jobs:
           syft-version: v1.50.0
 
       - name: Build snapshot artifacts
-        uses: goreleaser/goreleaser-action@v7
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
-          version: "~> v2"
+          version: v2.18.1
           # A pull-request snapshot has no trusted release identity. Exercise
           # the SBOM/checksum pipeline here, and reserve keyless signing for
           # the tag-triggered release workflow with GitHub OIDC.

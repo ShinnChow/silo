@@ -571,6 +571,14 @@
     "minio_resource_stats",
     "minio_s3",
     "minio_stats",
+    "minio_system_cpu_avg_idle",
+    "minio_system_cpu_avg_iowait",
+    "minio_system_cpu_load",
+    "minio_system_cpu_load_perc",
+    "minio_system_cpu_nice",
+    "minio_system_cpu_steal",
+    "minio_system_cpu_system",
+    "minio_system_cpu_user",
     "minio_test"
   ],
   "headers": [
