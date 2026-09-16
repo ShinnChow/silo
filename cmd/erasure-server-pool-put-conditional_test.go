@@ -52,18 +52,32 @@ func (d conditionalPutCapacityDisk) DiskInfo(ctx context.Context, opts DiskInfoO
 	return info, err
 }
 
+// Keep getDisks immutable while background IAM and storage readers use it.
+// GetDisks takes this same mutex when it copies the backing disk list.
+func conditionalPutSwapDisks(pool *erasureSets, object string, wrap func(StorageAPI) StorageAPI) func() {
+	setIndex := pool.getHashedSet(object).setIndex
+	pool.erasureDisksMu.Lock()
+	previous := pool.erasureDisks[setIndex]
+	disks := append([]StorageAPI(nil), previous...)
+	for i, disk := range disks {
+		disks[i] = wrap(disk)
+	}
+	pool.erasureDisks[setIndex] = disks
+	pool.erasureDisksMu.Unlock()
+	return func() {
+		pool.erasureDisksMu.Lock()
+		pool.erasureDisks[setIndex] = previous
+		pool.erasureDisksMu.Unlock()
+	}
+}
+
 func conditionalPutPool(t *testing.T, z *erasureServerPools, object string, target int) func() {
 	t.Helper()
 	var restore []func()
 	for i, pool := range z.serverPools {
-		set := pool.getHashedSet(object)
-		previous := set.getDisks
-		disks := append([]StorageAPI(nil), previous()...)
-		for j, disk := range disks {
-			disks[j] = conditionalPutCapacityDisk{StorageAPI: disk, full: i != target}
-		}
-		set.getDisks = func() []StorageAPI { return disks }
-		restore = append(restore, func() { set.getDisks = previous })
+		restore = append(restore, conditionalPutSwapDisks(pool, object, func(disk StorageAPI) StorageAPI {
+			return conditionalPutCapacityDisk{StorageAPI: disk, full: i != target}
+		}))
 	}
 	return func() {
 		for _, fn := range restore {
@@ -230,14 +244,10 @@ func TestPoolsConditionalPutUnreadable(t *testing.T) {
 						putConsistencyObject(t, z, bucket, object, 1, "current", ObjectOptions{MTime: UTCNow().Add(-time.Minute)})
 					}
 					defer conditionalPutPool(t, z, object, 0)()
-					set := z.serverPools[faultPool].getHashedSet(object)
-					original := set.getDisks
-					disks := append([]StorageAPI(nil), original()...)
-					for i := range disks {
-						disks[i] = consistencyReadFaultDisk{StorageAPI: disks[i], bucket: bucket, object: object}
-					}
-					set.getDisks = func() []StorageAPI { return disks }
-					defer func() { set.getDisks = original }()
+					restoreFault := conditionalPutSwapDisks(z.serverPools[faultPool], object, func(disk StorageAPI) StorageAPI {
+						return consistencyReadFaultDisk{StorageAPI: disk, bucket: bucket, object: object}
+					})
+					defer restoreFault()
 					headers := map[string]string{xhttp.IfNoneMatch: "*"}
 					if match {
 						headers = map[string]string{xhttp.IfMatch: "*"}
@@ -252,7 +262,7 @@ func TestPoolsConditionalPutUnreadable(t *testing.T) {
 					if !isErrReadQuorum(err) || called != 0 {
 						t.Errorf("lookup error=%v callback calls=%d", err, called)
 					}
-					set.getDisks = original
+					restoreFault()
 					get := multipartConditionRequest(t, router, http.MethodGet, url, "", nil)
 					if present {
 						if get.Code != http.StatusOK || get.Body.String() != "current" || multipartConditionResponseETag(get) != fmt.Sprintf("%x", md5.Sum([]byte("current"))) {
@@ -595,14 +605,10 @@ func TestPoolsConditionalPutReplicaAvailability(t *testing.T) {
 			object := "replica-availability"
 			oi := putConsistencyObject(t, z, bucket, object, 0, "old", ObjectOptions{Versioned: addressed, MTime: UTCNow().Add(-time.Minute)})
 			defer conditionalPutPool(t, z, object, 0)()
-			set := z.serverPools[1].getHashedSet(object)
-			original := set.getDisks
-			disks := append([]StorageAPI(nil), original()...)
-			for i := range disks {
-				disks[i] = consistencyReadFaultDisk{StorageAPI: disks[i], bucket: bucket, object: object}
-			}
-			set.getDisks = func() []StorageAPI { return disks }
-			defer func() { set.getDisks = original }()
+			restoreFault := conditionalPutSwapDisks(z.serverPools[1], object, func(disk StorageAPI) StorageAPI {
+				return consistencyReadFaultDisk{StorageAPI: disk, bucket: bucket, object: object}
+			})
+			defer restoreFault()
 			headers := map[string]string{
 				xhttp.MinIOSourceReplicationRequest: "true",
 				xhttp.AmzBucketReplicationStatus:    "REPLICA",
@@ -618,7 +624,7 @@ func TestPoolsConditionalPutReplicaAvailability(t *testing.T) {
 			if put.Code != wantStatus {
 				t.Fatalf("replica PUT: %d want %d: %s", put.Code, wantStatus, put.Body.String())
 			}
-			set.getDisks = original
+			restoreFault()
 			get := multipartConditionRequest(t, router, http.MethodGet, url, "", nil)
 			if get.Code != http.StatusOK || get.Body.String() != wantBody {
 				t.Fatalf("replica GET: %d %q", get.Code, get.Body.String())
@@ -682,5 +688,34 @@ func TestPoolsConditionalPutDeleteMarkerTie(t *testing.T) {
 				t.Fatalf("PUT tie: %d want %d: %s", put.Code, want, put.Body.String())
 			}
 		})
+	}
+}
+
+// Overlap fixture changes with the real IAM Walk reader instead of relying on
+// its periodic refresh timer to expose an unsynchronized disk-adapter swap.
+func TestPoolsConditionalPutFixtureConcurrentIAM(t *testing.T) {
+	z, _ := consistencyPools(t)
+	conditionalPutBucket(t, z, "unversioned")
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+	started, finished := make(chan struct{}), make(chan error, 1)
+	iam := globalIAMSys
+	go func() {
+		close(started)
+		for range 20 {
+			if err := iam.Load(ctx, false); err != nil {
+				finished <- err
+				return
+			}
+		}
+		finished <- nil
+	}()
+	<-started
+	for i := range 5000 {
+		restore := conditionalPutPool(t, z, "fixture-concurrent-iam", i%2)
+		restore()
+	}
+	if err := <-finished; err != nil {
+		t.Fatal(err)
 	}
 }
