@@ -2199,8 +2199,10 @@ func (er erasureObjects) DeleteObject(ctx context.Context, bucket, object string
 	oi := dfi.ToObjectInfo(bucket, object, opts.Versioned || opts.VersionSuspended)
 	if purge {
 		// Preserve the DELETE response's identity without reusing it as a disk
-		// instruction to create a marker.
-		oi.DeleteMarker = goi.DeleteMarker
+		// instruction to create a marker. The lookup also exposes a data
+		// version pending purge as deleted for visibility; only a stored
+		// marker, which carries no erasure layout, is reported as one.
+		oi.DeleteMarker = goi.DeleteMarker && goi.DataBlocks == 0
 	}
 	return oi, nil
 }
