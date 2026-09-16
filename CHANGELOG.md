@@ -29,7 +29,7 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
   recreated parents and explicitly reconcile pre-upgrade revocations whose
   history is already lost. Restoring an older backup can lose later revocations;
   keep affected sites isolated until reconciliation/rekeying is complete. See
-  [the operator runbook](https://github.com/pgsty/silo.pgsty.com/blob/7bd2d57c2ce5aaa804d0b1a2fe0e5eed69d15235/content/operations/replication/iam-upgrade.md).
+  [the operator runbook](https://silo.pgsty.com/operations/replication/iam-upgrade/).
 - Enforce an absolute HTTP/1 request-header deadline through the connection
   wrapper (#196). Repeated small reads no longer extend that deadline, and
   `--read-header-timeout` / `MINIO_READ_HEADER_TIMEOUT` now reaches the HTTP
@@ -91,7 +91,7 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
   ordinary metadata. Thanks to Mikhail Khadarenka (@chodorenko) for the fix in #187.
   **Existing data:** these repairs prevent new errors; they do not scan or rewrite
   historical object metadata, recover lost tags or prove that old purge work has
-  converged. Follow the [read-only audit procedure](https://github.com/pgsty/silo.pgsty.com/blob/7bd2d57c2ce5aaa804d0b1a2fe0e5eed69d15235/content/operations/replication/replica-metadata-audit.md)
+  converged. Follow the [read-only audit procedure](https://silo.pgsty.com/operations/replication/replica-metadata-audit/)
   before planning any repair of stored state.
 
 - Evaluate conditional multipart completion against the logical current object
