@@ -38,7 +38,7 @@
 ## Current release and main branch
 
 The latest published Server is [20260903](https://github.com/pgsty/silo/releases/tag/RELEASE.2026-09-03T13-18-01Z).
-As of 2026-09-13, the main branch has newer security, storage, Console and
+As of 2026-09-16, the main branch has newer security, storage, Console and
 shared-package changes that have not shipped in a Server release. See
 [CHANGELOG.md](CHANGELOG.md) and the [component version matrix](https://silo.pgsty.com/compatibility/versions/)
 for the exact release/source boundary, including SN-2026-011 and password-policy migration.
@@ -93,13 +93,16 @@ Every release ships checksums, SPDX SBOMs, Sigstore-signed manifests, and GitHub
 
 ## Compatibility
 
-The S3 API, `MINIO_*` variables, `minio_*` metrics, `x-minio-*` headers, `/minio/*` routes, the `github.com/minio/*` import paths, and the on-disk format (including `.minio.sys`) are preserved and held in place by a CI compatibility check. Only Silo-owned delivery surfaces change: the `silo` executable, package, service, Helm chart, and container image — no `minio` binary alias is installed.
+Silo preserves S3 and storage-format compatibility, including existing `MINIO_*` variables, `minio_*` metrics, `x-minio-*` headers, `/minio/*` routes, and `.minio.sys` data. CI guards selected compatibility identifiers; release notes document intentional security and behavior changes. Silo-owned delivery surfaces use the `silo` executable, package, service, Helm chart, and container image; no `minio` server binary alias is installed.
+
+The supported release stack is `pgsty/silo` + `pgsty/silo-console` + `pgsty/mc` + `pgsty/silo-pkg`; compatibility with unmodified upstream MinIO/MC is best effort. The Server, Console, and client retain their historical module paths where needed, while maintained code imports `github.com/pgsty/silo-pkg/v3` directly. The SDK `github.com/minio/minio-go/v7` is an explicit upstream dependency. See the current [go.mod](go.mod) for versions and replacements.
 
 Every divergence from upstream is listed in the code-verified [compatibility audit](https://silo.pgsty.com/compatibility/server/). Treat each release as a downstream upgrade: pin versions, read the [release notes](https://silo.pgsty.com/tags/silo/), and keep a rollback path.
 
 ### TLS and Go upgrades
 
-TLS key exchange follows Go's defaults across the S3 listener, node links,
+The following TLS repair is on main and is not included in Server 20260903.
+With that repair, TLS key exchange follows Go's defaults across the S3 listener, node links,
 replication, identity providers, etcd, and external HTTP services. If an endpoint
 cannot accept ML-KEM, `GODEBUG=tlsmlkem=0` disables the default hybrid exchanges
 for the process; certificate verification remains enabled. This option does not
@@ -115,7 +118,16 @@ values to restore Keychain trust. Explicit certificates in the configured `CAs`
 directory remain additive to the selected root pool.
 Go 1.27 binaries require macOS 13 or later. See the
 [Go release notes](https://go.dev/doc/go1.27) and the
-[SILO stack investigation](docs/investigations/go127-stack.md).
+[Go 1.27 TLS and OIDC discovery guide](https://silo.pgsty.com/blog/design/go127-tls-oidc-discovery/).
+
+## Documentation ownership
+
+User documentation is maintained at [silo.pgsty.com](https://silo.pgsty.com/docs/),
+with source in [pgsty/silo.pgsty.com](https://github.com/pgsty/silo.pgsty.com).
+The remaining `docs/` tree contains inherited references, examples, and tooling
+fixtures. Investigation logs, AI work records, and temporary reports are kept
+outside this repository; reusable findings belong in the companion site.
+See [AGENTS.md](AGENTS.md) for repository ownership and maintenance rules.
 
 ## Security & Contributing
 

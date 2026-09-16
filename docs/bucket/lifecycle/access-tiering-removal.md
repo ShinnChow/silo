@@ -2,7 +2,7 @@
 
 PR #60 introduced an opt-in scheduler that moved objects between local server pools according to GET frequency. It and its feature-specific fixes have been removed. This does not remove ordinary lifecycle expiration, transitions to remote tiers, rebalance, decommission, or the general multi-pool correctness fixes from PR #178.
 
-The [introduction and rollback record](../../investigations/access-tiering-revert.md) documents the commit history, scope decision, review corrections and unresolved validation findings.
+The [introduction and rollback record](https://silo.pgsty.com/compatibility/access-tiering-removal/) documents the commit history, scope decision, review corrections and unresolved validation findings.
 
 The published Server 20260903 predates this feature. These instructions concern main/snapshot deployments that included #60; upgrading from the published version does not require access-tier configuration cleanup.
 

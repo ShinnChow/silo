@@ -1,3 +1,0 @@
-$ go mod tidy -diff
-
-exit_code=0

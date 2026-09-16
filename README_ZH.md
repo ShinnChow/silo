@@ -38,7 +38,7 @@
 ## 当前发行版与主分支
 
 最新已发布的 Server 仍为 [20260903](https://github.com/pgsty/silo/releases/tag/RELEASE.2026-09-03T13-18-01Z)。
-截至 2026-09-13，主分支已合入更新的安全、存储、Console 与共享包改动，但尚未发布新 Server。
+截至 2026-09-16，主分支已合入更新的安全、存储、Console 与共享包改动，但尚未发布新 Server。
 准确的已发布/源码边界见 [CHANGELOG.md](CHANGELOG.md) 与[组件版本矩阵](https://silo.pgsty.com/zh/compatibility/versions/)，
 其中包括 SN-2026-011 修复状态与密码权限迁移要求。
 
@@ -92,9 +92,24 @@ docker exec silo mcli mb local/demo && docker exec silo mcli ls local
 
 ## 兼容性
 
-S3 API、`MINIO_*` 环境变量、`minio_*` 指标、`x-minio-*` 头、`/minio/*` 路由、`github.com/minio/*` 导入路径与磁盘格式（含 `.minio.sys`）原样保留，并由 CI 兼容性门禁冻结。只有 Silo 自有交付面改名：`silo` 可执行文件、软件包、服务、Helm Chart 与容器镜像 —— 原生交付物不会安装 `minio` 二进制别名。
+Silo 保留 S3 与存储格式兼容性，包括既有 `MINIO_*` 环境变量、`minio_*` 指标、`x-minio-*` 头、`/minio/*` 路由与 `.minio.sys` 数据。CI 守卫检查选定的兼容性标识，有意的安全与行为变化在发布说明中记录。Silo 自有交付面使用 `silo` 可执行文件、软件包、服务、Helm Chart 与容器镜像；原生交付物不会安装 `minio` 服务端二进制别名。
+
+正式支持和发布验收的组合为 `pgsty/silo` + `pgsty/silo-console` + `pgsty/mc` + `pgsty/silo-pkg`，对未修改的上游 MinIO/MC 尽最大努力保持兼容。Server、Console 与客户端按需保留历史模块路径，维护源码直接导入 `github.com/pgsty/silo-pkg/v3`；SDK `github.com/minio/minio-go/v7` 是明确保留的上游依赖。具体版本与 replace 以当前 [go.mod](go.mod) 为准。
 
 与上游的全部分歧，以逐项核验代码的[兼容性审计](https://silo.pgsty.com/zh/compatibility/server/)形式维护。每个版本仍应视为下游升级：锁定版本，阅读[版本说明](https://silo.pgsty.com/zh/tags/silo/)，并保留回滚路径。
+
+### TLS 与 Go 升级
+
+Server 恢复 Go 默认密钥交换策略的修复已在 main，尚未包含在 Server 20260903。
+`GODEBUG=tlsmlkem=0`、`tlssecpmlkem=0` 的适用范围、macOS 根证书来源变化，
+以及 OIDC discovery 的诊断方法见 [Go 1.27 TLS 与 OIDC 指南](https://silo.pgsty.com/zh/blog/design/go127-tls-oidc-discovery/)。
+
+## 文档归属
+
+用户文档统一维护在 [silo.pgsty.com](https://silo.pgsty.com/zh/docs/)，源码位于
+[pgsty/silo.pgsty.com](https://github.com/pgsty/silo.pgsty.com)。本仓库保留的 `docs/`
+主要是继承的参考材料、示例和工具测试夹具。调查日志、AI 工作记录与临时报告放在仓库外；
+可复用的结论应整理进伴生文档站。仓库职责与维护规则见 [AGENTS.md](AGENTS.md)。
 
 ## 安全与贡献
 

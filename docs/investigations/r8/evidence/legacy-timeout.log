@@ -1,6 +1,0 @@
-Cleaning up instances of Silo
-Bucket created successfully `silo/testbucket`.
-Access permission for `silo/testbucket` is set to `public`
-mcli: <ERROR> Unable to stat `silo/testbucket/testobject`. Object does not exist.
-mcli: <ERROR> Unable to stat `silo/testbucket/testobject`. Object does not exist.
-mcli: <ERROR> Unable to stat `silo/testbucket/testobject`. Object does not exist.
