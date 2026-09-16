@@ -108,6 +108,35 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
   converged. Follow the [read-only audit procedure](https://silo.pgsty.com/operations/replication/replica-metadata-audit/)
   before planning any repair of stored state.
 
+- Make exact-version delete-marker purges converge in replicated buckets
+  (`eb4f5e5b3`, `254b19ac0`, `358ab38fb`). A purge no longer creates the
+  marker on drives that lacked it; a retried purge of a missing version is
+  acknowledged only when a write-quorum majority of drives report it absent;
+  purge results merge removed and reliably absent replies; healing a marker
+  preserves its stored replication and purge metadata; and a queued marker
+  creation is re-checked against the source under the replication lock before
+  it is sent, so a purge that already reached the targets is not undone by a
+  stale task from another frontend, a GET/LIST heal, the scanner or MRF.
+  Purging a data version whose earlier purge is still pending reports it as a
+  data version. **Known limitations:** creations already in flight or replayed
+  from another site, and minority marker copies left by a crash after a
+  majority-acknowledged purge, are tracked in #217. See
+  [the replication reliability record](https://silo.pgsty.com/blog/design/replication-reliability/).
+- Keep a null object version that has listing quorum when a newer minority of
+  drives sorts first (`8d06424b1`). The resolver recounts per header only when
+  the original selection lacks quorum, every non-empty drive stream holds
+  exactly one ordinary null version and all share the same erasure layout;
+  mixed histories keep their previous behavior. **Known limitation:** a
+  successful ListObjects can still omit readable keys during rolling restarts
+  with concurrent overwrites (#218). Do not run destination-deleting sync tools
+  against a listing taken during a rolling restart; list again once the
+  cluster is stable.
+- Carry object tags through rebalance and decommission for ordinary and
+  multipart writes (`fced86303`). Both migration entry points restore the tags
+  and their revision fields when rewriting the object in the destination pool.
+  Tags dropped by earlier migrations are not recovered; audit tag-dependent
+  lifecycle and policy rules for pools migrated with an older build.
+
 - Evaluate conditional multipart completion against the logical current object
   across all pools while holding the existing object lock. A stale `If-Match`
   can no longer replace newer data in another pool, and the current ETag is no
