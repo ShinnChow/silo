@@ -1149,6 +1149,40 @@ func (z *erasureServerPools) PutObject(ctx context.Context, bucket string, objec
 	}
 	opts.NoLock = true
 
+	// Public write conditions compare the logical current object while the
+	// pools-layer write lock is held. The destination selected by capacity may
+	// be empty or stale, and draining pools can still hold the current object.
+	// Replica callbacks retain their existing addressed-version semantics and
+	// metadata reconciliation at the set layer.
+	if opts.CheckPrecondFn != nil && !opts.ReplicationRequest &&
+		!opts.ReplicaLockReconcile && !opts.DataMovement {
+		copies, lerr := z.objectPoolInfos(ctx, bucket, object, ObjectOptions{
+			VersionID:        "", // Compare the current object, not the write's version.
+			Versioned:        opts.Versioned,
+			VersionSuspended: opts.VersionSuspended,
+			NoAuditLog:       true,
+		})
+		var latest ObjectInfo
+		if lerr == nil {
+			latest = copies[0].ObjInfo
+			if latest.DeleteMarker {
+				lerr = toObjectErr(errFileNotFound, bucket, object)
+			}
+		}
+		// An unreadable pool may hold the newest object; it is not absence.
+		if lerr != nil && !isErrObjectNotFound(lerr) && !isErrVersionNotFound(lerr) {
+			return ObjectInfo{}, lerr
+		}
+		if lerr == nil && opts.CheckPrecondFn(latest) {
+			return ObjectInfo{}, PreConditionFailed{}
+		}
+		if lerr != nil && opts.HasIfMatch {
+			return ObjectInfo{}, lerr
+		}
+		// Do not repeat an accepted condition against the destination's copy.
+		opts.CheckPrecondFn = nil
+	}
+
 	idx, err := z.getWritePoolIdx(ctx, bucket, object, data.Size(), true)
 	if err != nil {
 		return ObjectInfo{}, err
