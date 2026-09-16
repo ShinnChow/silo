@@ -41,20 +41,56 @@ const r5TagStamp = ReservedMetadataPrefixLower + TaggingTimestamp
 func r5Capacity(z *erasureServerPools) func() {
 	var restores []func()
 	for _, pool := range z.serverPools {
+		pool.erasureDisksMu.Lock()
 		for _, set := range pool.sets {
-			old := set.getDisks
-			disks := append([]StorageAPI(nil), old()...)
+			old := pool.erasureDisks[set.setIndex]
+			disks := append([]StorageAPI(nil), old...)
 			for i := range disks {
 				disks[i] = tagTestCapacityDisk{StorageAPI: disks[i]}
 			}
-			set.getDisks = func() []StorageAPI { return disks }
-			restores = append(restores, func() { set.getDisks = old })
+			// GetDisks copies this list under the same mutex. Keep its function
+			// stable while background IAM scans are using the fixture.
+			pool.erasureDisks[set.setIndex] = disks
+			restores = append(restores, func() {
+				pool.erasureDisksMu.Lock()
+				pool.erasureDisks[set.setIndex] = old
+				pool.erasureDisksMu.Unlock()
+			})
 		}
+		pool.erasureDisksMu.Unlock()
 	}
 	return func() {
 		for _, restore := range restores {
 			restore()
 		}
+	}
+}
+
+func TestAPITaggingCapacityConcurrentIAM(t *testing.T) {
+	z, _ := consistencyPools(t)
+	if _, _, err := initAPIHandlerTest(t.Context(), z, nil, MakeBucketOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
+	iam := globalIAMSys
+	started, finished := make(chan struct{}), make(chan error, 1)
+	go func() {
+		close(started)
+		for range 20 {
+			if err := iam.Load(ctx, false); err != nil {
+				finished <- err
+				return
+			}
+		}
+		finished <- nil
+	}()
+	<-started
+	for range 5000 {
+		r5Capacity(z)()
+	}
+	if err := <-finished; err != nil {
+		t.Fatal(err)
 	}
 }
 
