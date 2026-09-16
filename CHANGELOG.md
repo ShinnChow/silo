@@ -29,7 +29,7 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
   recreated parents and explicitly reconcile pre-upgrade revocations whose
   history is already lost. Restoring an older backup can lose later revocations;
   keep affected sites isolated until reconciliation/rekeying is complete. See
-  [the operator runbook](https://github.com/pgsty/silo.pgsty.com/blob/29c7f220b3acc556ad570694056d35e11246f1b9/content/operations/replication/iam-upgrade.md).
+  [the operator runbook](https://github.com/pgsty/silo.pgsty.com/blob/7bd2d57c2ce5aaa804d0b1a2fe0e5eed69d15235/content/operations/replication/iam-upgrade.md).
 - Enforce an absolute HTTP/1 request-header deadline through the connection
   wrapper (#196). Repeated small reads no longer extend that deadline, and
   `--read-header-timeout` / `MINIO_READ_HEADER_TIMEOUT` now reaches the HTTP
@@ -91,7 +91,7 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
   ordinary metadata. Thanks to Mikhail Khadarenka (@chodorenko) for the fix in #187.
   **Existing data:** these repairs prevent new errors; they do not scan or rewrite
   historical object metadata, recover lost tags or prove that old purge work has
-  converged. Follow the [read-only audit procedure](https://github.com/pgsty/silo.pgsty.com/blob/29c7f220b3acc556ad570694056d35e11246f1b9/content/operations/replication/replica-metadata-audit.md)
+  converged. Follow the [read-only audit procedure](https://github.com/pgsty/silo.pgsty.com/blob/7bd2d57c2ce5aaa804d0b1a2fe0e5eed69d15235/content/operations/replication/replica-metadata-audit.md)
   before planning any repair of stored state.
 
 - Evaluate conditional multipart completion against the logical current object
@@ -104,9 +104,20 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
   applies when the unreadable pool may not hold the object: absence cannot be
   verified. Retry after the pool recovers. Unconditional completion and the
   single-pool path retain their existing behavior.
-  Ordinary conditional PUT has a separate cross-pool precondition gap tracked
-  in [#199](https://github.com/pgsty/silo/issues/199); the multipart repair does
-  not resolve it.
+
+- Evaluate ordinary multi-pool conditional PUT against the logical current
+  object across all pools, including draining pools, under the existing object
+  lock (#207). A stale destination copy no longer accepts a stale ETag or rejects
+  the current one; a current delete marker is treated as absence.
+  **Availability change:** if any pool's object metadata cannot be verified,
+  the condition fails even when GET can use another pool; read-quorum failures
+  return 503. Restore readability or heal before retrying. Unconditional PUT,
+  single-pool conditions and internal replication retain their existing behavior.
+  A public condition with a destination `versionId` compares the current object
+  while preserving the requested write version. This change does not retire
+  stale copies in other pools, undo historical accepted overwrites or provide
+  a new global clock-ordering guarantee. The multipart-completion repair in #190
+  neither introduced nor repaired this separate PUT defect.
 
 - Reconcile ordinary single-object version DELETE across all pools, including
   null versions, delete markers and unqualified directory-marker DELETE. This
