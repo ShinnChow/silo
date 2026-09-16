@@ -2,13 +2,18 @@
 
 ## Unreleased
 
-The entries below describe source changes on main since the latest published Server.
+Preparation target: `RELEASE.2026-09-16T00-00-00Z` (package version
+`20260916000000.0.0`). The entries below describe the candidate changes since
+the latest published Server.
 **The latest published Server remains 20260903.** These changes are not in its
 binaries, packages or images. See the [component matrix](https://silo.pgsty.com/compatibility/versions/)
 and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-09-03T13-18-01Z...main).
 
 ### Authorization and security
 
+- Synchronize CPU metrics reads with resource-metrics updates (#210), preventing
+  concurrent map access from terminating the server during Prometheus scraping.
+  Metric names, values and authentication requirements are unchanged.
 - Restrict embedded Console's anonymous sharing proxy to object-content GETs
   at the configured S3 origin, and reject every redirect. Internal metrics,
   system paths and non-download S3 operations cannot be reached through it.
@@ -167,23 +172,28 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
 
 - Restore embedded Console login over loopback TLS, trusted-proxy handling and
   all four WebSocket connection limits. Preserve Go TLS defaults across transports.
-- Directly require `github.com/pgsty/silo-pkg/v3` v3.14.0; select Console
-  `v0.0.0-20260916034812-56dfe455ac2f` and MC
-  `v0.0.0-20260913012246-4f609a4da3bb` with explicit PGSTY replacements.
-- Pin upstream minio-go `v7.3.1-0.20260910142817-60bd07042d49`; refresh Go x/*
-  modules and security fixes including bounded AMQP frame handling. Keep Go
-  1.27.1 and go-systemd v22.6.0's NetBSD compatibility replacement.
+- Directly require `github.com/pgsty/silo-pkg/v3` v3.14.1; select released Console
+  v2.4.1 (`v0.0.0-20260916075814-1360e26d976d`) and mcli 20260916
+  (`v0.0.0-20260916070421-e952aa78f10a`) with explicit PGSTY replacements.
+  The embedded frontend identifies itself as Console v2.4.1.
+- Pin upstream minio-go `v7.3.1-0.20260915093545-32e1f32cb176` to handle
+  CopyObject errors embedded in HTTP 200 responses. Update JWX to v3.3.0 for
+  JSON field-name escaping, strfmt to v0.27.2 for Go 1.27 hostname validation,
+  and LZ4 to v4.1.30 for frame-reader, partial-read and concurrency fixes.
+  Retain the earlier Go x/* and bounded AMQP frame updates, Go 1.27.1, and
+  go-systemd v22.6.0's NetBSD compatibility replacement.
 - Refresh container base digests and build static curl 8.22.0 from verified
-  source for both Linux architectures. Pin the actual mcli 20260913 archives and
-  hashes. Helm's client image follows that release; its Server image still names
-  the latest published Server 20260903.
+  source for both Linux architectures. Pin the published mcli 20260916 archives
+  and hashes in the container and update the client installer default.
+- Prepare Helm chart 7.0.3 with Server and client defaults for the September 16
+  batch. Publish the chart only after the corresponding Server image exists.
+- Pin GoReleaser v2.18.1 and its action commit identically in snapshot and release
+  workflows. Dependency-only PRs now run the Test Release Pipeline too.
 
-The dependency update passed the final candidate's Go, vulnerability and Test
-Release workflows; native curl builds passed on both architectures. A local
-ARM64 image passed startup, health, S3 transfer and embedded Console checks.
-These checks do not publish a Server tag or production image and do not replace
-cluster upgrade/rollback acceptance for the next release. Dated investigations
-retain the exact source and runtime boundaries they tested.
+Validation of earlier source revisions does not establish acceptance of this
+candidate. Final source, package, image and multi-process checks are tracked
+separately in [#203](https://github.com/pgsty/silo/issues/203). No Server release
+or production rollout is implied by this preparation target.
 
 ## RELEASE.2026-09-03T13-18-01Z
 
