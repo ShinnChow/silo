@@ -20,6 +20,7 @@ package cmd
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"runtime"
 	"strings"
 
@@ -96,6 +97,9 @@ func checkListMultipartArgs(ctx context.Context, bucket, prefix, keyMarker, uplo
 			return MalformedUploadID{
 				UploadID: uploadIDMarker,
 			}
+		}
+		if _, ok := multipartMarkerTime(uploadIDMarker); !ok {
+			return InvalidArgument{Bucket: bucket, Object: keyMarker, Err: errors.New("upload-id-marker must contain a native multipart upload ID")}
 		}
 	}
 	return nil

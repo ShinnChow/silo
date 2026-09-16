@@ -883,18 +883,26 @@ func (s *erasureSets) ListMultipartUploads(ctx context.Context, bucket, prefix, 
 	if err := checkListMultipartArgs(ctx, bucket, prefix, keyMarker, uploadIDMarker, delimiter); err != nil {
 		return ListMultipartsInfo{}, err
 	}
-	uploads, _, err := s.scanMultipartUploads(ctx, bucket)
+	scan, err := startMultipartScan(ctx, false)
 	if err != nil {
 		return ListMultipartsInfo{}, err
+	}
+	defer scan.close()
+	uploads, legacy, err := s.scanMultipartUploads(scan, bucket, 0)
+	if err != nil {
+		return ListMultipartsInfo{}, err
+	}
+	if legacy {
+		return ListMultipartsInfo{}, errMultipartListingLegacy
 	}
 	return paginateMultipartUploads(uploads, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads), nil
 }
 
-func (s *erasureSets) scanMultipartUploads(ctx context.Context, bucket string) ([]MultipartInfo, bool, error) {
+func (s *erasureSets) scanMultipartUploads(scan *multipartScan, bucket string, poolIdx int) ([]MultipartInfo, bool, error) {
 	var uploads []MultipartInfo
 	var keyless bool
-	for _, set := range s.sets {
-		setUploads, setKeyless, err := set.scanMultipartUploads(ctx, bucket)
+	for i, set := range s.sets {
+		setUploads, setKeyless, err := set.scanMultipartUploads(scan, bucket, poolIdx, i)
 		if err != nil {
 			return nil, false, err
 		}

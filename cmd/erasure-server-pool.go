@@ -1894,6 +1894,14 @@ func (z *erasureServerPools) ListMultipartUploads(ctx context.Context, bucket, p
 	if _, err := z.GetBucketInfo(ctx, bucket, BucketOptions{}); err != nil {
 		return ListMultipartsInfo{}, toObjectErr(err, bucket)
 	}
+	if globalAPIConfig.getMultipartListingLegacy() {
+		return z.listMultipartUploadsLegacy(ctx, bucket, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads)
+	}
+	scan, err := startMultipartScan(ctx, false)
+	if err != nil {
+		return ListMultipartsInfo{}, err
+	}
+	defer scan.close()
 
 	var uploads []MultipartInfo
 	var keyless bool
@@ -1901,7 +1909,7 @@ func (z *erasureServerPools) ListMultipartUploads(ctx context.Context, bucket, p
 		if z.IsSuspended(idx) {
 			continue
 		}
-		poolUploads, poolKeyless, err := pool.scanMultipartUploads(ctx, bucket)
+		poolUploads, poolKeyless, err := pool.scanMultipartUploads(scan, bucket, idx)
 		if err != nil {
 			return ListMultipartsInfo{}, err
 		}
@@ -1909,11 +1917,10 @@ func (z *erasureServerPools) ListMultipartUploads(ctx context.Context, bucket, p
 		keyless = keyless || poolKeyless
 	}
 
-	// Old writers did not persist the bucket and object key. Until every such
-	// upload has drained, retain the old response behavior instead of silently
-	// claiming that a partial durable scan is complete.
+	// The old format cannot be enumerated authoritatively. Migration mode is
+	// explicit: another bucket must never silently change this API's semantics.
 	if keyless {
-		return z.listMultipartUploadsLegacy(ctx, bucket, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads)
+		return ListMultipartsInfo{}, errMultipartListingLegacy
 	}
 	return paginateMultipartUploads(uploads, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads), nil
 }
@@ -2149,9 +2156,13 @@ func (z *erasureServerPools) AbortMultipartUpload(ctx context.Context, bucket, o
 	if err := checkAbortMultipartArgs(ctx, bucket, object, uploadID); err != nil {
 		return err
 	}
+	if _, err := z.GetBucketInfo(ctx, bucket, BucketOptions{}); err != nil {
+		return toObjectErr(err, bucket)
+	}
 
 	defer func() {
-		if err == nil {
+		_, absent := err.(InvalidUploadID)
+		if err == nil || absent {
 			z.mpCache.Delete(uploadID)
 			globalNotificationSys.DeleteUploadID(ctx, uploadID)
 		}
@@ -2165,23 +2176,23 @@ func (z *erasureServerPools) AbortMultipartUpload(ctx context.Context, bucket, o
 	ctx = lkctx.Context()
 	defer lk.Unlock(lkctx)
 
-	if z.SinglePool() {
-		return z.serverPools[0].AbortMultipartUpload(ctx, bucket, object, uploadID, opts)
-	}
-
+	found := false
+	var firstErr error
 	for idx, pool := range z.serverPools {
 		if z.IsSuspended(idx) {
 			continue
 		}
-		err := pool.AbortMultipartUpload(ctx, bucket, object, uploadID, opts)
-		if err == nil {
-			return nil
+		poolFound, err := pool.getHashedSet(object).abortMultipartUpload(ctx, bucket, object, uploadID, opts)
+		found = found || poolFound
+		if err != nil && firstErr == nil {
+			firstErr = err
 		}
-		if _, ok := err.(InvalidUploadID); ok {
-			// upload id not found move to next pool
-			continue
-		}
-		return err
+	}
+	if firstErr != nil {
+		return firstErr
+	}
+	if found {
+		return nil
 	}
 	return InvalidUploadID{
 		Bucket:   bucket,

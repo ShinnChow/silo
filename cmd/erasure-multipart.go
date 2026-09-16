@@ -31,6 +31,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/klauspost/readahead"
 	"github.com/minio/minio-go/v7/pkg/set"
 	"github.com/minio/minio/internal/config/storageclass"
@@ -262,13 +263,8 @@ func (er erasureObjects) cleanupStaleUploadsOnDisk(ctx context.Context, disk Sto
 
 func multipartUploadInfo(bucket, object, uploadUUID string, fallback time.Time) MultipartInfo {
 	initiated := fallback
-	if i := strings.LastIndexByte(uploadUUID, 'x'); i >= 0 {
-		if parsed, err := strconv.ParseInt(uploadUUID[i+1:], 10, 64); err == nil {
-			initiated = time.Unix(0, parsed)
-		}
-	}
-	if initiated.IsZero() {
-		initiated = UTCNow()
+	if parsed, ok := multipartUploadTime(uploadUUID); ok {
+		initiated = parsed
 	}
 	return MultipartInfo{
 		Bucket:    bucket,
@@ -278,152 +274,33 @@ func multipartUploadInfo(bucket, object, uploadUUID string, fallback time.Time) 
 	}
 }
 
-func listMultipartUploadDirs(ctx context.Context, disk StorageAPI, bucket string) ([]string, error) {
-	hashDirs, err := disk.ListDir(ctx, bucket, minioMetaMultipartBucket, "", -1)
-	if errors.Is(err, errFileNotFound) {
-		return nil, nil
+// multipartUploadTime is shared by stored records and continuation markers.
+// The time is part of the immutable upload ID, so a removed marker still
+// identifies the same ordering boundary.
+func multipartUploadTime(uploadUUID string) (time.Time, bool) {
+	if len(uploadUUID) < 38 || uploadUUID[36] != 'x' {
+		return time.Time{}, false
 	}
-	if err != nil {
-		return nil, err
+	if _, err := uuid.Parse(uploadUUID[:36]); err != nil {
+		return time.Time{}, false
 	}
-
-	var candidates []string
-	for _, hashDir := range hashDirs {
-		if !strings.HasSuffix(hashDir, SlashSeparator) {
-			continue
-		}
-		hashDir = strings.TrimSuffix(hashDir, SlashSeparator)
-		uploadDirs, err := disk.ListDir(ctx, bucket, minioMetaMultipartBucket, hashDir, -1)
-		if errors.Is(err, errFileNotFound) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		for _, uploadDir := range uploadDirs {
-			if strings.HasSuffix(uploadDir, SlashSeparator) {
-				candidates = append(candidates, pathJoin(hashDir, strings.TrimSuffix(uploadDir, SlashSeparator)))
-			}
-		}
+	ns, err := strconv.ParseInt(uploadUUID[37:], 10, 64)
+	if err != nil || ns <= 0 || strconv.FormatInt(ns, 10) != uploadUUID[37:] {
+		return time.Time{}, false
 	}
-	return candidates, nil
+	return time.Unix(0, ns), true
 }
 
-func (er erasureObjects) readMultipartUploadCandidate(ctx context.Context, bucket, candidate string) (MultipartInfo, bool, bool, error) {
-	shaDir, uploadUUID, ok := strings.Cut(candidate, SlashSeparator)
-	if !ok || shaDir == "" || uploadUUID == "" || strings.Contains(uploadUUID, SlashSeparator) {
-		return MultipartInfo{}, false, false, fmt.Errorf("invalid multipart upload path %q", candidate)
-	}
-
-	disks := er.getDisks()
-	partsMetadata, errs := readAllFileInfo(ctx, disks, bucket, minioMetaMultipartBucket, candidate, "", false, false)
-	readQuorum, _, err := objectQuorumFromMeta(ctx, partsMetadata, errs, er.defaultParityCount)
+func multipartMarkerTime(uploadID string) (time.Time, bool) {
+	b, err := base64.RawURLEncoding.DecodeString(uploadID)
 	if err != nil {
-		return MultipartInfo{}, false, false, err
+		return time.Time{}, false
 	}
-	_, modTime, etag := listOnlineDisks(disks, partsMetadata, errs, readQuorum)
-	if err = reduceReadQuorumErrs(ctx, errs, objectOpIgnoredErrs, readQuorum); err != nil {
-		return MultipartInfo{}, false, false, err
+	_, uploadUUID, ok := strings.Cut(string(b), ".")
+	if !ok {
+		return time.Time{}, false
 	}
-	fi, err := pickValidFileInfo(ctx, partsMetadata, modTime, etag, readQuorum)
-	if err != nil {
-		return MultipartInfo{}, false, false, err
-	}
-
-	storedBucket, hasBucket := fi.Metadata[multipartMetaBucket]
-	storedObject, hasObject := fi.Metadata[multipartMetaObject]
-	if !hasBucket || !hasObject || storedBucket == "" || storedObject == "" {
-		return MultipartInfo{}, false, true, nil
-	}
-	if storedBucket != bucket {
-		return MultipartInfo{}, false, false, nil
-	}
-	if !IsValidObjectPrefix(storedObject) || er.getMultipartSHADir(storedBucket, storedObject) != shaDir {
-		return MultipartInfo{}, false, false, fmt.Errorf("multipart upload %q has invalid stored identity", candidate)
-	}
-	return multipartUploadInfo(storedBucket, storedObject, uploadUUID, fi.ModTime), true, false, nil
-}
-
-// scanMultipartUploads discovers durable multipart state from every online
-// drive in this erasure set and accepts only quorum-valid upload metadata.
-func (er erasureObjects) scanMultipartUploads(ctx context.Context, bucket string) ([]MultipartInfo, bool, error) {
-	disks := er.getOnlineDisks()
-	if len(disks) < (er.setDriveCount+1)/2 {
-		return nil, false, errErasureReadQuorum
-	}
-
-	candidateSet := make(map[string]struct{})
-	var candidateMu sync.Mutex
-	g := errgroup.WithNErrs(len(disks))
-	for i := range disks {
-		g.Go(func() error {
-			candidates, err := listMultipartUploadDirs(ctx, disks[i], bucket)
-			if err != nil {
-				return err
-			}
-			candidateMu.Lock()
-			for _, candidate := range candidates {
-				candidateSet[candidate] = struct{}{}
-			}
-			candidateMu.Unlock()
-			return nil
-		}, i)
-	}
-	if err := reduceReadQuorumErrs(ctx, g.Wait(), nil, (er.setDriveCount+1)/2); err != nil {
-		return nil, false, err
-	}
-
-	candidates := make([]string, 0, len(candidateSet))
-	for candidate := range candidateSet {
-		candidates = append(candidates, candidate)
-	}
-	sort.Strings(candidates)
-	if len(candidates) == 0 {
-		return nil, false, nil
-	}
-
-	jobs := make(chan string)
-	workerCount := min(multipartMetadataScanConcurrency, len(candidates))
-	var wg sync.WaitGroup
-	var resultMu sync.Mutex
-	var uploads []MultipartInfo
-	var keyless bool
-	var firstErr error
-	for range workerCount {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for candidate := range jobs {
-				resultMu.Lock()
-				stopped := firstErr != nil
-				resultMu.Unlock()
-				if stopped {
-					continue
-				}
-
-				upload, found, legacy, err := er.readMultipartUploadCandidate(ctx, bucket, candidate)
-				if errors.Is(err, errFileNotFound) || errors.Is(err, errFileVersionNotFound) {
-					continue
-				}
-				resultMu.Lock()
-				switch {
-				case err != nil && firstErr == nil:
-					firstErr = err
-				case legacy:
-					keyless = true
-				case found:
-					uploads = append(uploads, upload)
-				}
-				resultMu.Unlock()
-			}
-		}()
-	}
-	for _, candidate := range candidates {
-		jobs <- candidate
-	}
-	close(jobs)
-	wg.Wait()
-	return uploads, keyless, firstErr
+	return multipartUploadTime(uploadUUID)
 }
 
 type multipartListEntry struct {
@@ -465,7 +342,7 @@ func paginateMultipartUploads(uploads []MultipartInfo, prefix, keyMarker, upload
 		return deduplicated[i].UploadID < deduplicated[j].UploadID
 	})
 
-	markerPassed := keyMarker == ""
+	markerTime, _ := multipartMarkerTime(uploadIDMarker)
 	seenPrefixes := make(map[string]struct{})
 	entries := make([]multipartListEntry, 0, len(deduplicated))
 	for i := range deduplicated {
@@ -473,17 +350,15 @@ func paginateMultipartUploads(uploads []MultipartInfo, prefix, keyMarker, upload
 		if !strings.HasPrefix(upload.Object, prefix) {
 			continue
 		}
-		if !markerPassed {
+		if keyMarker != "" {
 			switch strings.Compare(upload.Object, keyMarker) {
 			case -1:
 				continue
 			case 0:
-				if uploadIDMarker != "" && upload.UploadID == uploadIDMarker {
-					markerPassed = true
+				if uploadIDMarker == "" || upload.Initiated.Before(markerTime) ||
+					(upload.Initiated.Equal(markerTime) && upload.UploadID <= uploadIDMarker) {
+					continue
 				}
-				continue
-			default:
-				markerPassed = true
 			}
 		}
 
@@ -584,7 +459,16 @@ func (er erasureObjects) listMultipartUploadsExact(ctx context.Context, bucket, 
 		if populatedUploadIDs.Contains(uploadID) {
 			continue
 		}
-		uploads = append(uploads, multipartUploadInfo(bucket, object, uploadID, time.Time{}))
+		var fallback time.Time
+		if _, ok := multipartUploadTime(uploadID); !ok {
+			fi, err := disk.ReadVersion(ctx, bucket, minioMetaMultipartBucket,
+				pathJoin(er.getMultipartSHADir(bucket, object), uploadID), "", ReadOptions{})
+			if err != nil {
+				return result, toObjectErr(err, bucket, object)
+			}
+			fallback = fi.ModTime
+		}
+		uploads = append(uploads, multipartUploadInfo(bucket, object, uploadID, fallback))
 		populatedUploadIDs.Add(uploadID)
 	}
 
@@ -629,9 +513,17 @@ func (er erasureObjects) ListMultipartUploads(ctx context.Context, bucket, prefi
 	if err := checkListMultipartArgs(ctx, bucket, prefix, keyMarker, uploadIDMarker, delimiter); err != nil {
 		return ListMultipartsInfo{}, err
 	}
-	uploads, _, err := er.scanMultipartUploads(ctx, bucket)
+	scan, err := startMultipartScan(ctx, false)
 	if err != nil {
 		return ListMultipartsInfo{}, err
+	}
+	defer scan.close()
+	uploads, legacy, err := er.scanMultipartUploads(scan, bucket, 0, 0)
+	if err != nil {
+		return ListMultipartsInfo{}, err
+	}
+	if legacy {
+		return ListMultipartsInfo{}, errMultipartListingLegacy
 	}
 	return paginateMultipartUploads(uploads, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads), nil
 }
@@ -1861,22 +1753,66 @@ func (er erasureObjects) CompleteMultipartUpload(ctx context.Context, bucket str
 	return fi.ToObjectInfo(bucket, object, opts.Versioned || opts.VersionSuspended), nil
 }
 
-// AbortMultipartUpload - aborts an ongoing multipart operation
-// signified by the input uploadID. This is an atomic operation
-// doesn't require clients to initiate multiple such requests.
-//
-// All parts are purged from all disks and reference to the uploadID
-// would be removed from the system, rollback is not possible on this
-// operation.
-func (er erasureObjects) AbortMultipartUpload(ctx context.Context, bucket, object, uploadID string, opts ObjectOptions) (err error) {
+// abortMultipartUpload confirms absence on a strict majority of this set.
+// Unlike an existence read followed by best-effort deletion, it also permits
+// retrying a partial deletion which no longer has a readable metadata quorum.
+// This does not fence creation writes still executing after a storage timeout.
+func (er erasureObjects) abortMultipartUpload(ctx context.Context, bucket, object, uploadID string, opts ObjectOptions) (bool, error) {
 	if !opts.NoAuditLog {
 		auditObjectErasureSet(ctx, "AbortMultipartUpload", object, &er)
 	}
+	b, err := base64.RawURLEncoding.DecodeString(uploadID)
+	if err != nil {
+		return false, MalformedUploadID{UploadID: uploadID}
+	}
+	_, internalID, ok := strings.Cut(string(b), ".")
+	if !ok || internalID == "" || internalID == "." || internalID == ".." || strings.ContainsAny(internalID, "/\\") {
+		return false, InvalidUploadID{Bucket: bucket, Object: object, UploadID: uploadID}
+	}
+	disks := er.getDisks()
+	uploadPath := er.getUploadIDDir(bucket, object, uploadID)
+	_, errs := readAllFileInfo(ctx, disks, bucket, minioMetaMultipartBucket, uploadPath, "", false, false)
+	quorum := er.setDriveCount/2 + 1
+	found, absent := false, 0
+	for _, err := range errs {
+		switch {
+		case err == nil, errors.Is(err, errFileCorrupt):
+			found = true
+		case errors.Is(err, errFileNotFound), errors.Is(err, errFileVersionNotFound):
+			absent++
+		}
+	}
+	if absent >= quorum {
+		return found, nil
+	}
+	if !found {
+		return false, toObjectErr(errErasureReadQuorum, bucket, object, uploadID)
+	}
+	g := errgroup.WithNErrs(len(disks))
+	for i, disk := range disks {
+		g.Go(func() error {
+			if disk == nil {
+				return errDiskNotFound
+			}
+			err := disk.Delete(ctx, minioMetaMultipartBucket, uploadPath, DeleteOptions{Recursive: true, Immediate: false})
+			if errors.Is(err, errFileNotFound) || errors.Is(err, errFileVersionNotFound) {
+				return nil
+			}
+			return err
+		}, i)
+	}
+	return true, toObjectErr(reduceWriteQuorumErrs(ctx, g.Wait(), nil, quorum), bucket, object, uploadID)
+}
 
-	// Cleanup all uploaded parts.
-	defer er.deleteAll(ctx, minioMetaMultipartBucket, er.getUploadIDDir(bucket, object, uploadID))
-
-	// Validates if upload ID exists.
-	_, _, err = er.checkUploadIDExists(ctx, bucket, object, uploadID, false)
-	return toObjectErr(err, bucket, object, uploadID)
+// AbortMultipartUpload confirms logical cancellation. Offline part data may
+// still need stale-upload cleanup after its drives return.
+func (er erasureObjects) AbortMultipartUpload(ctx context.Context, bucket, object, uploadID string, opts ObjectOptions) (err error) {
+	found, err := er.abortMultipartUpload(ctx, bucket, object, uploadID, opts)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return InvalidUploadID{Bucket: bucket, Object: object, UploadID: uploadID}
+	}
+	return nil
 }

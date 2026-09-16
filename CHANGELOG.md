@@ -51,12 +51,24 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
 
 - Make `ListMultipartUploads` discover quorum-valid uploads from durable state
   across pools, erasure sets and drives, then apply S3 prefix, delimiter,
-  marker, ordering and 1,000-entry pagination semantics globally. New uploads
+  marker, ordering and 1,000-entry pagination semantics globally (#198). New uploads
   store their canonical bucket and key as reserved fields in the existing
-  quorum-written `xl.meta`; completion removes those upload-only fields. During
-  rolling upgrades, detection of any legacy keyless upload retains the prior
-  listing behavior until those uploads drain. See [issue #79](https://github.com/pgsty/silo/issues/79)
+  quorum-written `xl.meta`; completion removes those upload-only fields. Native
+  markers remain usable after their upload is completed or canceled. Strict
+  listing returns a diagnostic 503 for legacy uploads or uncertain coverage;
+  `api multipart_listing=legacy` is an explicit temporary migration mode.
+  Upgrade every writer, drain old uploads and check the read-only admin
+  `multipart-preflight` report before relying on strict listing. Per-process
+  admission, directory-entry, worker and time budgets bound scan scheduling;
+  each page still scans durable state. See [issue #79](https://github.com/pgsty/silo/issues/79)
   and its [design record](https://silo.pgsty.com/blog/design/list-multipart-uploads/).
+  Thanks to mr javad seydi (@mrjavadseydi) for the original implementation.
+- Confirm multipart cancellation on a strict majority of each relevant set,
+  and allow retries after partial deletion. Uncertain pools or insufficient
+  confirmations return 503 rather than acknowledging a cancellation whose
+  static remnants can later become readable. **Known boundary:** creation
+  writes that finish after a storage timeout can still restore an upload after
+  successful cancellation; this change does not add a durable creation fence.
 - Preserve object tags during multi-pool metadata reconciliation by reading the
   resolved tag field together with its revision (#189). Previously, reconciliation
   could replace existing tags with an empty value.

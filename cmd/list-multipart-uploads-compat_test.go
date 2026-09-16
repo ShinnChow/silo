@@ -19,6 +19,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"slices"
 	"testing"
@@ -180,8 +181,8 @@ func TestListMultipartUploadsS3Compatibility(t *testing.T) {
 	}
 
 	// Simulate an upload written by a pre-upgrade server. Its key cannot be
-	// recovered by scanning the hashed namespace, so detection must retain the
-	// exact-key legacy path until such uploads have drained.
+	// recovered by scanning the hashed namespace. Strict listing must fail;
+	// the old path is available only through an explicit migration setting.
 	legacyObject := objects[1]
 	er := sets.getHashedSet(legacyObject)
 	fi, metadata, err := er.checkUploadIDExists(t.Context(), bucket, legacyObject, uploadIDs[legacyObject], true)
@@ -196,6 +197,19 @@ func TestListMultipartUploadsS3Compatibility(t *testing.T) {
 		er.getUploadIDDir(bucket, legacyObject, uploadIDs[legacyObject]), metadata, fi.WriteQuorum(er.defaultWQuorum())); err != nil {
 		t.Fatal(err)
 	}
+	_, err = z.ListMultipartUploads(t.Context(), bucket, legacyObject, "", "", "", 100)
+	if !errors.Is(err, errMultipartListingLegacy) {
+		t.Fatalf("legacy strict listing: %v", err)
+	}
+	globalAPIConfig.mu.Lock()
+	oldLegacy := globalAPIConfig.multipartListingLegacy
+	globalAPIConfig.multipartListingLegacy = true
+	globalAPIConfig.mu.Unlock()
+	t.Cleanup(func() {
+		globalAPIConfig.mu.Lock()
+		globalAPIConfig.multipartListingLegacy = oldLegacy
+		globalAPIConfig.mu.Unlock()
+	})
 	legacy, err := z.ListMultipartUploads(t.Context(), bucket, legacyObject, "", "", "", 100)
 	if err != nil {
 		t.Fatal(err)
@@ -205,24 +219,25 @@ func TestListMultipartUploadsS3Compatibility(t *testing.T) {
 
 func TestPaginateMultipartUploads(t *testing.T) {
 	base := time.Unix(100, 0)
+	id1, id2, id3 := multipartListingTestID(base, 1), multipartListingTestID(base.Add(time.Second), 2), multipartListingTestID(base, 3)
 	uploads := []MultipartInfo{
-		{Bucket: "bucket", Object: "b", UploadID: "b1", Initiated: base},
-		{Bucket: "bucket", Object: "a", UploadID: "a2", Initiated: base.Add(time.Second)},
-		{Bucket: "bucket", Object: "a", UploadID: "a1", Initiated: base},
-		{Bucket: "bucket", Object: "a", UploadID: "a1", Initiated: base}, // duplicate discovery
+		{Bucket: "bucket", Object: "b", UploadID: id3, Initiated: base},
+		{Bucket: "bucket", Object: "a", UploadID: id2, Initiated: base.Add(time.Second)},
+		{Bucket: "bucket", Object: "a", UploadID: id1, Initiated: base},
+		{Bucket: "bucket", Object: "a", UploadID: id1, Initiated: base}, // duplicate discovery
 	}
 
 	first := paginateMultipartUploads(uploads, "", "", "", "", 1)
 	requireMultipartUploadKeys(t, first, "a")
-	if !first.IsTruncated || first.NextKeyMarker != "a" || first.NextUploadIDMarker != "a1" {
+	if !first.IsTruncated || first.NextKeyMarker != "a" || first.NextUploadIDMarker != id1 {
 		t.Fatalf("first page = %+v", first)
 	}
 
 	second := paginateMultipartUploads(uploads, "", first.NextKeyMarker, first.NextUploadIDMarker, "", 1)
-	if len(second.Uploads) != 1 || second.Uploads[0].Object != "a" || second.Uploads[0].UploadID != "a2" {
+	if len(second.Uploads) != 1 || second.Uploads[0].Object != "a" || second.Uploads[0].UploadID != id2 {
 		t.Fatalf("second page uploads = %+v", second.Uploads)
 	}
-	if !second.IsTruncated || second.NextKeyMarker != "a" || second.NextUploadIDMarker != "a2" {
+	if !second.IsTruncated || second.NextKeyMarker != "a" || second.NextUploadIDMarker != id2 {
 		t.Fatalf("second page = %+v", second)
 	}
 
@@ -232,7 +247,7 @@ func TestPaginateMultipartUploads(t *testing.T) {
 		t.Fatalf("last page = %+v", last)
 	}
 
-	missingUploadMarker := paginateMultipartUploads(uploads, "", "a", "missing", "", 10)
+	missingUploadMarker := paginateMultipartUploads(uploads, "", "a", multipartListingTestID(base.Add(2*time.Second), 4), "", 10)
 	requireMultipartUploadKeys(t, missingUploadMarker, "b")
 
 	if err := checkListMultipartArgs(t.Context(), "bucket", "", "", "not-base64=", ""); err != nil {
