@@ -93,6 +93,9 @@ jobs:
       - name: Run conditional PUT tests under race detector
         run: go test -race ./cmd -run '^Test(PoolsConditionalPut|SinglePoolConditionalPutHTTP)' -count=1 -timeout=5m
 
+      - name: Run multipart listing and cancellation tests under race detector
+        run: go test -race ./cmd -run '^Test(MultipartListing|MultipartAbort|PaginateMultipartUploads|ListMultipartUploads)' -count=1 -timeout=5m
+
   crosscompile:
     name: Cross Compile
     runs-on: ubuntu-latest

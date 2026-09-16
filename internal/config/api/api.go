@@ -45,6 +45,7 @@ const (
 	apiTransitionWorkers           = "transition_workers"
 	apiStaleUploadsCleanupInterval = "stale_uploads_cleanup_interval"
 	apiStaleUploadsExpiry          = "stale_uploads_expiry"
+	apiMultipartListing            = "multipart_listing"
 	apiDeleteCleanupInterval       = "delete_cleanup_interval"
 	apiDisableODirect              = "disable_odirect"
 	apiODirect                     = "odirect"
@@ -67,6 +68,7 @@ const (
 
 	EnvAPIStaleUploadsCleanupInterval = "MINIO_API_STALE_UPLOADS_CLEANUP_INTERVAL"
 	EnvAPIStaleUploadsExpiry          = "MINIO_API_STALE_UPLOADS_EXPIRY"
+	EnvAPIMultipartListing            = "MINIO_API_MULTIPART_LISTING"
 	EnvAPIDeleteCleanupInterval       = "MINIO_API_DELETE_CLEANUP_INTERVAL"
 	EnvDeleteCleanupInterval          = "MINIO_DELETE_CLEANUP_INTERVAL"
 	EnvAPIODirect                     = "MINIO_API_ODIRECT"
@@ -133,6 +135,7 @@ var (
 			Key:   apiStaleUploadsExpiry,
 			Value: "24h",
 		},
+		config.KV{Key: apiMultipartListing, Value: "strict"},
 		config.KV{
 			Key:   apiDeleteCleanupInterval,
 			Value: "5m",
@@ -178,6 +181,7 @@ type Config struct {
 	TransitionWorkers           int           `json:"transition_workers"`
 	StaleUploadsCleanupInterval time.Duration `json:"stale_uploads_cleanup_interval"`
 	StaleUploadsExpiry          time.Duration `json:"stale_uploads_expiry"`
+	MultipartListing            string        `json:"multipart_listing"`
 	DeleteCleanupInterval       time.Duration `json:"delete_cleanup_interval"`
 	EnableODirect               bool          `json:"enable_odirect"`
 	GzipObjects                 bool          `json:"gzip_objects"`
@@ -320,6 +324,10 @@ func LookupConfig(kvs config.KVS) (cfg Config, err error) {
 		return cfg, err
 	}
 	cfg.StaleUploadsExpiry = staleUploadsExpiry
+	cfg.MultipartListing = env.Get(EnvAPIMultipartListing, kvs.GetWithDefault(apiMultipartListing, DefaultKVS))
+	if cfg.MultipartListing != "strict" && cfg.MultipartListing != "legacy" {
+		return cfg, fmt.Errorf("%s must be strict or legacy", apiMultipartListing)
+	}
 
 	cfg.SyncEvents = env.Get(EnvAPISyncEvents, kvs.Get(apiSyncEvents)) == config.EnableOn
 
