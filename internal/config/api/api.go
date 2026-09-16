@@ -135,7 +135,6 @@ var (
 			Key:   apiStaleUploadsExpiry,
 			Value: "24h",
 		},
-		config.KV{Key: apiMultipartListing, Value: "strict"},
 		config.KV{
 			Key:   apiDeleteCleanupInterval,
 			Value: "5m",
@@ -210,6 +209,7 @@ func LookupConfig(kvs config.KVS) (cfg Config, err error) {
 		apiReplicationWorkers,
 		apiReplicationFailedWorkers,
 		"expiry_workers",
+		apiMultipartListing, // Ignore the retired shared-config key during migration.
 	}
 
 	disableODirect := env.Get(EnvAPIDisableODirect, kvs.Get(apiDisableODirect)) == config.EnableOn
@@ -324,10 +324,6 @@ func LookupConfig(kvs config.KVS) (cfg Config, err error) {
 		return cfg, err
 	}
 	cfg.StaleUploadsExpiry = staleUploadsExpiry
-	cfg.MultipartListing = env.Get(EnvAPIMultipartListing, kvs.GetWithDefault(apiMultipartListing, DefaultKVS))
-	if cfg.MultipartListing != "strict" && cfg.MultipartListing != "legacy" {
-		return cfg, fmt.Errorf("%s must be strict or legacy", apiMultipartListing)
-	}
 
 	cfg.SyncEvents = env.Get(EnvAPISyncEvents, kvs.Get(apiSyncEvents)) == config.EnableOn
 
@@ -346,6 +342,12 @@ func LookupConfig(kvs config.KVS) (cfg Config, err error) {
 		cfg.ObjectMaxVersions = maxVersions
 	} else {
 		cfg.ObjectMaxVersions = math.MaxInt64
+	}
+
+	cfg.MultipartListing = env.Get(EnvAPIMultipartListing, "legacy")
+	if cfg.MultipartListing != "strict" && cfg.MultipartListing != "legacy" {
+		cfg.MultipartListing = "legacy"
+		return cfg, fmt.Errorf("%s must be strict or legacy; using legacy", EnvAPIMultipartListing)
 	}
 
 	return cfg, nil
