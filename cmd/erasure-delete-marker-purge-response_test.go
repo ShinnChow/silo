@@ -40,7 +40,7 @@ func TestDeleteMarkerPurgeResponseIdentity(t *testing.T) {
 			t.Fatal(err)
 		}
 		// Seed the purge state the DELETE handler would record for a target.
-		const arn = "arn:minio:replication::test:bucket"
+		arn := "arn:minio:replication::" + mustGetUUID() + ":bucket"
 		pendingPurge := ReplicationState{
 			VersionPurgeStatusInternal: arn + "=PENDING;",
 			PurgeTargets:               map[string]VersionPurgeStatusType{arn: replication.VersionPurgePending},
