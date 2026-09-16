@@ -163,6 +163,7 @@ func registerAdminRouter(router *mux.Router, enableConfigOps bool) {
 
 		// StorageInfo operations
 		adminRouter.Methods(http.MethodGet).Path(adminVersion + "/storageinfo").HandlerFunc(adminMiddleware(adminAPI.StorageInfoHandler, traceAllFlag))
+		adminRouter.Methods(http.MethodGet).Path(adminVersion + "/multipart-preflight").HandlerFunc(adminMiddleware(adminAPI.MultipartPreflightHandler, traceAllFlag))
 		// DataUsageInfo operations
 		adminRouter.Methods(http.MethodGet).Path(adminVersion + "/datausageinfo").HandlerFunc(adminMiddleware(adminAPI.DataUsageInfoHandler, traceAllFlag))
 		// Metrics operation

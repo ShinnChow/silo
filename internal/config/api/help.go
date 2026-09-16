@@ -27,6 +27,12 @@ var (
 	// Help holds configuration keys and their default values for api subsystem.
 	Help = config.HelpKVS{
 		config.HelpKV{
+			Key:         apiMultipartListing,
+			Description: "multipart listing mode: strict, or temporary legacy mode during coordinated upgrade" + defaultHelpPostfix(apiMultipartListing),
+			Type:        "string",
+			Optional:    true,
+		},
+		config.HelpKV{
 			Key:         apiRequestsMax,
 			Description: `set the maximum number of concurrent requests (default: auto)`,
 			Optional:    true,

@@ -50,6 +50,7 @@ type apiConfig struct {
 	transitionWorkers      int
 
 	staleUploadsExpiry          time.Duration
+	multipartListingLegacy      bool
 	staleUploadsCleanupInterval time.Duration
 	deleteCleanupInterval       time.Duration
 	enableODirect               bool
@@ -181,6 +182,7 @@ func (t *apiConfig) init(cfg api.Config, setDriveCounts []int, legacy bool) {
 	t.transitionWorkers = cfg.TransitionWorkers
 
 	t.staleUploadsExpiry = cfg.StaleUploadsExpiry
+	t.multipartListingLegacy = cfg.MultipartListing == "legacy"
 	t.deleteCleanupInterval = cfg.DeleteCleanupInterval
 	t.enableODirect = cfg.EnableODirect
 	t.gzipObjects = cfg.GzipObjects
@@ -204,6 +206,12 @@ func (t *apiConfig) odirectEnabled() bool {
 	defer t.mu.RUnlock()
 
 	return t.enableODirect
+}
+
+func (t *apiConfig) getMultipartListingLegacy() bool {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.multipartListingLegacy
 }
 
 func (t *apiConfig) shouldGzipObjects() bool {

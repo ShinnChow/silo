@@ -450,6 +450,9 @@ const (
 	ErrAdminNoSecretKey
 
 	ErrIAMNotInitialized
+	ErrMultipartListingLegacy
+	ErrMultipartListingIdentity
+	ErrSlowDown
 
 	apiErrCodeEnd // This is used only for the testing code
 )
@@ -1336,6 +1339,21 @@ var errorCodes = errorCodeMap{
 		Description:    "IAM sub-system not initialized yet, please try again.",
 		HTTPStatusCode: http.StatusServiceUnavailable,
 	},
+	ErrMultipartListingLegacy: {
+		Code:           "MultipartListingNotReady",
+		Description:    "Legacy multipart uploads prevent a complete listing. Upgrade all writers, drain old uploads and run the multipart preflight check.",
+		HTTPStatusCode: http.StatusServiceUnavailable,
+	},
+	ErrMultipartListingIdentity: {
+		Code:           "MultipartListingMetadataInvalid",
+		Description:    "Multipart upload metadata is inconsistent. Run the multipart preflight check to locate the affected storage set.",
+		HTTPStatusCode: http.StatusServiceUnavailable,
+	},
+	ErrSlowDown: {
+		Code:           "SlowDown",
+		Description:    "Please reduce your request rate",
+		HTTPStatusCode: http.StatusServiceUnavailable,
+	},
 	ErrBucketMetadataNotInitialized: {
 		Code:           "XMinioBucketMetadataNotInitialized",
 		Description:    "Bucket metadata not initialized yet, please try again.",
@@ -2173,6 +2191,10 @@ func toAPIErrorCode(ctx context.Context, err error) (apiErr APIErrorCode) {
 	err = unwrapAll(err)
 
 	switch err {
+	case errMultipartListingLegacy:
+		apiErr = ErrMultipartListingLegacy
+	case errMultipartListingIdentity:
+		apiErr = ErrMultipartListingIdentity
 	case errCompleteMultipartChecksumMismatch, errCompleteMultipartChecksumTypeMismatch:
 		apiErr = ErrBadDigest
 	case errMissingPartChecksum:
@@ -2303,6 +2325,8 @@ func toAPIErrorCode(ctx context.Context, err error) (apiErr APIErrorCode) {
 	}
 
 	switch err.(type) {
+	case SlowDown:
+		apiErr = ErrSlowDown
 	case StorageFull:
 		apiErr = ErrStorageFull
 	case hash.BadDigest:
