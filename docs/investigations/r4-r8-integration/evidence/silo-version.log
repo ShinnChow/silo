@@ -1,6 +1,0 @@
-silo version DEVELOPMENT.2026-09-15T16-44-34Z (commit-id=80684fed59f556d579e268c5a855d936c1347b68)
-Runtime: go1.27.1 darwin/arm64
-License: GNU AGPLv3 - https://www.gnu.org/licenses/agpl-3.0.html
-Copyright: 2015-2025 MinIO, Inc.
-Modifications: Copyright 2025-2026 PGSTY
-Source compatibility: based on MinIO technology

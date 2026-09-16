@@ -29,7 +29,7 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
   recreated parents and explicitly reconcile pre-upgrade revocations whose
   history is already lost. Restoring an older backup can lose later revocations;
   keep affected sites isolated until reconciliation/rekeying is complete. See
-  [the operator runbook](https://github.com/pgsty/silo.pgsty.com/blob/7bd2d57c2ce5aaa804d0b1a2fe0e5eed69d15235/content/operations/replication/iam-upgrade.md).
+  [the operator runbook](https://silo.pgsty.com/operations/replication/iam-upgrade/).
 - Enforce an absolute HTTP/1 request-header deadline through the connection
   wrapper (#196). Repeated small reads no longer extend that deadline, and
   `--read-header-timeout` / `MINIO_READ_HEADER_TIMEOUT` now reaches the HTTP
@@ -38,7 +38,7 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
   TLS handshake reads. The wrapper's strict header mode is not applied to HTTP/2.
 - Reject unsigned `x-amz-*` request headers that could turn a signed PUT into a
   copy of another object accessible to the signer (SN-2026-011). The latest
-  public Server is affected; the fix is on main. See [the advisory ledger](docs/security/advisories.md).
+  public Server is affected; the fix is on main. See [the advisory ledger](https://silo.pgsty.com/about/security-advisories/).
 - Align signed request fields with policy conditions and enforce header-only
   presigned payload checksums. See [the signed-header review](https://silo.pgsty.com/blog/design/signed-header-coverage/).
 - **Breaking policy semantics:** separate self-service `admin:ChangeMyPassword`
@@ -91,7 +91,7 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
   ordinary metadata. Thanks to Mikhail Khadarenka (@chodorenko) for the fix in #187.
   **Existing data:** these repairs prevent new errors; they do not scan or rewrite
   historical object metadata, recover lost tags or prove that old purge work has
-  converged. Follow the [read-only audit procedure](https://github.com/pgsty/silo.pgsty.com/blob/7bd2d57c2ce5aaa804d0b1a2fe0e5eed69d15235/content/operations/replication/replica-metadata-audit.md)
+  converged. Follow the [read-only audit procedure](https://silo.pgsty.com/operations/replication/replica-metadata-audit/)
   before planning any repair of stored state.
 
 - Evaluate conditional multipart completion against the logical current object
@@ -136,7 +136,7 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
   its tracker, mover, scanner hooks, configuration, XML actions and metrics.
   Accept and ignore retired configuration/XML and preserve ordinary statistics
   when reading v9 caches. See [migration notes](docs/bucket/lifecycle/access-tiering-removal.md).
-  The [decision record](docs/investigations/access-tiering-revert.md) preserves
+  The [decision record](https://silo.pgsty.com/compatibility/access-tiering-removal/) preserves
   the feature's introduction, subsequent fixes, rollback scope and review history.
 - Preserve the independent multi-pool write, metadata, healing and conditional
   deletion fixes from PR #178, including shared remote-tier reference protection.
@@ -150,7 +150,7 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
   reflect actual work, and report bounded MRF drops.
 - Converge bucket metadata with deterministic source state, deletion tombstones,
   creation time recovery and diagnostics. The mixed-version export gate requires
-  coordinated upgrades before tombstones are exported. See [the #77 record](docs/investigations/issue-77-current.md).
+  coordinated upgrades before tombstones are exported. See [the #77 record](https://silo.pgsty.com/blog/design/bucket-metadata-convergence/).
 - Include per-bucket CORS in metadata export/import, close metadata publication
   and logger races, and report effective bucket quotas in metrics.
 

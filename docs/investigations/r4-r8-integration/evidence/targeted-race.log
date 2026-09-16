@@ -1,3 +1,0 @@
-ok  	github.com/minio/minio/cmd	13.654s
-ok  	github.com/minio/minio/internal/deadlineconn	2.528s
-ok  	github.com/minio/minio/internal/http	14.301s
