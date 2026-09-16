@@ -1,5 +1,7 @@
 # Federation Quickstart Guide *Federation feature is deprecated and should be avoided for future deployments*
 
+The maintained [federated CopyObject design](https://silo.pgsty.com/blog/design/federated-copy-object/) records the destination encryption, checksum, Object Lock and committed-response contract, including its Server release boundary.
+
 This document explains how to configure Silo with `Bucket lookup from DNS` style federation.
 
 ## Cross-deployment copy behavior
