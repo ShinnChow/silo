@@ -9,6 +9,14 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
 
 ### Authorization and security
 
+- Restrict embedded Console's anonymous sharing proxy to object-content GETs
+  at the configured S3 origin, and reject every redirect. Internal metrics,
+  system paths and non-download S3 operations cannot be reached through it.
+  Normal public, presigned and versioned downloads remain available without a
+  new setting; a full sharing-disable switch is not introduced. See
+  [Console #56](https://github.com/pgsty/silo-console/pull/56) and the
+  [design record](https://github.com/pgsty/silo-console/issues/52).
+  Thanks to Jiri Pejchal (@jiri-pejchal) for the report.
 - Persist IAM deletion revisions and parent revocation boundaries so stale site
   events cannot restore deleted identities, policies or their older grants
   (#191, #192). Peer deletion notifications reload committed storage; deliberate
@@ -120,7 +128,7 @@ and [complete commit range](https://github.com/pgsty/silo/compare/RELEASE.2026-0
 - Restore embedded Console login over loopback TLS, trusted-proxy handling and
   all four WebSocket connection limits. Preserve Go TLS defaults across transports.
 - Directly require `github.com/pgsty/silo-pkg/v3` v3.14.0; select Console
-  `v0.0.0-20260913015128-417559bb2c97` and MC
+  `v0.0.0-20260916034812-56dfe455ac2f` and MC
   `v0.0.0-20260913012246-4f609a4da3bb` with explicit PGSTY replacements.
 - Pin upstream minio-go `v7.3.1-0.20260910142817-60bd07042d49`; refresh Go x/*
   modules and security fixes including bounded AMQP frame handling. Keep Go
