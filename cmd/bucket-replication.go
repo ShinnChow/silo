@@ -504,6 +504,35 @@ func replicateDelete(ctx context.Context, dobj DeletedObjectReplicationInfo, obj
 	ctx = lkctx.Context()
 	defer lk.Unlock(lkctx)
 
+	if !isPurge && dobj.DeleteMarkerVersionID != "" {
+		// A creation task carries the marker as it looked when it was queued
+		// by the DELETE handler, a GET/HEAD/LIST heal, the scanner or MRF.
+		// While it waited for this lock, another frontend may have purged the
+		// marker and replicated that purge. The targets no longer hold the
+		// marker, so the queued creation would recreate it from the stale
+		// snapshot. Confirm the source version under the lock first.
+		switch deleteMarkerCreationState(ctx, objectAPI, dobj) {
+		case creationStale:
+			return replicatedInfos{}
+		case creationUnverified:
+			dobj.RetryCount++
+			globalReplicationPool.Get().queueMRFSave(dobj.ToMRFEntry())
+			sendEvent(eventArgs{
+				BucketName: bucket,
+				Object: ObjectInfo{
+					Bucket:       bucket,
+					Name:         dobj.ObjectName,
+					VersionID:    versionID,
+					DeleteMarker: dobj.DeleteMarker,
+				},
+				UserAgent: "Internal: [Replication]",
+				Host:      globalLocalNodeName,
+				EventName: event.ObjectReplicationNotTracked,
+			})
+			return replicatedInfos{}
+		}
+	}
+
 	rinfos := replicatedInfos{Targets: make([]replicatedTargetInfo, 0, len(dsc.targetsMap))}
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -1953,6 +1982,41 @@ type DeletedObjectReplicationInfo struct {
 // operation's state, rather than one target's possibly missing purge entry.
 func (di DeletedObjectReplicationInfo) isVersionPurge() bool {
 	return di.VersionID != "" || di.DeleteMarkerVersionID != "" && !di.VersionPurgeStatus().Empty()
+}
+
+// creationState is the outcome of re-reading a queued delete-marker creation
+// against the source.
+type creationState int
+
+const (
+	creationCurrent creationState = iota
+	creationStale
+	creationUnverified
+)
+
+// deleteMarkerCreationState re-reads the marker a queued creation task refers
+// to. The version being absent, no longer a marker, or under a version purge
+// makes the creation stale. A failed read is not absence: the caller retries
+// later instead of guessing.
+func deleteMarkerCreationState(ctx context.Context, objectAPI ObjectLayer, dobj DeletedObjectReplicationInfo) creationState {
+	oi, err := objectAPI.GetObjectInfo(ctx, dobj.Bucket, dobj.ObjectName, ObjectOptions{
+		VersionID:        dobj.DeleteMarkerVersionID,
+		Versioned:        globalBucketVersioningSys.PrefixEnabled(dobj.Bucket, dobj.ObjectName),
+		VersionSuspended: globalBucketVersioningSys.Suspended(dobj.Bucket),
+	})
+	switch {
+	case isErrObjectNotFound(err), isErrVersionNotFound(err):
+		return creationStale
+	case err != nil && !isErrMethodNotAllowed(err):
+		return creationUnverified
+	}
+	if !oi.DeleteMarker || oi.VersionID != dobj.DeleteMarkerVersionID {
+		return creationStale
+	}
+	if !oi.VersionPurgeStatus.Empty() || oi.VersionPurgeStatusInternal != "" {
+		return creationStale
+	}
+	return creationCurrent
 }
 
 // Purge metadata uses COMPLETE; operation statistics and audit use COMPLETED.
